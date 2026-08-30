@@ -155,12 +155,3 @@ OPEN_ROUTER_API_KEY="your_key_here"
 | OpenRouter | `google/gemini-2.0-flash-001` | https://openrouter.ai/keys |
 | Custom (OpenAI-compatible) | `llama3.1` | none required |
 
----
-
-## Roadmap
-
-### Coming Soon
-
-- **Wear OS support** - glanceable glucose, time-in-range, and logging complications for your wrist.
-- **PDF / CSV doctor reports** - export clean, shareable summaries of your 90-day window and eA1c trend.
-- **Glance widgets** - home-screen widgets powered by Jetpack Glance for at-a-glance glucose and streak status.
