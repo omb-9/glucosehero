@@ -164,9 +164,3 @@ OPEN_ROUTER_API_KEY="your_key_here"
 - **Wear OS support** - glanceable glucose, time-in-range, and logging complications for your wrist.
 - **PDF / CSV doctor reports** - export clean, shareable summaries of your 90-day window and eA1c trend.
 - **Glance widgets** - home-screen widgets powered by Jetpack Glance for at-a-glance glucose and streak status.
-
----
-
-## Contributing
-
-Contributions are welcome. Please open an issue first to discuss feature work, keep pull requests focused, and follow the existing package-by-layer structure and Kotlin conventions used throughout the codebase.
