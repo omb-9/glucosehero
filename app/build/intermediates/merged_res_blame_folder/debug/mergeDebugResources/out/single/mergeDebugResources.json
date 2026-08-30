@@ -1,0 +1,70 @@
+[
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-anydpi-v26_ghlogo.xml.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-anydpi-v26\\ghlogo.xml"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-anydpi-v26_ghlogo_round.xml.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-anydpi-v26\\ghlogo_round.xml"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-mdpi_ghlogo_round.webp.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-mdpi\\ghlogo_round.webp"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-xxhdpi_ghlogo.webp.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-xxhdpi\\ghlogo.webp"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\drawable_ghlogo_foreground.xml.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\drawable\\ghlogo_foreground.xml"
+    },
+    {
+        "merged": "com.omb9.glucosehero.app-debug-54:/drawable_ic_logo_display.xml.flat",
+        "source": "com.omb9.glucosehero.app-main-56:/drawable/ic_logo_display.xml"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-xhdpi_ghlogo_round.webp.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-xhdpi\\ghlogo_round.webp"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-mdpi_ghlogo.webp.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-mdpi\\ghlogo.webp"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-hdpi_ghlogo.webp.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-hdpi\\ghlogo.webp"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-xxhdpi_ghlogo_round.webp.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-xxhdpi\\ghlogo_round.webp"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-xxxhdpi_ghlogo.webp.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-xxxhdpi\\ghlogo.webp"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\xml_backup_rules.xml.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\xml\\backup_rules.xml"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-xxxhdpi_ghlogo_round.webp.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-xxxhdpi\\ghlogo_round.webp"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\drawable_ic_stat_glucosehero.xml.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\drawable\\ic_stat_glucosehero.xml"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\xml_data_extraction_rules.xml.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\xml\\data_extraction_rules.xml"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-hdpi_ghlogo_round.webp.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-hdpi\\ghlogo_round.webp"
+    },
+    {
+        "merged": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-debug-54:\\mipmap-xhdpi_ghlogo.webp.flat",
+        "source": "C:\\Users\\obond\\.gradle\\daemon\\9.7.1\\com.omb9.glucosehero.app-main-56:\\mipmap-xhdpi\\ghlogo.webp"
+    }
+]

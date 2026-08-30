@@ -1,0 +1,29 @@
+package com.omb9.glucosehero.domain.repository
+
+import com.omb9.glucosehero.domain.model.DailyGlucoseSummary
+import com.omb9.glucosehero.domain.model.GlucoseStats
+import com.omb9.glucosehero.domain.model.LogEvent
+import kotlinx.coroutines.flow.Flow
+
+interface EntryRepository {
+    /** Events from [sinceMillis], newest first (log screen). */
+    fun observeEntries(sinceMillis: Long): Flow<List<LogEvent>>
+
+    /** Events carrying a glucose reading from [sinceMillis], oldest first (charting). */
+    fun observeGlucose(sinceMillis: Long): Flow<List<LogEvent>>
+
+    /** Reactive glucose aggregate for the rolling 90-day eA1c window. */
+    fun observeGlucoseStats(sinceMillis: Long): Flow<GlucoseStats>
+
+    fun observeEntry(id: Long): Flow<LogEvent?>
+
+    suspend fun add(event: LogEvent): Long
+    suspend fun update(event: LogEvent)
+    suspend fun delete(id: Long)
+
+    // --- SQL-level aggregates (AI context assembly + stats) ---
+    suspend fun averageGlucoseSince(sinceMillis: Long): Double?
+    suspend fun timeInRangeSince(sinceMillis: Long, lowMgdl: Double, highMgdl: Double): Double?
+    suspend fun dailySummaries(sinceMillis: Long, limit: Int): List<DailyGlucoseSummary>
+    suspend fun recentEntries(limit: Int): List<LogEvent>
+}

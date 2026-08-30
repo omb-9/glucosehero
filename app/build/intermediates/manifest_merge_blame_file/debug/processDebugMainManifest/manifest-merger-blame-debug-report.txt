@@ -1,0 +1,267 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.omb9.glucosehero"
+4    android:versionCode="1"
+5    android:versionName="1.0.0" >
+6
+7    <uses-sdk
+7-->INJECTED
+8        android:minSdkVersion="26"
+8-->INJECTED
+9        android:targetSdkVersion="37" />
+9-->INJECTED
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:5:5-67
+11-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:5:22-64
+12    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+12-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:6:5-79
+12-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:6:22-76
+13    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+13-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:7:5-77
+13-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:7:22-74
+14    <uses-permission android:name="android.permission.WAKE_LOCK" />
+14-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:23:5-68
+14-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:23:22-65
+15    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+15-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:25:5-81
+15-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:25:22-78
+16    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+16-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:26:5-77
+16-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:26:22-74
+17
+18    <permission
+18-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\4af4648bf1274e72ce4007faded7f4d4\transformed\core-1.19.0\AndroidManifest.xml:22:5-24:47
+19        android:name="com.omb9.glucosehero.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+19-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\4af4648bf1274e72ce4007faded7f4d4\transformed\core-1.19.0\AndroidManifest.xml:23:9-81
+20        android:protectionLevel="signature" />
+20-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\4af4648bf1274e72ce4007faded7f4d4\transformed\core-1.19.0\AndroidManifest.xml:24:9-44
+21
+22    <uses-permission android:name="com.omb9.glucosehero.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+22-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\4af4648bf1274e72ce4007faded7f4d4\transformed\core-1.19.0\AndroidManifest.xml:26:5-97
+22-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\4af4648bf1274e72ce4007faded7f4d4\transformed\core-1.19.0\AndroidManifest.xml:26:22-94
+23
+24    <application
+24-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:9:5-43:19
+25        android:name="com.omb9.glucosehero.GlucoseHeroApp"
+25-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:10:9-39
+26        android:allowBackup="true"
+26-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:11:9-35
+27        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+27-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\4af4648bf1274e72ce4007faded7f4d4\transformed\core-1.19.0\AndroidManifest.xml:28:18-86
+28        android:dataExtractionRules="@xml/data_extraction_rules"
+28-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:12:9-65
+29        android:debuggable="true"
+30        android:extractNativeLibs="false"
+30-->INJECTED
+31        android:fullBackupContent="@xml/backup_rules"
+31-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:13:9-54
+32        android:icon="@mipmap/ghlogo"
+32-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:14:9-38
+33        android:label="@string/app_name"
+33-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:16:9-41
+34        android:roundIcon="@mipmap/ghlogo_round"
+34-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:15:9-49
+35        android:supportsRtl="true"
+35-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:17:9-35
+36        android:theme="@style/Theme.GlucoseHero" >
+36-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:18:9-49
+37        <activity
+37-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:20:9-29:20
+38            android:name="com.omb9.glucosehero.MainActivity"
+38-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:21:13-41
+39            android:exported="true"
+39-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:22:13-36
+40            android:theme="@style/Theme.GlucoseHero"
+40-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:24:13-53
+41            android:windowSoftInputMode="adjustResize" >
+41-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:23:13-55
+42            <intent-filter>
+42-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:25:13-28:29
+43                <action android:name="android.intent.action.MAIN" />
+43-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:26:17-69
+43-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:26:25-66
+44
+45                <category android:name="android.intent.category.LAUNCHER" />
+45-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:27:17-77
+45-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:27:27-74
+46            </intent-filter>
+47        </activity>
+48
+49        <!--
+50             Disable default WorkManager initializer; we provide a Hilt-aware
+51             Configuration from GlucoseHeroApp instead.
+52        -->
+53        <provider
+53-->INJECTED
+54            android:name="androidx.startup.InitializationProvider"
+54-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:34:13-67
+55            android:authorities="com.omb9.glucosehero.androidx-startup"
+55-->INJECTED
+56            android:exported="false" >
+56-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:36:13-37
+57            <meta-data
+57-->[androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\360172370bfc57fc6472d0bc21291704\transformed\emoji2-1.4.0\AndroidManifest.xml:29:13-31:52
+58                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+58-->[androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\360172370bfc57fc6472d0bc21291704\transformed\emoji2-1.4.0\AndroidManifest.xml:30:17-75
+59                android:value="androidx.startup" />
+59-->[androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\360172370bfc57fc6472d0bc21291704\transformed\emoji2-1.4.0\AndroidManifest.xml:31:17-49
+60            <meta-data
+60-->[androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7efebd116a9ed85defbdd3bed42cdc9d\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:29:13-31:52
+61                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+61-->[androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7efebd116a9ed85defbdd3bed42cdc9d\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:30:17-78
+62                android:value="androidx.startup" />
+62-->[androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7efebd116a9ed85defbdd3bed42cdc9d\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:31:17-49
+63            <meta-data
+63-->[com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e3116a638a1590ee70958ce8d2152dda\transformed\okhttp\AndroidManifest.xml:16:13-18:52
+64                android:name="okhttp3.internal.platform.PlatformInitializer"
+64-->[com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e3116a638a1590ee70958ce8d2152dda\transformed\okhttp\AndroidManifest.xml:17:17-77
+65                android:value="androidx.startup" />
+65-->[com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e3116a638a1590ee70958ce8d2152dda\transformed\okhttp\AndroidManifest.xml:18:17-49
+66            <meta-data
+66-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:29:13-31:52
+67                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+67-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:30:17-85
+68                android:value="androidx.startup" />
+68-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:31:17-49
+69        </provider>
+70
+71        <service
+71-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:39:9-45:35
+72            android:name="androidx.work.impl.background.systemjob.SystemJobService"
+72-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:40:13-84
+73            android:directBootAware="false"
+73-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:41:13-44
+74            android:enabled="@bool/enable_system_job_service_default"
+74-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:42:13-70
+75            android:exported="true"
+75-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:43:13-36
+76            android:permission="android.permission.BIND_JOB_SERVICE" />
+76-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:44:13-69
+77        <service
+77-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:46:9-52:35
+78            android:name="androidx.work.impl.foreground.SystemForegroundService"
+78-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:47:13-81
+79            android:directBootAware="false"
+79-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:48:13-44
+80            android:enabled="@bool/enable_system_foreground_service_default"
+80-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:49:13-77
+81            android:exported="false" />
+81-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:50:13-37
+82
+83        <receiver
+83-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:54:9-59:35
+84            android:name="androidx.work.impl.utils.ForceStopRunnable$BroadcastReceiver"
+84-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:55:13-88
+85            android:directBootAware="false"
+85-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:56:13-44
+86            android:enabled="true"
+86-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:57:13-35
+87            android:exported="false" />
+87-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:58:13-37
+88        <receiver
+88-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:60:9-69:20
+89            android:name="androidx.work.impl.background.systemalarm.RescheduleReceiver"
+89-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:61:13-88
+90            android:directBootAware="false"
+90-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:62:13-44
+91            android:enabled="false"
+91-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:63:13-36
+92            android:exported="false" >
+92-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:64:13-37
+93            <intent-filter>
+93-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:66:13-68:29
+94                <action android:name="android.intent.action.BOOT_COMPLETED" />
+94-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:67:17-79
+94-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:67:25-76
+95            </intent-filter>
+96        </receiver>
+97        <receiver
+97-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:70:9-80:20
+98            android:name="androidx.work.impl.diagnostics.DiagnosticsReceiver"
+98-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:71:13-78
+99            android:directBootAware="false"
+99-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:72:13-44
+100            android:enabled="true"
+100-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:73:13-35
+101            android:exported="true"
+101-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:74:13-36
+102            android:permission="android.permission.DUMP" >
+102-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:75:13-57
+103            <intent-filter>
+103-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:77:13-79:29
+104                <action android:name="androidx.work.diagnostics.REQUEST_DIAGNOSTICS" />
+104-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:78:17-88
+104-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\4eceec1850222df6adab6b37a3096086\transformed\work-runtime-2.11.2\AndroidManifest.xml:78:25-85
+105            </intent-filter>
+106        </receiver>
+107
+108        <activity
+108-->[androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\15e806a0589bc400fdf4e215466cc9f7\transformed\ui-tooling\AndroidManifest.xml:23:9-25:39
+109            android:name="androidx.compose.ui.tooling.PreviewActivity"
+109-->[androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\15e806a0589bc400fdf4e215466cc9f7\transformed\ui-tooling\AndroidManifest.xml:24:13-71
+110            android:exported="true" />
+110-->[androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\15e806a0589bc400fdf4e215466cc9f7\transformed\ui-tooling\AndroidManifest.xml:25:13-36
+111
+112        <uses-library
+112-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9edb87a7c1eb4052c384f2beac3815f0\transformed\window-1.5.0\AndroidManifest.xml:23:9-25:40
+113            android:name="androidx.window.extensions"
+113-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9edb87a7c1eb4052c384f2beac3815f0\transformed\window-1.5.0\AndroidManifest.xml:24:13-54
+114            android:required="false" />
+114-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9edb87a7c1eb4052c384f2beac3815f0\transformed\window-1.5.0\AndroidManifest.xml:25:13-37
+115        <uses-library
+115-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9edb87a7c1eb4052c384f2beac3815f0\transformed\window-1.5.0\AndroidManifest.xml:26:9-28:40
+116            android:name="androidx.window.sidecar"
+116-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9edb87a7c1eb4052c384f2beac3815f0\transformed\window-1.5.0\AndroidManifest.xml:27:13-51
+117            android:required="false" />
+117-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9edb87a7c1eb4052c384f2beac3815f0\transformed\window-1.5.0\AndroidManifest.xml:28:13-37
+118
+119        <service
+119-->[androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\fa9f4353e9a724dfda3b74f3792096c3\transformed\room-runtime\AndroidManifest.xml:24:9-28:63
+120            android:name="androidx.room.MultiInstanceInvalidationService"
+120-->[androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\fa9f4353e9a724dfda3b74f3792096c3\transformed\room-runtime\AndroidManifest.xml:25:13-74
+121            android:directBootAware="true"
+121-->[androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\fa9f4353e9a724dfda3b74f3792096c3\transformed\room-runtime\AndroidManifest.xml:26:13-43
+122            android:exported="false" />
+122-->[androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\fa9f4353e9a724dfda3b74f3792096c3\transformed\room-runtime\AndroidManifest.xml:27:13-37
+123
+124        <receiver
+124-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:34:9-52:20
+125            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+125-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:35:13-76
+126            android:directBootAware="false"
+126-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:36:13-44
+127            android:enabled="true"
+127-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:37:13-35
+128            android:exported="true"
+128-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:38:13-36
+129            android:permission="android.permission.DUMP" >
+129-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:39:13-57
+130            <intent-filter>
+130-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:40:13-42:29
+131                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+131-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:41:17-91
+131-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:41:25-88
+132            </intent-filter>
+133            <intent-filter>
+133-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:43:13-45:29
+134                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+134-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:44:17-85
+134-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:44:25-82
+135            </intent-filter>
+136            <intent-filter>
+136-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:46:13-48:29
+137                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+137-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:47:17-88
+137-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:47:25-85
+138            </intent-filter>
+139            <intent-filter>
+139-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:49:13-51:29
+140                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+140-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:50:17-95
+140-->[androidx.profileinstaller:profileinstaller:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f661451b1953363ac34d3428e685d9ef\transformed\profileinstaller-1.4.0\AndroidManifest.xml:50:25-92
+141            </intent-filter>
+142        </receiver>
+143    </application>
+144
+145</manifest>
