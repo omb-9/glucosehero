@@ -1,0 +1,18 @@
+<!--
+  Monochrome notification small icon.
+  Status bar icons are alpha-masked and tinted by the system, so this drawable
+  must be a solid white silhouette on a transparent background.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFFFF">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,2.4C12,2.4 4.75,11.05 4.75,15.05C4.75,19.05 8,21.6 12,21.6C16,21.6 19.25,19.05 19.25,15.05C19.25,11.05 12,2.4 12,2.4ZM12,5.9C14.3,8.85 17.25,13.05 17.25,15.05C17.25,17.85 15,19.6 12,19.6C9,19.6 6.75,17.85 6.75,15.05C6.75,13.05 9.7,8.85 12,5.9Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M9.1,14.05H11V12.15H13V14.05H14.9V16.05H13V17.95H11V16.05H9.1Z" />
+</vector>

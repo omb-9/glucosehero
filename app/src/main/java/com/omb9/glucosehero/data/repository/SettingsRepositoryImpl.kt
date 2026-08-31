@@ -30,6 +30,8 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun profileSnapshot(): UserProfile = dataStore.profileSnapshot()
 
+    override suspend fun aiConfigSnapshot(): AiConfig = dataStore.aiConfigSnapshot()
+
     override suspend fun setThemeMode(mode: ThemeMode) = dataStore.setThemeMode(mode)
     override suspend fun setAccent(accent: AccentColor) = dataStore.setAccent(accent)
     override suspend fun setUnit(unit: GlucoseUnit) = dataStore.setUnit(unit)

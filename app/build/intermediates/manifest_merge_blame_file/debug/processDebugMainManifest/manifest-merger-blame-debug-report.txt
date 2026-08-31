@@ -1,0 +1,535 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.omb9.glucosehero"
+4    android:versionCode="1"
+5    android:versionName="1.0.0" >
+6
+7    <uses-sdk
+7-->INJECTED
+8        android:minSdkVersion="26"
+8-->INJECTED
+9        android:targetSdkVersion="37" />
+9-->INJECTED
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:5:5-67
+11-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:5:22-64
+12    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+12-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:6:5-79
+12-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:6:22-76
+13    <uses-permission android:name="android.permission.CAMERA" />
+13-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:7:5-65
+13-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:7:22-62
+14    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+14-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:8:5-77
+14-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:8:22-74
+15
+16    <!-- Camera is optional; the app can still log entries without it. -->
+17    <uses-feature
+17-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:11:5-13:36
+18        android:name="android.hardware.camera"
+18-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:12:9-47
+19        android:required="false" />
+19-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:13:9-33
+20
+21    <uses-permission android:name="com.android.vending.BILLING" />
+21-->[com.android.billingclient:billing-ktx:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ceb8364bab5eb6421b5cb6572c22ad05\transformed\billing-ktx-9.1.0\AndroidManifest.xml:9:5-67
+21-->[com.android.billingclient:billing-ktx:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ceb8364bab5eb6421b5cb6572c22ad05\transformed\billing-ktx-9.1.0\AndroidManifest.xml:9:22-64
+22
+23    <queries>
+23-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:12:5-19:15
+24        <intent>
+24-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:13:9-15:18
+25            <action android:name="com.android.vending.billing.InAppBillingService.BIND" />
+25-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:14:13-91
+25-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:14:21-88
+26        </intent>
+27        <intent>
+27-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:16:9-18:18
+28            <action android:name="com.google.android.apps.play.billingtestcompanion.BillingOverrideService.BIND" />
+28-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:17:13-116
+28-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:17:21-113
+29        </intent>
+30    </queries>
+31
+32    <uses-permission android:name="android.permission.WAKE_LOCK" />
+32-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:23:5-68
+32-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:23:22-65
+33    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+33-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:25:5-81
+33-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:25:22-78
+34    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+34-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:26:5-77
+34-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:26:22-74
+35
+36    <permission
+36-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:22:5-24:47
+37        android:name="com.omb9.glucosehero.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+37-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:23:9-81
+38        android:protectionLevel="signature" />
+38-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:24:9-44
+39
+40    <uses-permission android:name="com.omb9.glucosehero.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+40-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:26:5-97
+40-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:26:22-94
+41
+42    <application
+42-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:15:5-72:19
+43        android:name="com.omb9.glucosehero.GlucoseHeroApp"
+43-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:16:9-39
+44        android:allowBackup="true"
+44-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:17:9-35
+45        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+45-->[androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:28:18-86
+46        android:dataExtractionRules="@xml/data_extraction_rules"
+46-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:18:9-65
+47        android:debuggable="true"
+48        android:extractNativeLibs="false"
+48-->INJECTED
+49        android:fullBackupContent="@xml/backup_rules"
+49-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:19:9-54
+50        android:icon="@mipmap/ghlogo"
+50-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:20:9-38
+51        android:label="@string/app_name"
+51-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:22:9-41
+52        android:networkSecurityConfig="@xml/network_security_config"
+52-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:25:9-69
+53        android:roundIcon="@mipmap/ghlogo_round"
+53-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:21:9-49
+54        android:supportsRtl="true"
+54-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:23:9-35
+55        android:theme="@style/Theme.GlucoseHero" >
+55-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:24:9-49
+56        <activity
+56-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:27:9-36:20
+57            android:name="com.omb9.glucosehero.MainActivity"
+57-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:28:13-41
+58            android:exported="true"
+58-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:29:13-36
+59            android:theme="@style/Theme.GlucoseHero"
+59-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:31:13-53
+60            android:windowSoftInputMode="adjustResize" >
+60-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:30:13-55
+61            <intent-filter>
+61-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:32:13-35:29
+62                <action android:name="android.intent.action.MAIN" />
+62-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:33:17-69
+62-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:33:25-66
+63
+64                <category android:name="android.intent.category.LAUNCHER" />
+64-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:34:17-77
+64-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:34:27-74
+65            </intent-filter>
+66        </activity>
+67
+68        <receiver
+68-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:38:9-48:20
+69            android:name="com.omb9.glucosehero.ui.glance.GlucoseHeroGlanceWidgetReceiver"
+69-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:39:13-70
+70            android:exported="true"
+70-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:40:13-36
+71            android:label="@string/glucose_widget_name" >
+71-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:41:13-56
+72            <intent-filter>
+72-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:42:13-44:29
+73                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+73-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:43:17-84
+73-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:43:25-81
+74            </intent-filter>
+75
+76            <meta-data
+76-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:45:13-47:68
+77                android:name="android.appwidget.provider"
+77-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:46:17-58
+78                android:resource="@xml/glucose_hero_widget_info" />
+78-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:47:17-65
+79        </receiver>
+80
+81        <provider
+81-->INJECTED
+82            android:name="androidx.core.content.FileProvider"
+82-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:51:13-62
+83            android:authorities="com.omb9.glucosehero.fileprovider"
+83-->INJECTED
+84            android:exported="false"
+84-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:53:13-37
+85            android:grantUriPermissions="true" >
+85-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:54:13-47
+86            <meta-data
+86-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:55:13-57:53
+87                android:name="android.support.FILE_PROVIDER_PATHS"
+87-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:56:17-67
+88                android:resource="@xml/filepaths" />
+88-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:57:17-50
+89        </provider>
+90
+91        <!--
+92             Disable default WorkManager initializer; we provide a Hilt-aware
+93             Configuration from GlucoseHeroApp instead.
+94        -->
+95        <provider
+95-->INJECTED
+96            android:name="androidx.startup.InitializationProvider"
+96-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:63:13-67
+97            android:authorities="com.omb9.glucosehero.androidx-startup"
+97-->INJECTED
+98            android:exported="false" >
+98-->C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:65:13-37
+99            <meta-data
+99-->[androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:29:13-31:52
+100                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+100-->[androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:30:17-75
+101                android:value="androidx.startup" />
+101-->[androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:31:17-49
+102            <meta-data
+102-->[androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:29:13-31:52
+103                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+103-->[androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:30:17-78
+104                android:value="androidx.startup" />
+104-->[androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:31:17-49
+105            <meta-data
+105-->[com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:16:13-18:52
+106                android:name="okhttp3.internal.platform.PlatformInitializer"
+106-->[com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:17:17-77
+107                android:value="androidx.startup" />
+107-->[com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:18:17-49
+108            <meta-data
+108-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:29:13-31:52
+109                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+109-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:30:17-85
+110                android:value="androidx.startup" />
+110-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:31:17-49
+111        </provider>
+112
+113        <meta-data
+113-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:22:9-24:37
+114            android:name="com.google.android.play.billingclient.version"
+114-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:23:13-73
+115            android:value="9.1.0" />
+115-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:24:13-34
+116
+117        <activity
+117-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:26:9-30:75
+118            android:name="com.android.billingclient.api.ProxyBillingActivity"
+118-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:27:13-78
+119            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
+119-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:28:13-96
+120            android:exported="false"
+120-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:29:13-37
+121            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+121-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:30:13-72
+122        <activity
+122-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:31:9-35:75
+123            android:name="com.android.billingclient.api.ProxyBillingActivityV2"
+123-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:32:13-80
+124            android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
+124-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:33:13-96
+125            android:exported="false"
+125-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:34:13-37
+126            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+126-->[com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:35:13-72
+127        <!--
+128          Any addition to or deletion of the components below should also have a corresponding
+129          change to the GlanceComponents class, so that alternate subclasses of these components may
+130          be specified by Glance users. Please also add a release note so that users of the
+131          multiprocess library will know if they need to add another manifest entry.
+132        -->
+133        <activity
+133-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:31:9-36:62
+134            android:name="androidx.glance.appwidget.action.ActionTrampolineActivity"
+134-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:32:13-85
+135            android:enabled="true"
+135-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:33:13-35
+136            android:excludeFromRecents="true"
+136-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:34:13-46
+137            android:exported="false"
+137-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:35:13-37
+138            android:theme="@android:style/Theme.NoDisplay" />
+138-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:36:13-59
+139        <activity
+139-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:37:9-44:81
+140            android:name="androidx.glance.appwidget.action.InvisibleActionTrampolineActivity"
+140-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:38:13-94
+141            android:enabled="true"
+141-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:39:13-35
+142            android:exported="false"
+142-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:40:13-37
+143            android:launchMode="singleInstance"
+143-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:41:13-48
+144            android:noHistory="true"
+144-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:42:13-37
+145            android:taskAffinity="androidx.glance.appwidget.ListAdapterCallbackTrampoline"
+145-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:43:13-91
+146            android:theme="@style/Widget.Glance.AppWidget.CallbackTrampoline" />
+146-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:44:13-78
+147
+148        <receiver
+148-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:46:9-49:40
+149            android:name="androidx.glance.appwidget.action.ActionCallbackBroadcastReceiver"
+149-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:47:13-92
+150            android:enabled="true"
+150-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:48:13-35
+151            android:exported="false" />
+151-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:49:13-37
+152        <receiver
+152-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:50:9-53:40
+153            android:name="androidx.glance.appwidget.UnmanagedSessionReceiver"
+153-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:51:13-78
+154            android:enabled="true"
+154-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:52:13-35
+155            android:exported="false" />
+155-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:53:13-37
+156        <receiver
+156-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:54:9-61:20
+157            android:name="androidx.glance.appwidget.MyPackageReplacedReceiver"
+157-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:55:13-79
+158            android:enabled="true"
+158-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:56:13-35
+159            android:exported="false" >
+159-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:57:13-37
+160            <intent-filter>
+160-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:58:13-60:29
+161                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+161-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:59:17-84
+161-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:59:25-81
+162            </intent-filter>
+163        </receiver>
+164
+165        <service
+165-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:63:9-66:72
+166            android:name="androidx.glance.appwidget.GlanceRemoteViewsService"
+166-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:64:13-78
+167            android:exported="true"
+167-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:65:13-36
+168            android:permission="android.permission.BIND_REMOTEVIEWS" />
+168-->[androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:66:13-69
+169        <service
+169-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:39:9-45:35
+170            android:name="androidx.work.impl.background.systemjob.SystemJobService"
+170-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:40:13-84
+171            android:directBootAware="false"
+171-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:41:13-44
+172            android:enabled="@bool/enable_system_job_service_default"
+172-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:42:13-70
+173            android:exported="true"
+173-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:43:13-36
+174            android:permission="android.permission.BIND_JOB_SERVICE" />
+174-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:44:13-69
+175        <service
+175-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:46:9-52:35
+176            android:name="androidx.work.impl.foreground.SystemForegroundService"
+176-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:47:13-81
+177            android:directBootAware="false"
+177-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:48:13-44
+178            android:enabled="@bool/enable_system_foreground_service_default"
+178-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:49:13-77
+179            android:exported="false" />
+179-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:50:13-37
+180
+181        <receiver
+181-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:54:9-59:35
+182            android:name="androidx.work.impl.utils.ForceStopRunnable$BroadcastReceiver"
+182-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:55:13-88
+183            android:directBootAware="false"
+183-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:56:13-44
+184            android:enabled="true"
+184-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:57:13-35
+185            android:exported="false" />
+185-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:58:13-37
+186        <receiver
+186-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:60:9-69:20
+187            android:name="androidx.work.impl.background.systemalarm.RescheduleReceiver"
+187-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:61:13-88
+188            android:directBootAware="false"
+188-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:62:13-44
+189            android:enabled="false"
+189-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:63:13-36
+190            android:exported="false" >
+190-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:64:13-37
+191            <intent-filter>
+191-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:66:13-68:29
+192                <action android:name="android.intent.action.BOOT_COMPLETED" />
+192-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:67:17-79
+192-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:67:25-76
+193            </intent-filter>
+194        </receiver>
+195        <receiver
+195-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:70:9-80:20
+196            android:name="androidx.work.impl.diagnostics.DiagnosticsReceiver"
+196-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:71:13-78
+197            android:directBootAware="false"
+197-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:72:13-44
+198            android:enabled="true"
+198-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:73:13-35
+199            android:exported="true"
+199-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:74:13-36
+200            android:permission="android.permission.DUMP" >
+200-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:75:13-57
+201            <intent-filter>
+201-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:77:13-79:29
+202                <action android:name="androidx.work.diagnostics.REQUEST_DIAGNOSTICS" />
+202-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:78:17-88
+202-->[androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:78:25-85
+203            </intent-filter>
+204        </receiver>
+205
+206        <service
+206-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:9:9-15:19
+207            android:name="com.google.mlkit.common.internal.MlKitComponentDiscoveryService"
+207-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:10:13-91
+208            android:directBootAware="true"
+208-->[com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:17:13-43
+209            android:exported="false" >
+209-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:11:13-37
+210            <meta-data
+210-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:12:13-14:85
+211                android:name="com.google.firebase.components:com.google.mlkit.vision.barcode.internal.BarcodeRegistrar"
+211-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:13:17-120
+212                android:value="com.google.firebase.components.ComponentRegistrar" />
+212-->[com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:14:17-82
+213            <meta-data
+213-->[com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:12:13-14:85
+214                android:name="com.google.firebase.components:com.google.mlkit.vision.common.internal.VisionCommonRegistrar"
+214-->[com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:13:17-124
+215                android:value="com.google.firebase.components.ComponentRegistrar" />
+215-->[com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:14:17-82
+216            <meta-data
+216-->[com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:20:13-22:85
+217                android:name="com.google.firebase.components:com.google.mlkit.common.internal.CommonComponentRegistrar"
+217-->[com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:21:17-120
+218                android:value="com.google.firebase.components.ComponentRegistrar" />
+218-->[com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:22:17-82
+219        </service>
+220
+221        <provider
+221-->[com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:9:9-13:38
+222            android:name="com.google.mlkit.common.internal.MlKitInitProvider"
+222-->[com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:10:13-78
+223            android:authorities="com.omb9.glucosehero.mlkitinitprovider"
+223-->[com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:11:13-69
+224            android:exported="false"
+224-->[com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:12:13-37
+225            android:initOrder="99" />
+225-->[com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:13:13-35
+226
+227        <service
+227-->[androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:24:9-27:63
+228            android:name="androidx.core.widget.RemoteViewsCompatService"
+228-->[androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:25:13-73
+229            android:permission="android.permission.BIND_REMOTEVIEWS" />
+229-->[androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:26:13-69
+230
+231        <activity
+231-->[com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:9-173
+232            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+232-->[com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:19-85
+233            android:exported="false"
+233-->[com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:146-170
+234            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+234-->[com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:86-145
+235        <activity
+235-->[androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ff7b4fca8f1bf6205ae77d334e7e7718\transformed\ui-tooling\AndroidManifest.xml:23:9-25:39
+236            android:name="androidx.compose.ui.tooling.PreviewActivity"
+236-->[androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ff7b4fca8f1bf6205ae77d334e7e7718\transformed\ui-tooling\AndroidManifest.xml:24:13-71
+237            android:exported="true" />
+237-->[androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ff7b4fca8f1bf6205ae77d334e7e7718\transformed\ui-tooling\AndroidManifest.xml:25:13-36
+238
+239        <service
+239-->[androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:24:9-28:63
+240            android:name="androidx.room.MultiInstanceInvalidationService"
+240-->[androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:25:13-74
+241            android:directBootAware="true"
+241-->[androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:26:13-43
+242            android:exported="false" />
+242-->[androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:27:13-37
+243
+244        <uses-library
+244-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:23:9-25:40
+245            android:name="androidx.window.extensions"
+245-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:24:13-54
+246            android:required="false" />
+246-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:25:13-37
+247        <uses-library
+247-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:26:9-28:40
+248            android:name="androidx.window.sidecar"
+248-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:27:13-51
+249            android:required="false" />
+249-->[androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:28:13-37
+250
+251        <meta-data
+251-->[com.google.android.gms:play-services-basement:18.9.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\85cc33b15613d096bfb441988c19ba5a\transformed\play-services-basement-18.9.0\AndroidManifest.xml:21:9-23:69
+252            android:name="com.google.android.gms.version"
+252-->[com.google.android.gms:play-services-basement:18.9.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\85cc33b15613d096bfb441988c19ba5a\transformed\play-services-basement-18.9.0\AndroidManifest.xml:22:13-58
+253            android:value="@integer/google_play_services_version" />
+253-->[com.google.android.gms:play-services-basement:18.9.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\85cc33b15613d096bfb441988c19ba5a\transformed\play-services-basement-18.9.0\AndroidManifest.xml:23:13-66
+254
+255        <receiver
+255-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:34:9-52:20
+256            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+256-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:35:13-76
+257            android:directBootAware="false"
+257-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:36:13-44
+258            android:enabled="true"
+258-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:37:13-35
+259            android:exported="true"
+259-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:38:13-36
+260            android:permission="android.permission.DUMP" >
+260-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:39:13-57
+261            <intent-filter>
+261-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:40:13-42:29
+262                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+262-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:41:17-91
+262-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:41:25-88
+263            </intent-filter>
+264            <intent-filter>
+264-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:43:13-45:29
+265                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+265-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:44:17-85
+265-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:44:25-82
+266            </intent-filter>
+267            <intent-filter>
+267-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:46:13-48:29
+268                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+268-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:47:17-88
+268-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:47:25-85
+269            </intent-filter>
+270            <intent-filter>
+270-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:49:13-51:29
+271                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+271-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:50:17-95
+271-->[androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:50:25-92
+272            </intent-filter>
+273        </receiver>
+274
+275        <service
+275-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:28:9-34:19
+276            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+276-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:29:13-103
+277            android:exported="false" >
+277-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:30:13-37
+278            <meta-data
+278-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:31:13-33:39
+279                android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
+279-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:32:17-94
+280                android:value="cct" />
+280-->[com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:33:17-36
+281        </service>
+282        <service
+282-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:26:9-30:19
+283            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService"
+283-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:27:13-117
+284            android:exported="false"
+284-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:28:13-37
+285            android:permission="android.permission.BIND_JOB_SERVICE" >
+285-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:29:13-69
+286        </service>
+287
+288        <receiver
+288-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:32:9-34:40
+289            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver"
+289-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:33:13-132
+290            android:exported="false" />
+290-->[com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:34:13-37
+291    </application>
+292
+293</manifest>

@@ -27,12 +27,16 @@ import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.work.PendingQueryWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import javax.inject.Inject
@@ -76,8 +80,9 @@ class ChatRepositoryImpl @Inject constructor(
 
     override fun streamReply(history: List<ChatTurn>): Flow<StreamEvent> = flow {
         // Resolved fresh per request: provider/key changes apply immediately.
-        val config = settingsRepository.resolveAiConfig()
-        val messages = buildApiMessages(history)
+        // KeyStore decrypt + Base64 decode are I/O-bound; message assembly is CPU-bound.
+        val config = withContext(Dispatchers.IO) { settingsRepository.resolveAiConfig() }
+        val messages = withContext(Dispatchers.Default) { buildApiMessages(history) }
         sseChatClient.stream(config, messages, buildPrefillTools())
             .buffer(Channel.UNLIMITED)
             .collect { emit(it) }
@@ -87,7 +92,7 @@ class ChatRepositoryImpl @Inject constructor(
         val messages = buildApiMessages(history)
         val response = aiApi.complete(
             com.omb9.glucosehero.data.remote.dto.ChatCompletionRequest(
-                model = settingsRepository.resolveAiConfig().model,
+                model = settingsRepository.aiConfigSnapshot().model,
                 messages = messages,
                 stream = false,
             )
@@ -137,76 +142,91 @@ class ChatRepositoryImpl @Inject constructor(
      * level with native aggregates — never by iterating rows in Kotlin.
      */
     override suspend fun buildSystemPrompt(): String {
-        val settings = settingsRepository.settings.first()
-        val profile = settingsRepository.profile.first()
-        val unit = settings.unit
-
-        val avg7 = entryDao.averageGlucoseSince(Formatters.daysAgoMillis(7))
-        val avg14 = entryDao.averageGlucoseSince(Formatters.daysAgoMillis(14))
-        val avg30 = entryDao.averageGlucoseSince(Formatters.daysAgoMillis(30))
-        val tir14 = entryDao.timeInRangeSince(
-            Formatters.daysAgoMillis(14),
-            settings.targetLowMgdl.toDouble(),
-            settings.targetHighMgdl.toDouble(),
-        )
-        val daily = entryDao.dailySummaries(Formatters.daysAgoMillis(14), limit = 14)
-        val recent = entryDao.recentEntries(limit = 30)
-
-        fun fmt(mgdl: Double?): String =
-            mgdl?.let { Formatters.glucose(it, unit) } ?: "n/a"
-
-        val dailyBlock = if (daily.isEmpty()) "No glucose readings yet." else
-            daily.joinToString("\n") { d ->
-                "${d.day}: avg ${fmt(d.avgMgdl)}, min ${fmt(d.minMgdl)}, " +
-                    "max ${fmt(d.maxMgdl)} (${d.readings} readings)"
+        return coroutineScope {
+            val settingsDeferred = async { settingsRepository.settings.first() }
+            val profileDeferred = async { settingsRepository.profile.first() }
+            val avg7Deferred = async { entryDao.averageGlucoseSince(Formatters.daysAgoMillis(7)) }
+            val avg14Deferred = async { entryDao.averageGlucoseSince(Formatters.daysAgoMillis(14)) }
+            val avg30Deferred = async { entryDao.averageGlucoseSince(Formatters.daysAgoMillis(30)) }
+            val tir14Deferred = async {
+                val currentSettings = settingsDeferred.await()
+                entryDao.timeInRangeSince(
+                    Formatters.daysAgoMillis(14),
+                    currentSettings.targetLowMgdl.toDouble(),
+                    currentSettings.targetHighMgdl.toDouble(),
+                )
             }
-
-        val recentBlock = if (recent.isEmpty()) "No entries yet." else
-            recent.joinToString("\n") { e ->
-                val date = Formatters.localDate(e.timestamp)
-                val time = Formatters.time(e.timestamp, settings.use24HourTime)
-                val metrics = listOfNotNull(
-                    e.glucoseMgdl?.let { "glucose ${Formatters.glucoseWithUnit(it, unit)}" },
-                    e.insulinBasalUnits?.let { "basal insulin ${if (it % 1.0 == 0.0) it.toInt().toString() else "%.1f".format(it)} u" },
-                    e.insulinBolusUnits?.let { "bolus insulin ${if (it % 1.0 == 0.0) it.toInt().toString() else "%.1f".format(it)} u" },
-                    e.carbsGrams?.let { "carbs $it g" },
-                    e.proteinGrams?.let { "protein $it g" },
-                    e.fatGrams?.let { "fat $it g" },
-                    e.mealDescription?.takeIf { it.isNotBlank() },
-                    e.exerciseMinutes?.let { "exercise $it min" },
-                ).joinToString(", ").ifBlank { "note" }
-                val note = e.note?.takeIf { it.isNotBlank() }?.let { " — $it" } ?: ""
-                "$date $time $metrics$note"
+            val dailyDeferred = async {
+                entryDao.dailySummaries(Formatters.daysAgoMillis(14), limit = 14)
             }
+            val recentDeferred = async { entryDao.recentEntries(limit = 30) }
 
-        val targetLow = Formatters.glucose(settings.targetLowMgdl.toDouble(), unit)
-        val targetHigh = Formatters.glucose(settings.targetHighMgdl.toDouble(), unit)
-        val tirPct = tir14?.let { "%.0f%%".format(it * 100) } ?: "n/a"
+            val settings = settingsDeferred.await()
+            val unit = settings.unit
+            val profile = profileDeferred.await()
+            val avg7 = avg7Deferred.await()
+            val avg14 = avg14Deferred.await()
+            val avg30 = avg30Deferred.await()
+            val tir14 = tir14Deferred.await()
+            val daily = dailyDeferred.await()
+            val recent = recentDeferred.await()
 
-        val persona = buildPersonaSection(profile)
+            fun fmt(mgdl: Double?): String =
+                mgdl?.let { Formatters.glucose(it, unit) } ?: "n/a"
 
-        return persona + "\n\n" + """
-            |You are Hero, the in-app assistant of GlucoseHero, a personal glucose logging app.
-            |Be concise, warm, and concrete. Ground every answer in the user's data below.
-            |You are not a medical professional: never give insulin dosing instructions or
-            |diagnoses, and remind the user to confirm treatment decisions with their care
-            |team when the topic calls for it.
-            |
-            |If the user provides health metrics, dietary intake, or insulin doses, you MUST
-            |use the `prefill_log_draft` tool to extract the data. Do not just reply with text.
-            |
-            |=== USER DATA (generated ${java.time.LocalDateTime.now()}) ===
-            |Display unit: ${unit.label} (all values below are in this unit)
-            |Target range: $targetLow – $targetHigh ${unit.label}
-            |Rolling averages: 7d ${fmt(avg7)} · 14d ${fmt(avg14)} · 30d ${fmt(avg30)}
-            |Time in range (14d): $tirPct
-            |
-            |--- Daily summaries, last 14 days ---
-            |$dailyBlock
-            |
-            |--- Most recent 30 entries ---
-            |$recentBlock
-        """.trimMargin()
+            val dailyBlock = if (daily.isEmpty()) "No glucose readings yet." else
+                daily.joinToString("\n") { d ->
+                    "${d.day}: avg ${fmt(d.avgMgdl)}, min ${fmt(d.minMgdl)}, " +
+                        "max ${fmt(d.maxMgdl)} (${d.readings} readings)"
+                }
+
+            val recentBlock = if (recent.isEmpty()) "No entries yet." else
+                recent.joinToString("\n") { e ->
+                    val date = Formatters.localDate(e.timestamp)
+                    val time = Formatters.time(e.timestamp, settings.use24HourTime)
+                    val metrics = listOfNotNull(
+                        e.glucoseMgdl?.let { "glucose ${Formatters.glucoseWithUnit(it, unit)}" },
+                        e.insulinBasalUnits?.let { "basal insulin ${if (it % 1.0 == 0.0) it.toInt().toString() else "%.1f".format(it)} u" },
+                        e.insulinBolusUnits?.let { "bolus insulin ${if (it % 1.0 == 0.0) it.toInt().toString() else "%.1f".format(it)} u" },
+                        e.carbsGrams?.let { "carbs $it g" },
+                        e.proteinGrams?.let { "protein $it g" },
+                        e.fatGrams?.let { "fat $it g" },
+                        e.mealDescription?.takeIf { it.isNotBlank() },
+                        e.exerciseMinutes?.let { "exercise $it min" },
+                    ).joinToString(", ").ifBlank { "note" }
+                    val note = e.note?.takeIf { it.isNotBlank() }?.let { " — $it" } ?: ""
+                    "$date $time $metrics$note"
+                }
+
+            val targetLow = Formatters.glucose(settings.targetLowMgdl.toDouble(), unit)
+            val targetHigh = Formatters.glucose(settings.targetHighMgdl.toDouble(), unit)
+            val tirPct = tir14?.let { "%.0f%%".format(it * 100) } ?: "n/a"
+
+            val persona = buildPersonaSection(profile)
+
+            persona + "\n\n" + """
+                |You are Hero, the in-app assistant of GlucoseHero, a personal glucose logging app.
+                |Be concise, warm, and concrete. Ground every answer in the user's data below.
+                |You are not a medical professional: never give insulin dosing instructions or
+                |diagnoses, and remind the user to confirm treatment decisions with their care
+                |team when the topic calls for it.
+                |
+                |If the user provides health metrics, dietary intake, or insulin doses, you MUST
+                |use the `prefill_log_draft` tool to extract the data. Do not just reply with text.
+                |
+                |=== USER DATA (generated ${java.time.LocalDateTime.now()}) ===
+                |Display unit: ${unit.label} (all values below are in this unit)
+                |Target range: $targetLow – $targetHigh ${unit.label}
+                |Rolling averages: 7d ${fmt(avg7)} · 14d ${fmt(avg14)} · 30d ${fmt(avg30)}
+                |Time in range (14d): $tirPct
+                |
+                |--- Daily summaries, last 14 days ---
+                |$dailyBlock
+                |
+                |--- Most recent 30 entries ---
+                |$recentBlock
+            """.trimMargin()
+        }
     }
 
     private fun buildPersonaSection(profile: UserProfile): String {

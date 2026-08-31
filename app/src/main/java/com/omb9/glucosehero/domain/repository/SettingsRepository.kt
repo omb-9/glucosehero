@@ -18,6 +18,9 @@ interface SettingsRepository {
 
     suspend fun profileSnapshot(): UserProfile
 
+    /** Reads the latest config from DataStore without decrypting the API key. */
+    suspend fun aiConfigSnapshot(): AiConfig
+
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setAccent(accent: AccentColor)
     suspend fun setUnit(unit: GlucoseUnit)

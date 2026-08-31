@@ -1,0 +1,1023 @@
+-- Merging decision tree log ---
+provider#androidx.core.content.FileProvider
+INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:50:9-58:20
+	android:grantUriPermissions
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:54:13-47
+	android:authorities
+		INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:52:13-64
+	android:exported
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:53:13-37
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:51:13-62
+provider#androidx.startup.InitializationProvider
+INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:62:9-71:20
+MERGED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:29:9-37:20
+MERGED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:29:9-37:20
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:24:9-32:20
+MERGED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:11:9-19:20
+MERGED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:11:9-19:20
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.startup:startup-runtime:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1c6dc98ecf2c6ae2518b6f59d26f6cde\transformed\startup-runtime-1.2.0\AndroidManifest.xml:24:9-28:34
+MERGED from [androidx.startup:startup-runtime:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1c6dc98ecf2c6ae2518b6f59d26f6cde\transformed\startup-runtime-1.2.0\AndroidManifest.xml:24:9-28:34
+	tools:node
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:66:13-31
+	android:authorities
+		INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:64:13-68
+	android:exported
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:65:13-37
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:63:13-67
+manifest
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:2:1-73:12
+INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:2:1-73:12
+INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:2:1-73:12
+INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:2:1-73:12
+MERGED from [androidx.hilt:hilt-work:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1650e442f388896c1273055991edefeb\transformed\hilt-work-1.4.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.hilt:hilt-navigation-compose:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\07cc91d7df4a60a7a1d21fcce5d1a187\transformed\hilt-navigation-compose-1.4.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.hilt:hilt-lifecycle-viewmodel-compose:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0563adeb8de5c1400a0c4d05d9bfe5b3\transformed\hilt-lifecycle-viewmodel-compose-1.4.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.hilt:hilt-lifecycle-viewmodel:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8ef726c8a96db9e3e756e0290057ca13\transformed\hilt-lifecycle-viewmodel-1.4.0\AndroidManifest.xml:2:1-7:12
+MERGED from [com.google.dagger:hilt-android:2.60.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\ab03ddafe41864a0ed3361757a19b5c0\transformed\hilt-android-2.60.1\AndroidManifest.xml:16:1-19:12
+MERGED from [androidx.navigation:navigation-runtime-android:2.10.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c839248ba39588119190bebd202e524c\transformed\navigation-runtime\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.navigation:navigation-common-android:2.10.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\afdc6e9ae65818eedef22fced2270fe1\transformed\navigation-common\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.navigation:navigation-compose-android:2.10.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d2715b848747beb495b0f32a7339bb6b\transformed\navigation-compose\AndroidManifest.xml:2:1-7:12
+MERGED from [com.android.billingclient:billing-ktx:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ceb8364bab5eb6421b5cb6572c22ad05\transformed\billing-ktx-9.1.0\AndroidManifest.xml:2:1-11:12
+MERGED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:2:1-38:12
+MERGED from [com.patrykandpatrick.vico:compose-m3:1.15.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1115bbd462beae9122d43e33392a22ef\transformed\compose-m3-1.15.0\AndroidManifest.xml:2:1-7:12
+MERGED from [com.patrykandpatrick.vico:compose:1.15.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b291de9c53843dfc00e09779c5a4b63d\transformed\compose-1.15.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.glance:glance:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\175d5ae343a8fd792f4e3fc2fc9494da\transformed\glance-1.2.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:17:1-69:12
+MERGED from [androidx.work:work-runtime-ktx:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\79b510c3fe8271a54930e0a4b82c8950\transformed\work-runtime-ktx-2.11.2\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:17:1-83:12
+MERGED from [com.google.mlkit:barcode-scanning:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9ac7f57fca7673dd067d8e0044acaa9d\transformed\barcode-scanning-17.3.0\AndroidManifest.xml:2:1-7:12
+MERGED from [com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:2:1-18:12
+MERGED from [com.google.mlkit:barcode-scanning-common:17.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a4a74ca5ff7a37852c351cc9e67cf997\transformed\barcode-scanning-common-17.0.0\AndroidManifest.xml:2:1-7:12
+MERGED from [com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:2:1-18:12
+MERGED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:2:1-26:12
+MERGED from [androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:17:1-30:12
+MERGED from [com.google.android.gms:play-services-location:19.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3991ac7144dc3a58414f00708ea7e64d\transformed\play-services-location-19.0.0\AndroidManifest.xml:2:1-9:12
+MERGED from [com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.material3:material3-android:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\be41bb205c3a6090d4f9f6638cc17efe\transformed\material3\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.compose.material:material-ripple-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bf84cb6000ae48cfcc228040aa09b815\transformed\material-ripple\AndroidManifest.xml:2:1-7:12
+MERGED from [io.coil-kt.coil3:coil-compose-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a2ce16eda2c71f97d19292288143ecaa\transformed\coil-compose\AndroidManifest.xml:2:1-7:12
+MERGED from [io.coil-kt.coil3:coil-compose-core-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\21c6a82db3a286a434124371757e3fed\transformed\coil-compose-core\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.animation:animation-core-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\859016191c26fcbbce2943c74d9be2ab\transformed\animation-core\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.animation:animation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b81bc83ffb578def341bea88e8351dee\transformed\animation\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.foundation:foundation-layout-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8f96c24b56296c35278ba6673e03a345\transformed\foundation-layout\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.foundation:foundation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b2ba308db6f8c0c196c2e5d506395636\transformed\foundation\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.foundation:foundation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\04e7538e89e3ad10f392e2db345d6e9d\transformed\foundation\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.foundation:foundation-layout-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\73582794114c3cbe81f4c0ac7da2c8ee\transformed\foundation-layout\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.animation:animation-core-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bbd8c55465e6ca706c48791365b21987\transformed\animation-core\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.animation:animation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f72338b7a3034fc8bc4fa9d2209018f2\transformed\animation\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-tooling-data-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1873437f0f2dfb64b65db0bdf8670edf\transformed\ui-tooling-data\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.ui:ui-unit-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7a9569e22dd613941170a3c63081b421\transformed\ui-unit\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.ui:ui-graphics-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\687ac623a8587c86b1847b8949a977b8\transformed\ui-graphics\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.ui:ui-util-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\88820db73f65bee05690f67409eecbb9\transformed\ui-util\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.ui:ui-text-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f203fee9e49ef58b0e6c279c61e75625\transformed\ui-text\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.ui:ui-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\164a468c8c067ed38a9c0e547eff3b4a\transformed\ui\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.ui:ui-geometry-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\83943d38d3f4f34db7bf2026073179a8\transformed\ui-geometry\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-geometry-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\5d618e067e96debe8ca2d283d5821dc6\transformed\ui-geometry\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-text-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\6081bf882dfefb4d05dccd65557330ad\transformed\ui-text\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-util-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7f7bd6295841f2326443d0f054c53b26\transformed\ui-util\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-unit-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\2c3d3793cffee93d6138f2c1479fc79d\transformed\ui-unit\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-tooling-preview-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d4ba0e32bcfdcb08d323b0a5c29f74ca\transformed\ui-tooling-preview\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ff7b4fca8f1bf6205ae77d334e7e7718\transformed\ui-tooling\AndroidManifest.xml:17:1-28:12
+MERGED from [androidx.compose.ui:ui-graphics-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\5bf733f95092164b95a16d56712a924b\transformed\ui-graphics\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:17:1-31:12
+MERGED from [androidx.room:room-ktx:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\ce59f583e31a45d95a2741afec0c1a65\transformed\room-ktx-2.8.4\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.compose.runtime:runtime-retain-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\78e37a26c55d12d6e31a294f1b06e4b4\transformed\runtime-retain\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.navigationevent:navigationevent-compose-android:1.1.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\cae91b7740baca5212fe0e4ba13afa02\transformed\navigationevent-compose\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.navigationevent:navigationevent-android:1.1.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8789e257ba1762cbe4372d05e8cccefe\transformed\navigationevent\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.runtime:runtime-annotation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\58c8cb62d813cf1e5c770083677fb932\transformed\runtime-annotation\AndroidManifest.xml:2:1-7:12
+MERGED from [io.coil-kt.coil3:coil-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\863a31f27da3e6c253b7b6cfccaed361\transformed\coil\AndroidManifest.xml:2:1-7:12
+MERGED from [io.coil-kt.coil3:coil-core-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1d3457aa4467ed06ebaeb18d07931981\transformed\coil-core\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.appcompat:appcompat-resources:1.7.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\146723cb6728d768fff8b8698ad8c89e\transformed\appcompat-resources-1.7.1\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.appcompat:appcompat:1.7.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\a840924a1a3c15653b5e5d6afca1a6a0\transformed\appcompat-1.7.1\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.emoji2:emoji2-views-helper:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\6c0c68c6e8fcfc4b7f0857042aad4881\transformed\emoji2-views-helper-1.4.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:17:1-35:12
+MERGED from [androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:17:1-35:12
+MERGED from [androidx.lifecycle:lifecycle-livedata-core-ktx:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bd239facdca287aa0b414851b86f1f69\transformed\lifecycle-livedata-core-ktx-2.11.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dc885ef9cc9c2fb2816dd5ee4c79eb43\transformed\lifecycle-viewmodel-ktx-2.11.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.fragment:fragment:1.5.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8acbbad72312374b57ac1e3b9ae3f55b\transformed\fragment-1.5.4\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\39ffec8806c817396609fff2dcd1146b\transformed\loader-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0639d186ee32a11830d2d02fc63bff54\transformed\lifecycle-viewmodel-2.11.0\AndroidManifest.xml:2:1-5:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d0bc93cf500ee6b98944ca417a9656c5\transformed\lifecycle-viewmodel\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\92e8ba1fac9b1e2c3ad32f5be0575a02\transformed\lifecycle-viewmodel-savedstate\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.savedstate:savedstate-android:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8d6c59a8cafa72bb1f970181ee8f0249\transformed\savedstate\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.savedstate:savedstate-ktx:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\518a3ca651c022c2aaaee76525d38e66\transformed\savedstate-ktx-1.5.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.savedstate:savedstate-compose-android:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ed9bf2abbc4f84391f862ef2e0d7ff17\transformed\savedstate-compose\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.runtime:runtime-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8717733678dcb9942cd3ee340e99e224\transformed\runtime\AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.runtime:runtime-saveable-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\440ca94df05659d44f1e797eb804c5e1\transformed\runtime-saveable\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.runtime:runtime-saveable-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\391479225b901cdbf0e1fa2d51b800ed\transformed\runtime-saveable\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.runtime:runtime-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f7ed57896d1db6d3e092dd33ae0299e5\transformed\runtime\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.window:window-core-android:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\253d6f3d1ca09dd2d478c40c5e0643f9\transformed\window-core\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:17:1-31:12
+MERGED from [com.google.accompanist:accompanist-drawablepainter:0.37.3] C:\Users\obond\.gradle\caches\9.7.1\transforms\c0d6ab491fdfc9c1306da179d01336bf\transformed\accompanist-drawablepainter-0.37.3\AndroidManifest.xml:17:1-23:12
+MERGED from [com.patrykandpatrick.vico:core:1.15.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dd3332bf5681118165a55a9a76d29ef8\transformed\core-1.15.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.datastore:datastore-core-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\ae2d2b05be58695a7a395fd81be1a959\transformed\datastore-core\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.datastore:datastore-preferences-core-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\f66f9c54c4e9f62dab7caac5adb270f6\transformed\datastore-preferences-core\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.datastore:datastore-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\73ec18407bbd23edff130672b4e7e3e3\transformed\datastore\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.datastore:datastore-preferences-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\e2d829135bd367fe9fd0d97628f95483\transformed\datastore-preferences\AndroidManifest.xml:17:1-22:12
+MERGED from [com.google.mlkit:vision-interfaces:16.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\98008f98f298816da8ce6baa5a5e81d6\transformed\vision-interfaces-16.3.0\AndroidManifest.xml:2:1-7:12
+MERGED from [com.google.android.gms:play-services-tasks:18.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a0ebb739e1edc0f6d06532c23ee753d9\transformed\play-services-tasks-18.2.0\AndroidManifest.xml:2:1-5:12
+MERGED from [com.google.android.gms:play-services-places-placereport:17.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a8534dec209b26b8d3b2796d16d0d0b1\transformed\play-services-places-placereport-17.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [com.google.android.gms:play-services-basement:18.9.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\85cc33b15613d096bfb441988c19ba5a\transformed\play-services-basement-18.9.0\AndroidManifest.xml:16:1-26:12
+MERGED from [androidx.autofill:autofill:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b3c3785e73d16a4c12823954585c8169\transformed\autofill-1.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.graphics:graphics-path:1.0.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\2f6cc21164187883640b5968c3e98669\transformed\graphics-path-1.0.1\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\45d75256a541049b2ba1525b7c958f4a\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\81628a8eadc0aa08e68519156ace8e2d\transformed\vectordrawable-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\5a4786981d5d855fbb5c1496d5e513bc\transformed\drawerlayout-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d446efbe61eea8da16b6e421120240ab\transformed\viewpager-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b01e0517ff079f6af463286f4b7e5ee4\transformed\customview-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:17:1-30:12
+MERGED from [androidx.lifecycle:lifecycle-runtime-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dd6c9f3cbf0def54a83b8d427c28741f\transformed\lifecycle-runtime\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-service:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\63b2f9a92affde68d22aa63682b5a6ca\transformed\lifecycle-service-2.11.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\88786f93f75f12e5e04ea3f020528348\transformed\lifecycle-livedata-2.11.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\67559ce30c59f661a898b84825b82513\transformed\lifecycle-livedata-core-2.11.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-compose-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bb831e5658b07f25a721964654cd9e54\transformed\lifecycle-viewmodel-compose\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.lifecycle:lifecycle-runtime-ktx-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0c4341edae34bcb98207643b9783cd58\transformed\lifecycle-runtime-ktx\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.lifecycle:lifecycle-runtime-compose-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7a4f4f331074a14b77ad0bb6028bf588\transformed\lifecycle-runtime-compose\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.material:material-icons-extended-android:1.7.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4a78551e0ff649877ad13aabcad7a5d4\transformed\material-icons-extended-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.material:material-icons-core-android:1.7.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\7913ff3e7627fed68ae6f69bf3e99017\transformed\material-icons-core-release\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c0746bc711e8cc292cd7ddfe61fb563d\transformed\ui\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.activity:activity-ktx:1.13.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\01876c7b4ff3a1a59c123d0b198ca1d2\transformed\activity-ktx-1.13.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.activity:activity:1.13.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\613b38c2809cf82c685ee0cd3745c03a\transformed\activity-1.13.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.activity:activity-compose:1.13.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fb83320dba701aeb631f76b52939dbb7\transformed\activity-compose-1.13.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\6dfdd3d9c77d300e0a7dc632d49ac02c\transformed\customview-poolingcontainer-1.0.0\AndroidManifest.xml:17:1-23:12
+MERGED from [androidx.core:core-ktx:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b9ce4e808a8bc7d50e96657d871bb949\transformed\core-ktx-1.19.0\AndroidManifest.xml:2:1-7:12
+MERGED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:2:1-22:12
+MERGED from [androidx.core:core-viewtree:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\950c42ab8ccda7ef43ad6878d9db6c43\transformed\core-viewtree-1.0.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.annotation:annotation-experimental:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9e7911f50a2ddb4ffc08399c9b0f18f3\transformed\annotation-experimental-1.5.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:17:1-55:12
+MERGED from [androidx.startup:startup-runtime:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1c6dc98ecf2c6ae2518b6f59d26f6cde\transformed\startup-runtime-1.2.0\AndroidManifest.xml:17:1-31:12
+MERGED from [androidx.tracing:tracing:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e57f2d7f13e1bf7e0f204ccb9c79c3e2\transformed\tracing-1.2.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.tracing:tracing-ktx:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3ddf0c968c6f19ab242ee0dd45cf832a\transformed\tracing-ktx-1.2.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dce82f66ab8661d206e15b2a4470b94d\transformed\interpolator-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\352ec84f5ffdd529f1f77c028995dcba\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:17:1-27:12
+MERGED from [androidx.arch.core:core-runtime:2.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f065d07097e713a735951c553475a50e\transformed\core-runtime-2.2.0\AndroidManifest.xml:17:1-22:12
+MERGED from [com.google.firebase:firebase-components:16.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1761a8c06681351b7ee18b8c08c55713\transformed\firebase-components-16.1.0\AndroidManifest.xml:15:1-23:12
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:15:1-37:12
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:15:1-41:12
+MERGED from [com.google.android.datatransport:transport-api:3.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\10e7fa4a43f7645eab4d9d5775b8e927\transformed\transport-api-3.0.0\AndroidManifest.xml:15:1-22:12
+MERGED from [androidx.sqlite:sqlite-framework-android:2.6.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\02d9e5d0d19db06022d816ed77b9cfc3\transformed\sqlite-framework\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.sqlite:sqlite-android:2.6.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\f6731d505b80bb3a41cefb314eae9a9a\transformed\sqlite\AndroidManifest.xml:17:1-22:12
+MERGED from [com.google.firebase:firebase-encoders-json:18.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\03fe1c6d15124392cbf0e4ebfb3eb1da\transformed\firebase-encoders-json-18.0.0\AndroidManifest.xml:15:1-23:12
+MERGED from [androidx.exifinterface:exifinterface:1.4.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\5be8d74f5f56e4c99e9a47768d3f8177\transformed\exifinterface-1.4.2\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\60ccb3d1047bcf48deff692d997fb212\transformed\cursoradapter-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [com.google.dagger:dagger-lint-aar:2.60.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\1bb77dba8dc88017b1bb1a904161b45a\transformed\dagger-lint-aar-2.60.1\AndroidManifest.xml:16:1-19:12
+MERGED from [com.google.android.odml:image:1.0.0-beta1] C:\Users\obond\.gradle\caches\9.7.1\transforms\1a853e5767ed4c51fbd3d7ecf2dc1157\transformed\image-1.0.0-beta1\AndroidManifest.xml:2:1-9:12
+	package
+		INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml
+	android:versionName
+		INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml
+	xmlns:tools
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:3:5-51
+	android:versionCode
+		INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml
+	xmlns:android
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:2:11-69
+uses-permission#android.permission.INTERNET
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:5:5-67
+MERGED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:8:5-67
+MERGED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:8:5-67
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:25:5-67
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:25:5-67
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:5:22-64
+uses-permission#android.permission.ACCESS_NETWORK_STATE
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:6:5-79
+MERGED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:24:5-79
+MERGED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:24:5-79
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:22:5-79
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:22:5-79
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:6:22-76
+uses-permission#android.permission.CAMERA
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:7:5-65
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:7:22-62
+uses-permission#android.permission.POST_NOTIFICATIONS
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:8:5-77
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:8:22-74
+uses-feature#android.hardware.camera
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:11:5-13:36
+	android:required
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:13:9-33
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:12:9-47
+application
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:15:5-72:19
+INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:15:5-72:19
+MERGED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:21:5-36:19
+MERGED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:21:5-36:19
+MERGED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:23:5-67:19
+MERGED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:23:5-67:19
+MERGED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:28:5-81:19
+MERGED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:28:5-81:19
+MERGED from [com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:8:5-16:19
+MERGED from [com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:8:5-16:19
+MERGED from [com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:8:5-16:19
+MERGED from [com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:8:5-16:19
+MERGED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:8:5-24:19
+MERGED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:8:5-24:19
+MERGED from [androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:23:5-28:19
+MERGED from [androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:23:5-28:19
+MERGED from [com.google.android.gms:play-services-location:19.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3991ac7144dc3a58414f00708ea7e64d\transformed\play-services-location-19.0.0\AndroidManifest.xml:7:5-20
+MERGED from [com.google.android.gms:play-services-location:19.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3991ac7144dc3a58414f00708ea7e64d\transformed\play-services-location-19.0.0\AndroidManifest.xml:7:5-20
+MERGED from [com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:4:5-6:19
+MERGED from [com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:4:5-6:19
+MERGED from [androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ff7b4fca8f1bf6205ae77d334e7e7718\transformed\ui-tooling\AndroidManifest.xml:22:5-26:19
+MERGED from [androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ff7b4fca8f1bf6205ae77d334e7e7718\transformed\ui-tooling\AndroidManifest.xml:22:5-26:19
+MERGED from [androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:23:5-29:19
+MERGED from [androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:23:5-29:19
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:22:5-29:19
+MERGED from [androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:22:5-29:19
+MERGED from [com.google.android.gms:play-services-tasks:18.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a0ebb739e1edc0f6d06532c23ee753d9\transformed\play-services-tasks-18.2.0\AndroidManifest.xml:4:5-20
+MERGED from [com.google.android.gms:play-services-tasks:18.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a0ebb739e1edc0f6d06532c23ee753d9\transformed\play-services-tasks-18.2.0\AndroidManifest.xml:4:5-20
+MERGED from [com.google.android.gms:play-services-places-placereport:17.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a8534dec209b26b8d3b2796d16d0d0b1\transformed\play-services-places-placereport-17.0.0\AndroidManifest.xml:22:5-20
+MERGED from [com.google.android.gms:play-services-places-placereport:17.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a8534dec209b26b8d3b2796d16d0d0b1\transformed\play-services-places-placereport-17.0.0\AndroidManifest.xml:22:5-20
+MERGED from [com.google.android.gms:play-services-basement:18.9.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\85cc33b15613d096bfb441988c19ba5a\transformed\play-services-basement-18.9.0\AndroidManifest.xml:20:5-24:19
+MERGED from [com.google.android.gms:play-services-basement:18.9.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\85cc33b15613d096bfb441988c19ba5a\transformed\play-services-basement-18.9.0\AndroidManifest.xml:20:5-24:19
+MERGED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:28:5-89
+MERGED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:28:5-89
+MERGED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:10:5-20:19
+MERGED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:10:5-20:19
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:23:5-53:19
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:23:5-53:19
+MERGED from [androidx.startup:startup-runtime:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1c6dc98ecf2c6ae2518b6f59d26f6cde\transformed\startup-runtime-1.2.0\AndroidManifest.xml:23:5-29:19
+MERGED from [androidx.startup:startup-runtime:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1c6dc98ecf2c6ae2518b6f59d26f6cde\transformed\startup-runtime-1.2.0\AndroidManifest.xml:23:5-29:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\352ec84f5ffdd529f1f77c028995dcba\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:24:5-25:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\352ec84f5ffdd529f1f77c028995dcba\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:24:5-25:19
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:27:5-35:19
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:27:5-35:19
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:25:5-39:19
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:25:5-39:19
+MERGED from [com.google.android.odml:image:1.0.0-beta1] C:\Users\obond\.gradle\caches\9.7.1\transforms\1a853e5767ed4c51fbd3d7ecf2dc1157\transformed\image-1.0.0-beta1\AndroidManifest.xml:7:5-20
+MERGED from [com.google.android.odml:image:1.0.0-beta1] C:\Users\obond\.gradle\caches\9.7.1\transforms\1a853e5767ed4c51fbd3d7ecf2dc1157\transformed\image-1.0.0-beta1\AndroidManifest.xml:7:5-20
+	android:extractNativeLibs
+		INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml
+	android:appComponentFactory
+		ADDED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:28:18-86
+	android:supportsRtl
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:23:9-35
+	android:label
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:22:9-41
+	android:fullBackupContent
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:19:9-54
+	android:roundIcon
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:21:9-49
+	android:icon
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:20:9-38
+	android:allowBackup
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:17:9-35
+	android:theme
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:24:9-49
+	android:networkSecurityConfig
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:25:9-69
+	android:dataExtractionRules
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:18:9-65
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:16:9-39
+activity#com.omb9.glucosehero.MainActivity
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:27:9-36:20
+	android:windowSoftInputMode
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:30:13-55
+	android:exported
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:29:13-36
+	android:theme
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:31:13-53
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:28:13-41
+intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:32:13-35:29
+action#android.intent.action.MAIN
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:33:17-69
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:33:25-66
+category#android.intent.category.LAUNCHER
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:34:17-77
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:34:27-74
+receiver#com.omb9.glucosehero.ui.glance.GlucoseHeroGlanceWidgetReceiver
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:38:9-48:20
+	android:label
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:41:13-56
+	android:exported
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:40:13-36
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:39:13-70
+intent-filter#action:name:android.appwidget.action.APPWIDGET_UPDATE
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:42:13-44:29
+action#android.appwidget.action.APPWIDGET_UPDATE
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:43:17-84
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:43:25-81
+meta-data#android.appwidget.provider
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:45:13-47:68
+	android:resource
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:47:17-65
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:46:17-58
+meta-data#android.support.FILE_PROVIDER_PATHS
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:55:13-57:53
+	android:resource
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:57:17-50
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:56:17-67
+meta-data#androidx.work.WorkManagerInitializer
+ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:67:13-70:39
+REJECTED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:34:13-36:52
+	tools:node
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:70:17-36
+	android:value
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:69:17-49
+	android:name
+		ADDED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml:68:17-68
+uses-sdk
+INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml
+INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml
+MERGED from [androidx.hilt:hilt-work:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1650e442f388896c1273055991edefeb\transformed\hilt-work-1.4.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.hilt:hilt-work:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1650e442f388896c1273055991edefeb\transformed\hilt-work-1.4.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.hilt:hilt-navigation-compose:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\07cc91d7df4a60a7a1d21fcce5d1a187\transformed\hilt-navigation-compose-1.4.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.hilt:hilt-navigation-compose:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\07cc91d7df4a60a7a1d21fcce5d1a187\transformed\hilt-navigation-compose-1.4.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.hilt:hilt-lifecycle-viewmodel-compose:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0563adeb8de5c1400a0c4d05d9bfe5b3\transformed\hilt-lifecycle-viewmodel-compose-1.4.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.hilt:hilt-lifecycle-viewmodel-compose:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0563adeb8de5c1400a0c4d05d9bfe5b3\transformed\hilt-lifecycle-viewmodel-compose-1.4.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.hilt:hilt-lifecycle-viewmodel:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8ef726c8a96db9e3e756e0290057ca13\transformed\hilt-lifecycle-viewmodel-1.4.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.hilt:hilt-lifecycle-viewmodel:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8ef726c8a96db9e3e756e0290057ca13\transformed\hilt-lifecycle-viewmodel-1.4.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.dagger:hilt-android:2.60.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\ab03ddafe41864a0ed3361757a19b5c0\transformed\hilt-android-2.60.1\AndroidManifest.xml:18:3-42
+MERGED from [com.google.dagger:hilt-android:2.60.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\ab03ddafe41864a0ed3361757a19b5c0\transformed\hilt-android-2.60.1\AndroidManifest.xml:18:3-42
+MERGED from [androidx.navigation:navigation-runtime-android:2.10.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c839248ba39588119190bebd202e524c\transformed\navigation-runtime\AndroidManifest.xml:20:5-44
+MERGED from [androidx.navigation:navigation-runtime-android:2.10.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c839248ba39588119190bebd202e524c\transformed\navigation-runtime\AndroidManifest.xml:20:5-44
+MERGED from [androidx.navigation:navigation-common-android:2.10.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\afdc6e9ae65818eedef22fced2270fe1\transformed\navigation-common\AndroidManifest.xml:20:5-44
+MERGED from [androidx.navigation:navigation-common-android:2.10.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\afdc6e9ae65818eedef22fced2270fe1\transformed\navigation-common\AndroidManifest.xml:20:5-44
+MERGED from [androidx.navigation:navigation-compose-android:2.10.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d2715b848747beb495b0f32a7339bb6b\transformed\navigation-compose\AndroidManifest.xml:5:5-44
+MERGED from [androidx.navigation:navigation-compose-android:2.10.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d2715b848747beb495b0f32a7339bb6b\transformed\navigation-compose\AndroidManifest.xml:5:5-44
+MERGED from [com.android.billingclient:billing-ktx:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ceb8364bab5eb6421b5cb6572c22ad05\transformed\billing-ktx-9.1.0\AndroidManifest.xml:5:5-7:41
+MERGED from [com.android.billingclient:billing-ktx:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ceb8364bab5eb6421b5cb6572c22ad05\transformed\billing-ktx-9.1.0\AndroidManifest.xml:5:5-7:41
+MERGED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:6:5-8:41
+MERGED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:6:5-8:41
+MERGED from [com.patrykandpatrick.vico:compose-m3:1.15.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1115bbd462beae9122d43e33392a22ef\transformed\compose-m3-1.15.0\AndroidManifest.xml:5:5-44
+MERGED from [com.patrykandpatrick.vico:compose-m3:1.15.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1115bbd462beae9122d43e33392a22ef\transformed\compose-m3-1.15.0\AndroidManifest.xml:5:5-44
+MERGED from [com.patrykandpatrick.vico:compose:1.15.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b291de9c53843dfc00e09779c5a4b63d\transformed\compose-1.15.0\AndroidManifest.xml:5:5-44
+MERGED from [com.patrykandpatrick.vico:compose:1.15.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b291de9c53843dfc00e09779c5a4b63d\transformed\compose-1.15.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.glance:glance:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\175d5ae343a8fd792f4e3fc2fc9494da\transformed\glance-1.2.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.glance:glance:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\175d5ae343a8fd792f4e3fc2fc9494da\transformed\glance-1.2.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.work:work-runtime-ktx:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\79b510c3fe8271a54930e0a4b82c8950\transformed\work-runtime-ktx-2.11.2\AndroidManifest.xml:20:5-44
+MERGED from [androidx.work:work-runtime-ktx:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\79b510c3fe8271a54930e0a4b82c8950\transformed\work-runtime-ktx-2.11.2\AndroidManifest.xml:20:5-44
+MERGED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:21:5-44
+MERGED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:21:5-44
+MERGED from [com.google.mlkit:barcode-scanning:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9ac7f57fca7673dd067d8e0044acaa9d\transformed\barcode-scanning-17.3.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.mlkit:barcode-scanning:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9ac7f57fca7673dd067d8e0044acaa9d\transformed\barcode-scanning-17.3.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:6:5-44
+MERGED from [com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:6:5-44
+MERGED from [com.google.mlkit:barcode-scanning-common:17.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a4a74ca5ff7a37852c351cc9e67cf997\transformed\barcode-scanning-common-17.0.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.mlkit:barcode-scanning-common:17.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a4a74ca5ff7a37852c351cc9e67cf997\transformed\barcode-scanning-common-17.0.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:6:5-44
+MERGED from [com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:6:5-44
+MERGED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:6:5-44
+MERGED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:6:5-44
+MERGED from [androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:21:5-44
+MERGED from [com.google.android.gms:play-services-location:19.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3991ac7144dc3a58414f00708ea7e64d\transformed\play-services-location-19.0.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-location:19.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3991ac7144dc3a58414f00708ea7e64d\transformed\play-services-location-19.0.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:3:5-44
+MERGED from [com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:3:5-44
+MERGED from [androidx.compose.material3:material3-android:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\be41bb205c3a6090d4f9f6638cc17efe\transformed\material3\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.material3:material3-android:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\be41bb205c3a6090d4f9f6638cc17efe\transformed\material3\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.material:material-ripple-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bf84cb6000ae48cfcc228040aa09b815\transformed\material-ripple\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-ripple-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bf84cb6000ae48cfcc228040aa09b815\transformed\material-ripple\AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-compose-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a2ce16eda2c71f97d19292288143ecaa\transformed\coil-compose\AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-compose-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a2ce16eda2c71f97d19292288143ecaa\transformed\coil-compose\AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-compose-core-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\21c6a82db3a286a434124371757e3fed\transformed\coil-compose-core\AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-compose-core-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\21c6a82db3a286a434124371757e3fed\transformed\coil-compose-core\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.animation:animation-core-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\859016191c26fcbbce2943c74d9be2ab\transformed\animation-core\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.animation:animation-core-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\859016191c26fcbbce2943c74d9be2ab\transformed\animation-core\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.animation:animation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b81bc83ffb578def341bea88e8351dee\transformed\animation\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.animation:animation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b81bc83ffb578def341bea88e8351dee\transformed\animation\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.foundation:foundation-layout-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8f96c24b56296c35278ba6673e03a345\transformed\foundation-layout\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.foundation:foundation-layout-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8f96c24b56296c35278ba6673e03a345\transformed\foundation-layout\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.foundation:foundation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b2ba308db6f8c0c196c2e5d506395636\transformed\foundation\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.foundation:foundation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b2ba308db6f8c0c196c2e5d506395636\transformed\foundation\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\04e7538e89e3ad10f392e2db345d6e9d\transformed\foundation\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\04e7538e89e3ad10f392e2db345d6e9d\transformed\foundation\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-layout-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\73582794114c3cbe81f4c0ac7da2c8ee\transformed\foundation-layout\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-layout-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\73582794114c3cbe81f4c0ac7da2c8ee\transformed\foundation-layout\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-core-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bbd8c55465e6ca706c48791365b21987\transformed\animation-core\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-core-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bbd8c55465e6ca706c48791365b21987\transformed\animation-core\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f72338b7a3034fc8bc4fa9d2209018f2\transformed\animation\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f72338b7a3034fc8bc4fa9d2209018f2\transformed\animation\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-tooling-data-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1873437f0f2dfb64b65db0bdf8670edf\transformed\ui-tooling-data\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-tooling-data-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1873437f0f2dfb64b65db0bdf8670edf\transformed\ui-tooling-data\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-unit-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7a9569e22dd613941170a3c63081b421\transformed\ui-unit\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-unit-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7a9569e22dd613941170a3c63081b421\transformed\ui-unit\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-graphics-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\687ac623a8587c86b1847b8949a977b8\transformed\ui-graphics\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-graphics-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\687ac623a8587c86b1847b8949a977b8\transformed\ui-graphics\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-util-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\88820db73f65bee05690f67409eecbb9\transformed\ui-util\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-util-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\88820db73f65bee05690f67409eecbb9\transformed\ui-util\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-text-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f203fee9e49ef58b0e6c279c61e75625\transformed\ui-text\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-text-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f203fee9e49ef58b0e6c279c61e75625\transformed\ui-text\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\164a468c8c067ed38a9c0e547eff3b4a\transformed\ui\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\164a468c8c067ed38a9c0e547eff3b4a\transformed\ui\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-geometry-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\83943d38d3f4f34db7bf2026073179a8\transformed\ui-geometry\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.ui:ui-geometry-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\83943d38d3f4f34db7bf2026073179a8\transformed\ui-geometry\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-geometry-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\5d618e067e96debe8ca2d283d5821dc6\transformed\ui-geometry\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-geometry-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\5d618e067e96debe8ca2d283d5821dc6\transformed\ui-geometry\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-text-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\6081bf882dfefb4d05dccd65557330ad\transformed\ui-text\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-text-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\6081bf882dfefb4d05dccd65557330ad\transformed\ui-text\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-util-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7f7bd6295841f2326443d0f054c53b26\transformed\ui-util\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-util-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7f7bd6295841f2326443d0f054c53b26\transformed\ui-util\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-unit-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\2c3d3793cffee93d6138f2c1479fc79d\transformed\ui-unit\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-unit-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\2c3d3793cffee93d6138f2c1479fc79d\transformed\ui-unit\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-tooling-preview-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d4ba0e32bcfdcb08d323b0a5c29f74ca\transformed\ui-tooling-preview\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.ui:ui-tooling-preview-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d4ba0e32bcfdcb08d323b0a5c29f74ca\transformed\ui-tooling-preview\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ff7b4fca8f1bf6205ae77d334e7e7718\transformed\ui-tooling\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ff7b4fca8f1bf6205ae77d334e7e7718\transformed\ui-tooling\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.ui:ui-graphics-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\5bf733f95092164b95a16d56712a924b\transformed\ui-graphics\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-graphics-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\5bf733f95092164b95a16d56712a924b\transformed\ui-graphics\AndroidManifest.xml:5:5-44
+MERGED from [androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:21:5-44
+MERGED from [androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:21:5-44
+MERGED from [androidx.room:room-ktx:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\ce59f583e31a45d95a2741afec0c1a65\transformed\room-ktx-2.8.4\AndroidManifest.xml:20:5-44
+MERGED from [androidx.room:room-ktx:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\ce59f583e31a45d95a2741afec0c1a65\transformed\room-ktx-2.8.4\AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.runtime:runtime-retain-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\78e37a26c55d12d6e31a294f1b06e4b4\transformed\runtime-retain\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-retain-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\78e37a26c55d12d6e31a294f1b06e4b4\transformed\runtime-retain\AndroidManifest.xml:5:5-44
+MERGED from [androidx.navigationevent:navigationevent-compose-android:1.1.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\cae91b7740baca5212fe0e4ba13afa02\transformed\navigationevent-compose\AndroidManifest.xml:5:5-44
+MERGED from [androidx.navigationevent:navigationevent-compose-android:1.1.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\cae91b7740baca5212fe0e4ba13afa02\transformed\navigationevent-compose\AndroidManifest.xml:5:5-44
+MERGED from [androidx.navigationevent:navigationevent-android:1.1.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8789e257ba1762cbe4372d05e8cccefe\transformed\navigationevent\AndroidManifest.xml:5:5-44
+MERGED from [androidx.navigationevent:navigationevent-android:1.1.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8789e257ba1762cbe4372d05e8cccefe\transformed\navigationevent\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-annotation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\58c8cb62d813cf1e5c770083677fb932\transformed\runtime-annotation\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-annotation-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\58c8cb62d813cf1e5c770083677fb932\transformed\runtime-annotation\AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\863a31f27da3e6c253b7b6cfccaed361\transformed\coil\AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\863a31f27da3e6c253b7b6cfccaed361\transformed\coil\AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-core-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1d3457aa4467ed06ebaeb18d07931981\transformed\coil-core\AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-core-android:3.6.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1d3457aa4467ed06ebaeb18d07931981\transformed\coil-core\AndroidManifest.xml:5:5-44
+MERGED from [androidx.appcompat:appcompat-resources:1.7.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\146723cb6728d768fff8b8698ad8c89e\transformed\appcompat-resources-1.7.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.appcompat:appcompat-resources:1.7.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\146723cb6728d768fff8b8698ad8c89e\transformed\appcompat-resources-1.7.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.appcompat:appcompat:1.7.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\a840924a1a3c15653b5e5d6afca1a6a0\transformed\appcompat-1.7.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.appcompat:appcompat:1.7.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\a840924a1a3c15653b5e5d6afca1a6a0\transformed\appcompat-1.7.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\6c0c68c6e8fcfc4b7f0857042aad4881\transformed\emoji2-views-helper-1.4.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\6c0c68c6e8fcfc4b7f0857042aad4881\transformed\emoji2-views-helper-1.4.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core-ktx:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bd239facdca287aa0b414851b86f1f69\transformed\lifecycle-livedata-core-ktx-2.11.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core-ktx:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bd239facdca287aa0b414851b86f1f69\transformed\lifecycle-livedata-core-ktx-2.11.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dc885ef9cc9c2fb2816dd5ee4c79eb43\transformed\lifecycle-viewmodel-ktx-2.11.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dc885ef9cc9c2fb2816dd5ee4c79eb43\transformed\lifecycle-viewmodel-ktx-2.11.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.fragment:fragment:1.5.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8acbbad72312374b57ac1e3b9ae3f55b\transformed\fragment-1.5.4\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.fragment:fragment:1.5.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8acbbad72312374b57ac1e3b9ae3f55b\transformed\fragment-1.5.4\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\39ffec8806c817396609fff2dcd1146b\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\39ffec8806c817396609fff2dcd1146b\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0639d186ee32a11830d2d02fc63bff54\transformed\lifecycle-viewmodel-2.11.0\AndroidManifest.xml:4:5-43
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0639d186ee32a11830d2d02fc63bff54\transformed\lifecycle-viewmodel-2.11.0\AndroidManifest.xml:4:5-43
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d0bc93cf500ee6b98944ca417a9656c5\transformed\lifecycle-viewmodel\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d0bc93cf500ee6b98944ca417a9656c5\transformed\lifecycle-viewmodel\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\92e8ba1fac9b1e2c3ad32f5be0575a02\transformed\lifecycle-viewmodel-savedstate\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\92e8ba1fac9b1e2c3ad32f5be0575a02\transformed\lifecycle-viewmodel-savedstate\AndroidManifest.xml:20:5-44
+MERGED from [androidx.savedstate:savedstate-android:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8d6c59a8cafa72bb1f970181ee8f0249\transformed\savedstate\AndroidManifest.xml:20:5-44
+MERGED from [androidx.savedstate:savedstate-android:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8d6c59a8cafa72bb1f970181ee8f0249\transformed\savedstate\AndroidManifest.xml:20:5-44
+MERGED from [androidx.savedstate:savedstate-ktx:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\518a3ca651c022c2aaaee76525d38e66\transformed\savedstate-ktx-1.5.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.savedstate:savedstate-ktx:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\518a3ca651c022c2aaaee76525d38e66\transformed\savedstate-ktx-1.5.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.savedstate:savedstate-compose-android:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ed9bf2abbc4f84391f862ef2e0d7ff17\transformed\savedstate-compose\AndroidManifest.xml:5:5-44
+MERGED from [androidx.savedstate:savedstate-compose-android:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ed9bf2abbc4f84391f862ef2e0d7ff17\transformed\savedstate-compose\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.runtime:runtime-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8717733678dcb9942cd3ee340e99e224\transformed\runtime\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.runtime:runtime-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\8717733678dcb9942cd3ee340e99e224\transformed\runtime\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.runtime:runtime-saveable-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\440ca94df05659d44f1e797eb804c5e1\transformed\runtime-saveable\AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.runtime:runtime-saveable-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\440ca94df05659d44f1e797eb804c5e1\transformed\runtime-saveable\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-saveable-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\391479225b901cdbf0e1fa2d51b800ed\transformed\runtime-saveable\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-saveable-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\391479225b901cdbf0e1fa2d51b800ed\transformed\runtime-saveable\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f7ed57896d1db6d3e092dd33ae0299e5\transformed\runtime\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f7ed57896d1db6d3e092dd33ae0299e5\transformed\runtime\AndroidManifest.xml:5:5-44
+MERGED from [androidx.window:window-core-android:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\253d6f3d1ca09dd2d478c40c5e0643f9\transformed\window-core\AndroidManifest.xml:5:5-44
+MERGED from [androidx.window:window-core-android:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\253d6f3d1ca09dd2d478c40c5e0643f9\transformed\window-core\AndroidManifest.xml:5:5-44
+MERGED from [androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:20:5-44
+MERGED from [com.google.accompanist:accompanist-drawablepainter:0.37.3] C:\Users\obond\.gradle\caches\9.7.1\transforms\c0d6ab491fdfc9c1306da179d01336bf\transformed\accompanist-drawablepainter-0.37.3\AndroidManifest.xml:21:5-44
+MERGED from [com.google.accompanist:accompanist-drawablepainter:0.37.3] C:\Users\obond\.gradle\caches\9.7.1\transforms\c0d6ab491fdfc9c1306da179d01336bf\transformed\accompanist-drawablepainter-0.37.3\AndroidManifest.xml:21:5-44
+MERGED from [com.patrykandpatrick.vico:core:1.15.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dd3332bf5681118165a55a9a76d29ef8\transformed\core-1.15.0\AndroidManifest.xml:5:5-44
+MERGED from [com.patrykandpatrick.vico:core:1.15.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dd3332bf5681118165a55a9a76d29ef8\transformed\core-1.15.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.datastore:datastore-core-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\ae2d2b05be58695a7a395fd81be1a959\transformed\datastore-core\AndroidManifest.xml:5:5-44
+MERGED from [androidx.datastore:datastore-core-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\ae2d2b05be58695a7a395fd81be1a959\transformed\datastore-core\AndroidManifest.xml:5:5-44
+MERGED from [androidx.datastore:datastore-preferences-core-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\f66f9c54c4e9f62dab7caac5adb270f6\transformed\datastore-preferences-core\AndroidManifest.xml:5:5-44
+MERGED from [androidx.datastore:datastore-preferences-core-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\f66f9c54c4e9f62dab7caac5adb270f6\transformed\datastore-preferences-core\AndroidManifest.xml:5:5-44
+MERGED from [androidx.datastore:datastore-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\73ec18407bbd23edff130672b4e7e3e3\transformed\datastore\AndroidManifest.xml:20:5-44
+MERGED from [androidx.datastore:datastore-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\73ec18407bbd23edff130672b4e7e3e3\transformed\datastore\AndroidManifest.xml:20:5-44
+MERGED from [androidx.datastore:datastore-preferences-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\e2d829135bd367fe9fd0d97628f95483\transformed\datastore-preferences\AndroidManifest.xml:20:5-44
+MERGED from [androidx.datastore:datastore-preferences-android:1.2.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\e2d829135bd367fe9fd0d97628f95483\transformed\datastore-preferences\AndroidManifest.xml:20:5-44
+MERGED from [com.google.mlkit:vision-interfaces:16.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\98008f98f298816da8ce6baa5a5e81d6\transformed\vision-interfaces-16.3.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.mlkit:vision-interfaces:16.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\98008f98f298816da8ce6baa5a5e81d6\transformed\vision-interfaces-16.3.0\AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-tasks:18.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a0ebb739e1edc0f6d06532c23ee753d9\transformed\play-services-tasks-18.2.0\AndroidManifest.xml:3:5-44
+MERGED from [com.google.android.gms:play-services-tasks:18.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a0ebb739e1edc0f6d06532c23ee753d9\transformed\play-services-tasks-18.2.0\AndroidManifest.xml:3:5-44
+MERGED from [com.google.android.gms:play-services-places-placereport:17.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a8534dec209b26b8d3b2796d16d0d0b1\transformed\play-services-places-placereport-17.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.google.android.gms:play-services-places-placereport:17.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\a8534dec209b26b8d3b2796d16d0d0b1\transformed\play-services-places-placereport-17.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.google.android.gms:play-services-basement:18.9.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\85cc33b15613d096bfb441988c19ba5a\transformed\play-services-basement-18.9.0\AndroidManifest.xml:18:5-43
+MERGED from [com.google.android.gms:play-services-basement:18.9.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\85cc33b15613d096bfb441988c19ba5a\transformed\play-services-basement-18.9.0\AndroidManifest.xml:18:5-43
+MERGED from [androidx.autofill:autofill:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b3c3785e73d16a4c12823954585c8169\transformed\autofill-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.autofill:autofill:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b3c3785e73d16a4c12823954585c8169\transformed\autofill-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.graphics:graphics-path:1.0.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\2f6cc21164187883640b5968c3e98669\transformed\graphics-path-1.0.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.graphics:graphics-path:1.0.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\2f6cc21164187883640b5968c3e98669\transformed\graphics-path-1.0.1\AndroidManifest.xml:5:5-44
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\45d75256a541049b2ba1525b7c958f4a\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\45d75256a541049b2ba1525b7c958f4a\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\81628a8eadc0aa08e68519156ace8e2d\transformed\vectordrawable-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\81628a8eadc0aa08e68519156ace8e2d\transformed\vectordrawable-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\5a4786981d5d855fbb5c1496d5e513bc\transformed\drawerlayout-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\5a4786981d5d855fbb5c1496d5e513bc\transformed\drawerlayout-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d446efbe61eea8da16b6e421120240ab\transformed\viewpager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\d446efbe61eea8da16b6e421120240ab\transformed\viewpager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b01e0517ff079f6af463286f4b7e5ee4\transformed\customview-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b01e0517ff079f6af463286f4b7e5ee4\transformed\customview-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dd6c9f3cbf0def54a83b8d427c28741f\transformed\lifecycle-runtime\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dd6c9f3cbf0def54a83b8d427c28741f\transformed\lifecycle-runtime\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-service:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\63b2f9a92affde68d22aa63682b5a6ca\transformed\lifecycle-service-2.11.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-service:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\63b2f9a92affde68d22aa63682b5a6ca\transformed\lifecycle-service-2.11.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\88786f93f75f12e5e04ea3f020528348\transformed\lifecycle-livedata-2.11.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\88786f93f75f12e5e04ea3f020528348\transformed\lifecycle-livedata-2.11.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\67559ce30c59f661a898b84825b82513\transformed\lifecycle-livedata-core-2.11.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\67559ce30c59f661a898b84825b82513\transformed\lifecycle-livedata-core-2.11.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-compose-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bb831e5658b07f25a721964654cd9e54\transformed\lifecycle-viewmodel-compose\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-compose-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bb831e5658b07f25a721964654cd9e54\transformed\lifecycle-viewmodel-compose\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-ktx-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0c4341edae34bcb98207643b9783cd58\transformed\lifecycle-runtime-ktx\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-ktx-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0c4341edae34bcb98207643b9783cd58\transformed\lifecycle-runtime-ktx\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-compose-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7a4f4f331074a14b77ad0bb6028bf588\transformed\lifecycle-runtime-compose\AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-compose-android:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\7a4f4f331074a14b77ad0bb6028bf588\transformed\lifecycle-runtime-compose\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-icons-extended-android:1.7.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4a78551e0ff649877ad13aabcad7a5d4\transformed\material-icons-extended-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-icons-extended-android:1.7.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4a78551e0ff649877ad13aabcad7a5d4\transformed\material-icons-extended-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-icons-core-android:1.7.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\7913ff3e7627fed68ae6f69bf3e99017\transformed\material-icons-core-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-icons-core-android:1.7.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\7913ff3e7627fed68ae6f69bf3e99017\transformed\material-icons-core-release\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c0746bc711e8cc292cd7ddfe61fb563d\transformed\ui\AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c0746bc711e8cc292cd7ddfe61fb563d\transformed\ui\AndroidManifest.xml:5:5-44
+MERGED from [androidx.activity:activity-ktx:1.13.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\01876c7b4ff3a1a59c123d0b198ca1d2\transformed\activity-ktx-1.13.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.activity:activity-ktx:1.13.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\01876c7b4ff3a1a59c123d0b198ca1d2\transformed\activity-ktx-1.13.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.activity:activity:1.13.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\613b38c2809cf82c685ee0cd3745c03a\transformed\activity-1.13.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity:1.13.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\613b38c2809cf82c685ee0cd3745c03a\transformed\activity-1.13.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity-compose:1.13.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fb83320dba701aeb631f76b52939dbb7\transformed\activity-compose-1.13.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.activity:activity-compose:1.13.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fb83320dba701aeb631f76b52939dbb7\transformed\activity-compose-1.13.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\6dfdd3d9c77d300e0a7dc632d49ac02c\transformed\customview-poolingcontainer-1.0.0\AndroidManifest.xml:20:5-21:38
+MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\6dfdd3d9c77d300e0a7dc632d49ac02c\transformed\customview-poolingcontainer-1.0.0\AndroidManifest.xml:20:5-21:38
+MERGED from [androidx.core:core-ktx:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b9ce4e808a8bc7d50e96657d871bb949\transformed\core-ktx-1.19.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.core:core-ktx:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b9ce4e808a8bc7d50e96657d871bb949\transformed\core-ktx-1.19.0\AndroidManifest.xml:5:5-44
+MERGED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:6:5-44
+MERGED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:6:5-44
+MERGED from [androidx.core:core-viewtree:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\950c42ab8ccda7ef43ad6878d9db6c43\transformed\core-viewtree-1.0.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.core:core-viewtree:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\950c42ab8ccda7ef43ad6878d9db6c43\transformed\core-viewtree-1.0.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9e7911f50a2ddb4ffc08399c9b0f18f3\transformed\annotation-experimental-1.5.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9e7911f50a2ddb4ffc08399c9b0f18f3\transformed\annotation-experimental-1.5.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:21:5-44
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:21:5-44
+MERGED from [androidx.startup:startup-runtime:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1c6dc98ecf2c6ae2518b6f59d26f6cde\transformed\startup-runtime-1.2.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.startup:startup-runtime:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1c6dc98ecf2c6ae2518b6f59d26f6cde\transformed\startup-runtime-1.2.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.tracing:tracing:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e57f2d7f13e1bf7e0f204ccb9c79c3e2\transformed\tracing-1.2.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.tracing:tracing:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e57f2d7f13e1bf7e0f204ccb9c79c3e2\transformed\tracing-1.2.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.tracing:tracing-ktx:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3ddf0c968c6f19ab242ee0dd45cf832a\transformed\tracing-ktx-1.2.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.tracing:tracing-ktx:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3ddf0c968c6f19ab242ee0dd45cf832a\transformed\tracing-ktx-1.2.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dce82f66ab8661d206e15b2a4470b94d\transformed\interpolator-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\dce82f66ab8661d206e15b2a4470b94d\transformed\interpolator-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\352ec84f5ffdd529f1f77c028995dcba\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\352ec84f5ffdd529f1f77c028995dcba\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.arch.core:core-runtime:2.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f065d07097e713a735951c553475a50e\transformed\core-runtime-2.2.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.arch.core:core-runtime:2.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\f065d07097e713a735951c553475a50e\transformed\core-runtime-2.2.0\AndroidManifest.xml:20:5-44
+MERGED from [com.google.firebase:firebase-components:16.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1761a8c06681351b7ee18b8c08c55713\transformed\firebase-components-16.1.0\AndroidManifest.xml:19:5-21:41
+MERGED from [com.google.firebase:firebase-components:16.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\1761a8c06681351b7ee18b8c08c55713\transformed\firebase-components-16.1.0\AndroidManifest.xml:19:5-21:41
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:18:5-20:41
+MERGED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:18:5-20:41
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:18:5-20:41
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:18:5-20:41
+MERGED from [com.google.android.datatransport:transport-api:3.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\10e7fa4a43f7645eab4d9d5775b8e927\transformed\transport-api-3.0.0\AndroidManifest.xml:18:5-20:41
+MERGED from [com.google.android.datatransport:transport-api:3.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\10e7fa4a43f7645eab4d9d5775b8e927\transformed\transport-api-3.0.0\AndroidManifest.xml:18:5-20:41
+MERGED from [androidx.sqlite:sqlite-framework-android:2.6.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\02d9e5d0d19db06022d816ed77b9cfc3\transformed\sqlite-framework\AndroidManifest.xml:20:5-44
+MERGED from [androidx.sqlite:sqlite-framework-android:2.6.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\02d9e5d0d19db06022d816ed77b9cfc3\transformed\sqlite-framework\AndroidManifest.xml:20:5-44
+MERGED from [androidx.sqlite:sqlite-android:2.6.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\f6731d505b80bb3a41cefb314eae9a9a\transformed\sqlite\AndroidManifest.xml:20:5-44
+MERGED from [androidx.sqlite:sqlite-android:2.6.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\f6731d505b80bb3a41cefb314eae9a9a\transformed\sqlite\AndroidManifest.xml:20:5-44
+MERGED from [com.google.firebase:firebase-encoders-json:18.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\03fe1c6d15124392cbf0e4ebfb3eb1da\transformed\firebase-encoders-json-18.0.0\AndroidManifest.xml:19:5-21:41
+MERGED from [com.google.firebase:firebase-encoders-json:18.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\03fe1c6d15124392cbf0e4ebfb3eb1da\transformed\firebase-encoders-json-18.0.0\AndroidManifest.xml:19:5-21:41
+MERGED from [androidx.exifinterface:exifinterface:1.4.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\5be8d74f5f56e4c99e9a47768d3f8177\transformed\exifinterface-1.4.2\AndroidManifest.xml:5:5-44
+MERGED from [androidx.exifinterface:exifinterface:1.4.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\5be8d74f5f56e4c99e9a47768d3f8177\transformed\exifinterface-1.4.2\AndroidManifest.xml:5:5-44
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\60ccb3d1047bcf48deff692d997fb212\transformed\cursoradapter-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\60ccb3d1047bcf48deff692d997fb212\transformed\cursoradapter-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [com.google.dagger:dagger-lint-aar:2.60.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\1bb77dba8dc88017b1bb1a904161b45a\transformed\dagger-lint-aar-2.60.1\AndroidManifest.xml:18:3-42
+MERGED from [com.google.dagger:dagger-lint-aar:2.60.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\1bb77dba8dc88017b1bb1a904161b45a\transformed\dagger-lint-aar-2.60.1\AndroidManifest.xml:18:3-42
+MERGED from [com.google.android.odml:image:1.0.0-beta1] C:\Users\obond\.gradle\caches\9.7.1\transforms\1a853e5767ed4c51fbd3d7ecf2dc1157\transformed\image-1.0.0-beta1\AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.odml:image:1.0.0-beta1] C:\Users\obond\.gradle\caches\9.7.1\transforms\1a853e5767ed4c51fbd3d7ecf2dc1157\transformed\image-1.0.0-beta1\AndroidManifest.xml:5:5-44
+	android:targetSdkVersion
+		INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from C:\Users\obond\Desktop\Projects\GlucoseHero\App\GlucoseHero\app\src\main\AndroidManifest.xml
+uses-permission#com.android.vending.BILLING
+ADDED from [com.android.billingclient:billing-ktx:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ceb8364bab5eb6421b5cb6572c22ad05\transformed\billing-ktx-9.1.0\AndroidManifest.xml:9:5-67
+MERGED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:10:5-67
+MERGED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:10:5-67
+	android:name
+		ADDED from [com.android.billingclient:billing-ktx:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ceb8364bab5eb6421b5cb6572c22ad05\transformed\billing-ktx-9.1.0\AndroidManifest.xml:9:22-64
+queries
+ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:12:5-19:15
+intent#action:name:com.android.vending.billing.InAppBillingService.BIND
+ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:13:9-15:18
+action#com.android.vending.billing.InAppBillingService.BIND
+ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:14:13-91
+	android:name
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:14:21-88
+intent#action:name:com.google.android.apps.play.billingtestcompanion.BillingOverrideService.BIND
+ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:16:9-18:18
+action#com.google.android.apps.play.billingtestcompanion.BillingOverrideService.BIND
+ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:17:13-116
+	android:name
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:17:21-113
+meta-data#com.google.android.play.billingclient.version
+ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:22:9-24:37
+	android:value
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:24:13-34
+	android:name
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:23:13-73
+activity#com.android.billingclient.api.ProxyBillingActivity
+ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:26:9-30:75
+	android:exported
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:29:13-37
+	android:configChanges
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:28:13-96
+	android:theme
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:30:13-72
+	android:name
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:27:13-78
+activity#com.android.billingclient.api.ProxyBillingActivityV2
+ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:31:9-35:75
+	android:exported
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:34:13-37
+	android:configChanges
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:33:13-96
+	android:theme
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:35:13-72
+	android:name
+		ADDED from [com.android.billingclient:billing:9.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\b15083f1c1fc020f540034e687c5c923\transformed\billing-9.1.0\AndroidManifest.xml:32:13-80
+activity#androidx.glance.appwidget.action.ActionTrampolineActivity
+ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:31:9-36:62
+	android:enabled
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:33:13-35
+	android:excludeFromRecents
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:34:13-46
+	android:exported
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:35:13-37
+	android:theme
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:36:13-59
+	android:name
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:32:13-85
+activity#androidx.glance.appwidget.action.InvisibleActionTrampolineActivity
+ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:37:9-44:81
+	android:enabled
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:39:13-35
+	android:launchMode
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:41:13-48
+	android:noHistory
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:42:13-37
+	android:exported
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:40:13-37
+	android:theme
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:44:13-78
+	android:taskAffinity
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:43:13-91
+	android:name
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:38:13-94
+receiver#androidx.glance.appwidget.action.ActionCallbackBroadcastReceiver
+ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:46:9-49:40
+	android:enabled
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:48:13-35
+	android:exported
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:49:13-37
+	android:name
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:47:13-92
+receiver#androidx.glance.appwidget.UnmanagedSessionReceiver
+ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:50:9-53:40
+	android:enabled
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:52:13-35
+	android:exported
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:53:13-37
+	android:name
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:51:13-78
+receiver#androidx.glance.appwidget.MyPackageReplacedReceiver
+ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:54:9-61:20
+	android:enabled
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:56:13-35
+	android:exported
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:57:13-37
+	android:name
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:55:13-79
+intent-filter#action:name:android.intent.action.MY_PACKAGE_REPLACED
+ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:58:13-60:29
+action#android.intent.action.MY_PACKAGE_REPLACED
+ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:59:17-84
+	android:name
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:59:25-81
+service#androidx.glance.appwidget.GlanceRemoteViewsService
+ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:63:9-66:72
+	android:exported
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:65:13-36
+	android:permission
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:66:13-69
+	android:name
+		ADDED from [androidx.glance:glance-appwidget:1.2.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\3b131937cdda4985f69b786eed959a92\transformed\glance-appwidget-1.2.0\AndroidManifest.xml:64:13-78
+uses-permission#android.permission.WAKE_LOCK
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:23:5-68
+	android:name
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:23:22-65
+uses-permission#android.permission.RECEIVE_BOOT_COMPLETED
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:25:5-81
+	android:name
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:25:22-78
+uses-permission#android.permission.FOREGROUND_SERVICE
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:26:5-77
+	android:name
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:26:22-74
+service#androidx.work.impl.background.systemjob.SystemJobService
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:39:9-45:35
+	android:enabled
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:42:13-70
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:43:13-36
+	android:permission
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:44:13-69
+	tools:targetApi
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:45:13-32
+	android:directBootAware
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:41:13-44
+	android:name
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:40:13-84
+service#androidx.work.impl.foreground.SystemForegroundService
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:46:9-52:35
+	android:enabled
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:49:13-77
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:50:13-37
+	tools:ignore
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:51:13-60
+	tools:targetApi
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:52:13-32
+	android:directBootAware
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:48:13-44
+	android:name
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:47:13-81
+receiver#androidx.work.impl.utils.ForceStopRunnable$BroadcastReceiver
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:54:9-59:35
+	android:enabled
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:57:13-35
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:58:13-37
+	tools:targetApi
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:59:13-32
+	android:directBootAware
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:56:13-44
+	android:name
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:55:13-88
+receiver#androidx.work.impl.background.systemalarm.RescheduleReceiver
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:60:9-69:20
+	android:enabled
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:63:13-36
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:64:13-37
+	tools:targetApi
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:65:13-32
+	android:directBootAware
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:62:13-44
+	android:name
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:61:13-88
+intent-filter#action:name:android.intent.action.BOOT_COMPLETED
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:66:13-68:29
+action#android.intent.action.BOOT_COMPLETED
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:67:17-79
+	android:name
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:67:25-76
+receiver#androidx.work.impl.diagnostics.DiagnosticsReceiver
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:70:9-80:20
+	android:enabled
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:73:13-35
+	android:exported
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:74:13-36
+	android:permission
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:75:13-57
+	tools:targetApi
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:76:13-32
+	android:directBootAware
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:72:13-44
+	android:name
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:71:13-78
+intent-filter#action:name:androidx.work.diagnostics.REQUEST_DIAGNOSTICS
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:77:13-79:29
+action#androidx.work.diagnostics.REQUEST_DIAGNOSTICS
+ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:78:17-88
+	android:name
+		ADDED from [androidx.work:work-runtime:2.11.2] C:\Users\obond\.gradle\caches\9.7.1\transforms\8cbb214041e23a77f70ba81d9163721c\transformed\work-runtime-2.11.2\AndroidManifest.xml:78:25-85
+service#com.google.mlkit.common.internal.MlKitComponentDiscoveryService
+ADDED from [com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:9:9-15:19
+MERGED from [com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:9:9-15:19
+MERGED from [com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:9:9-15:19
+MERGED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:15:9-23:19
+MERGED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:15:9-23:19
+	android:exported
+		ADDED from [com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:11:13-37
+	tools:targetApi
+		ADDED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:19:13-32
+	android:directBootAware
+		ADDED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:17:13-43
+	android:name
+		ADDED from [com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:10:13-91
+meta-data#com.google.firebase.components:com.google.mlkit.vision.barcode.internal.BarcodeRegistrar
+ADDED from [com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:12:13-14:85
+	android:value
+		ADDED from [com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:14:17-82
+	android:name
+		ADDED from [com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\40fefd4d31ceddb646e1eb6dbbc4acff\transformed\play-services-mlkit-barcode-scanning-18.3.1\AndroidManifest.xml:13:17-120
+meta-data#com.google.firebase.components:com.google.mlkit.vision.common.internal.VisionCommonRegistrar
+ADDED from [com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:12:13-14:85
+	android:value
+		ADDED from [com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:14:17-82
+	android:name
+		ADDED from [com.google.mlkit:vision-common:17.3.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\bebb77d5fa3c365c3da1f258b7db6cb3\transformed\vision-common-17.3.0\AndroidManifest.xml:13:17-124
+provider#com.google.mlkit.common.internal.MlKitInitProvider
+ADDED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:9:9-13:38
+	android:authorities
+		ADDED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:11:13-69
+	android:exported
+		ADDED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:12:13-37
+	android:initOrder
+		ADDED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:13:13-35
+	android:name
+		ADDED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:10:13-78
+meta-data#com.google.firebase.components:com.google.mlkit.common.internal.CommonComponentRegistrar
+ADDED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:20:13-22:85
+	android:value
+		ADDED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:22:17-82
+	android:name
+		ADDED from [com.google.mlkit:common:18.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\876169d46085de85ecc6e08ec3f2c28f\transformed\common-18.11.0\AndroidManifest.xml:21:17-120
+service#androidx.core.widget.RemoteViewsCompatService
+ADDED from [androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:24:9-27:63
+	tools:ignore
+		ADDED from [androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:27:13-60
+	android:permission
+		ADDED from [androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:26:13-69
+	android:name
+		ADDED from [androidx.core:core-remoteviews:1.1.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9946ef4f049d239750765b2407b2c85b\transformed\core-remoteviews-1.1.0\AndroidManifest.xml:25:13-73
+activity#com.google.android.gms.common.api.GoogleApiActivity
+ADDED from [com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:9-173
+	android:exported
+		ADDED from [com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:146-170
+	android:theme
+		ADDED from [com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:86-145
+	android:name
+		ADDED from [com.google.android.gms:play-services-base:18.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\fc89b8dcc6570e072747b2c7a5606055\transformed\play-services-base-18.5.0\AndroidManifest.xml:5:19-85
+activity#androidx.compose.ui.tooling.PreviewActivity
+ADDED from [androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ff7b4fca8f1bf6205ae77d334e7e7718\transformed\ui-tooling\AndroidManifest.xml:23:9-25:39
+	android:exported
+		ADDED from [androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ff7b4fca8f1bf6205ae77d334e7e7718\transformed\ui-tooling\AndroidManifest.xml:25:13-36
+	android:name
+		ADDED from [androidx.compose.ui:ui-tooling-android:1.12.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\ff7b4fca8f1bf6205ae77d334e7e7718\transformed\ui-tooling\AndroidManifest.xml:24:13-71
+service#androidx.room.MultiInstanceInvalidationService
+ADDED from [androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:24:9-28:63
+	android:exported
+		ADDED from [androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:27:13-37
+	tools:ignore
+		ADDED from [androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:28:13-60
+	android:directBootAware
+		ADDED from [androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:26:13-43
+	android:name
+		ADDED from [androidx.room:room-runtime-android:2.8.4] C:\Users\obond\.gradle\caches\9.7.1\transforms\8b2d4418a423b3a0e1ca0f0b5760dde0\transformed\room-runtime\AndroidManifest.xml:25:13-74
+meta-data#androidx.emoji2.text.EmojiCompatInitializer
+ADDED from [androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.emoji2:emoji2:1.4.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\0a5996863301650f4c22c856058964e9\transformed\emoji2-1.4.0\AndroidManifest.xml:30:17-75
+meta-data#androidx.lifecycle.ProcessLifecycleInitializer
+ADDED from [androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.lifecycle:lifecycle-process:2.11.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\e0c38a6cf71274b9e070ee145df2e36a\transformed\lifecycle-process-2.11.0\AndroidManifest.xml:30:17-78
+uses-library#androidx.window.extensions
+ADDED from [androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:23:9-25:40
+	android:required
+		ADDED from [androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:25:13-37
+	android:name
+		ADDED from [androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:24:13-54
+uses-library#androidx.window.sidecar
+ADDED from [androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:26:9-28:40
+	android:required
+		ADDED from [androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:28:13-37
+	android:name
+		ADDED from [androidx.window:window:1.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\9f6ad5b7f111487c52864e64c077f7af\transformed\window-1.5.0\AndroidManifest.xml:27:13-51
+meta-data#com.google.android.gms.version
+ADDED from [com.google.android.gms:play-services-basement:18.9.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\85cc33b15613d096bfb441988c19ba5a\transformed\play-services-basement-18.9.0\AndroidManifest.xml:21:9-23:69
+	android:value
+		ADDED from [com.google.android.gms:play-services-basement:18.9.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\85cc33b15613d096bfb441988c19ba5a\transformed\play-services-basement-18.9.0\AndroidManifest.xml:23:13-66
+	android:name
+		ADDED from [com.google.android.gms:play-services-basement:18.9.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\85cc33b15613d096bfb441988c19ba5a\transformed\play-services-basement-18.9.0\AndroidManifest.xml:22:13-58
+permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:23:9-81
+permission#com.omb9.glucosehero.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:23:9-81
+uses-permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:26:22-94
+uses-permission#com.omb9.glucosehero.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.19.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\c83f1cb993ae6ac588ff966894bcc352\transformed\core-1.19.0\AndroidManifest.xml:26:22-94
+meta-data#okhttp3.internal.platform.PlatformInitializer
+ADDED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:16:13-18:52
+	android:value
+		ADDED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:18:17-49
+	android:name
+		ADDED from [com.squareup.okhttp3:okhttp-android:5.5.0] C:\Users\obond\.gradle\caches\9.7.1\transforms\93d3bdbde7d19b3f9f55ecf61af5b811\transformed\okhttp\AndroidManifest.xml:17:17-77
+meta-data#androidx.profileinstaller.ProfileInstallerInitializer
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:30:17-85
+receiver#androidx.profileinstaller.ProfileInstallReceiver
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:34:9-52:20
+	android:enabled
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:37:13-35
+	android:exported
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:38:13-36
+	android:permission
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:39:13-57
+	android:directBootAware
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:36:13-44
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:35:13-76
+intent-filter#action:name:androidx.profileinstaller.action.INSTALL_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:40:13-42:29
+action#androidx.profileinstaller.action.INSTALL_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:41:17-91
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:41:25-88
+intent-filter#action:name:androidx.profileinstaller.action.SKIP_FILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:43:13-45:29
+action#androidx.profileinstaller.action.SKIP_FILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:44:17-85
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:44:25-82
+intent-filter#action:name:androidx.profileinstaller.action.SAVE_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:46:13-48:29
+action#androidx.profileinstaller.action.SAVE_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:47:17-88
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:47:25-85
+intent-filter#action:name:androidx.profileinstaller.action.BENCHMARK_OPERATION
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:49:13-51:29
+action#androidx.profileinstaller.action.BENCHMARK_OPERATION
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:50:17-95
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] C:\Users\obond\.gradle\caches\9.7.1\transforms\d921490bdd5a05f8d54b6aa339be20ef\transformed\profileinstaller-1.4.1\AndroidManifest.xml:50:25-92
+service#com.google.android.datatransport.runtime.backends.TransportBackendDiscovery
+ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:28:9-34:19
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:36:9-38:40
+MERGED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:36:9-38:40
+	android:exported
+		ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:30:13-37
+	android:name
+		ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:29:13-103
+meta-data#backend:com.google.android.datatransport.cct.CctBackendFactory
+ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:31:13-33:39
+	android:value
+		ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:33:17-36
+	android:name
+		ADDED from [com.google.android.datatransport:transport-backend-cct:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\576139bd94c8a471e485a82a0ef74988\transformed\transport-backend-cct-3.1.8\AndroidManifest.xml:32:17-94
+service#com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService
+ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:26:9-30:19
+	android:exported
+		ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:28:13-37
+	android:permission
+		ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:29:13-69
+	android:name
+		ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:27:13-117
+receiver#com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver
+ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:32:9-34:40
+	android:exported
+		ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:34:13-37
+	android:name
+		ADDED from [com.google.android.datatransport:transport-runtime:3.1.8] C:\Users\obond\.gradle\caches\9.7.1\transforms\4338a08dc06379ebdf589be1997f3206\transformed\transport-runtime-3.1.8\AndroidManifest.xml:33:13-132

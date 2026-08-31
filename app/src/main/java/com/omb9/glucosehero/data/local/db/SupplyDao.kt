@@ -3,6 +3,7 @@ package com.omb9.glucosehero.data.local.db
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Transaction
 import com.omb9.glucosehero.data.local.entity.SupplyEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -31,4 +32,19 @@ interface SupplyDao {
         """
     )
     suspend fun deactivateSuppliesOfType(type: String, replacedAt: Long)
+
+    /**
+     * Atomically retires the previous active supply of [type] and inserts its
+     * replacement. Room runs the body in a transaction, so an insert failure
+     * rolls back the retirement instead of leaving the slot empty.
+     */
+    @Transaction
+    suspend fun deactivateAndInsert(
+        type: String,
+        replacedAt: Long,
+        entity: SupplyEntity,
+    ): Long {
+        deactivateSuppliesOfType(type, replacedAt)
+        return insert(entity)
+    }
 }

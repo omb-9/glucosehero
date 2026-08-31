@@ -1,0 +1,1 @@
+-keep,allowobfuscation,allowshrinking class com.omb9.glucosehero.ui.log.LogViewModel

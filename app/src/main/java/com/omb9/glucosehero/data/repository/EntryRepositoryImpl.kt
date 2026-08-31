@@ -4,10 +4,12 @@ import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.entity.toDomain
 import com.omb9.glucosehero.data.local.entity.toEntity
 import com.omb9.glucosehero.domain.model.DailyGlucoseSummary
+import com.omb9.glucosehero.domain.model.GlucosePointRow
 import com.omb9.glucosehero.domain.model.GlucoseStats
 import com.omb9.glucosehero.domain.model.LogEvent
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.util.StreakCalculator
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -24,6 +26,9 @@ class EntryRepositoryImpl @Inject constructor(
     override fun observeGlucose(sinceMillis: Long): Flow<List<LogEvent>> =
         entryDao.observeGlucoseEventsSince(sinceMillis).map { list -> list.map { it.toDomain() } }
 
+    override fun observeGlucosePoints(sinceMillis: Long): Flow<List<GlucosePointRow>> =
+        entryDao.observeGlucosePoints(sinceMillis)
+
     override fun observeGlucoseStats(sinceMillis: Long): Flow<GlucoseStats> =
         entryDao.observeGlucoseStatsSince(sinceMillis)
 
@@ -31,6 +36,11 @@ class EntryRepositoryImpl @Inject constructor(
         entryDao.observeLoggedDays(STREAK_SINCE_MILLIS).map { rows ->
             StreakCalculator.currentStreak(rows.map { it.day })
         }
+
+    override suspend fun distinctLoggedDays(): Set<LocalDate> =
+        entryDao.loggedDaysSince(0L)
+            .mapNotNull { row -> runCatching { LocalDate.parse(row.day) }.getOrNull() }
+            .toSet()
 
     override suspend fun currentStreak(): Int =
         entryDao.loggedDaysSince(STREAK_SINCE_MILLIS).let { rows ->
@@ -77,10 +87,6 @@ class EntryRepositoryImpl @Inject constructor(
         entryDao.entriesSince(sinceMillis).map { it.toDomain() }
 
     private companion object {
-        /**
-         * Streak arithmetic needs every historical logged day, so the lower
-         * bound is the epoch rather than a rolling window.
-         */
         const val STREAK_SINCE_MILLIS = 0L
     }
 }

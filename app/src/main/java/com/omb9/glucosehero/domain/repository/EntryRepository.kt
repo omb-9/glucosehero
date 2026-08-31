@@ -1,8 +1,10 @@
 package com.omb9.glucosehero.domain.repository
 
 import com.omb9.glucosehero.domain.model.DailyGlucoseSummary
+import com.omb9.glucosehero.domain.model.GlucosePointRow
 import com.omb9.glucosehero.domain.model.GlucoseStats
 import com.omb9.glucosehero.domain.model.LogEvent
+import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
 interface EntryRepository {
@@ -11,6 +13,12 @@ interface EntryRepository {
 
     /** Events carrying a glucose reading from [sinceMillis], oldest first (charting). */
     fun observeGlucose(sinceMillis: Long): Flow<List<LogEvent>>
+
+    /** Chart-only projection: timestamp + glucose value from [sinceMillis], oldest first. */
+    fun observeGlucosePoints(sinceMillis: Long): Flow<List<GlucosePointRow>>
+
+    /** Distinct streak-qualifying local days across all history. */
+    suspend fun distinctLoggedDays(): Set<LocalDate>
 
     /** Reactive glucose aggregate for the rolling 90-day eA1c window. */
     fun observeGlucoseStats(sinceMillis: Long): Flow<GlucoseStats>

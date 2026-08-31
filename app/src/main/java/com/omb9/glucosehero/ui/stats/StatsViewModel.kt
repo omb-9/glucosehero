@@ -24,6 +24,7 @@ import kotlin.math.abs
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
@@ -68,6 +69,7 @@ data class StatsUiState(
     val range: TimeRange = TimeRange.DAYS_14,
     val unit: GlucoseUnit = GlucoseUnit.MGDL,
     val hasData: Boolean = false,
+    val loadFailed: Boolean = false,
     val avgDisplay: String = "–",
     val tirDisplay: String = "–",
     val avgTrend: TrendDirection = TrendDirection.UNKNOWN,
@@ -155,98 +157,104 @@ class StatsViewModel @Inject constructor(
                 .flatMapLatest { range ->
                     val since = Formatters.daysAgoMillis(range.days)
                     combine(
-                        entryRepository.observeGlucose(since),
+                        entryRepository.observeGlucosePoints(since),
                         settingsRepository.settings,
                     ) { entries, settings -> Triple(range, entries, settings) }
                 }
                 .collectLatest { (range, entries, settings) ->
-                    withContext(Dispatchers.Default) {
-                        val unit = settings.unit
-                        val sinceMillis = Formatters.daysAgoMillis(range.days)
+                    try {
+                        withContext(Dispatchers.Default) {
+                            val unit = settings.unit
+                            val sinceMillis = Formatters.daysAgoMillis(range.days)
 
-                        val points = entries.mapNotNull { entry ->
-                            // Non-finite values (a NaN/Infinity that reached
-                            // storage) would poison the y-axis domain below.
-                            val mgdl = entry.glucoseMgdl?.takeIf { it.isFinite() }
-                                ?: return@mapNotNull null
-                            val x = (entry.timestamp - sinceMillis).toFloat() / MILLIS_PER_DAY
-                            entryOf(x, Formatters.toDisplayValue(mgdl, unit).toFloat())
-                        }
-                        chartModelProducer.setEntries(points)
+                            val points = entries.mapNotNull { entry ->
+                                // Non-finite values (a NaN/Infinity that reached
+                                // storage) would poison the y-axis domain below.
+                                val mgdl = entry.glucoseMgdl.takeIf { it.isFinite() }
+                                    ?: return@mapNotNull null
+                                val x = (entry.timestamp - sinceMillis).toFloat() / MILLIS_PER_DAY
+                                entryOf(x, Formatters.toDisplayValue(mgdl, unit).toFloat())
+                            }
+                            chartModelProducer.setEntries(points)
 
-                        val values = entries.mapNotNull { e ->
-                            e.glucoseMgdl?.takeIf { it.isFinite() }
-                        }
-                        val avg = entryRepository.averageGlucoseSince(sinceMillis)
-                        val tir = entryRepository.timeInRangeSince(
-                            sinceMillis,
-                            settings.targetLowMgdl.toDouble(),
-                            settings.targetHighMgdl.toDouble(),
-                        )
+                            val values = entries.mapNotNull { e ->
+                                e.glucoseMgdl.takeIf { it.isFinite() }
+                            }
+                            val currentAvg = values.takeIf { it.isNotEmpty() }?.average()
+                            val currentTir = if (values.isEmpty()) null else
+                                values.count {
+                                    it in settings.targetLowMgdl.toDouble()..settings.targetHighMgdl.toDouble()
+                                }.toDouble() / values.size
 
-                        // Sequential comparison window: the same length as the
-                        // selected range, ending exactly where the current
-                        // window begins (e.g. days 15–28 for the 14-day view).
-                        val previousStartMillis =
-                            sinceMillis - range.days * SupplyCalculator.MILLIS_PER_DAY
-                        val previousAvg = entryRepository.averageGlucoseBetween(
-                            previousStartMillis,
-                            sinceMillis,
-                        )
-                        val previousTir = entryRepository.timeInRangeBetween(
-                            previousStartMillis,
-                            sinceMillis,
-                            settings.targetLowMgdl.toDouble(),
-                            settings.targetHighMgdl.toDouble(),
-                        )
-                        val avgDelta = glucoseDelta(avg, previousAvg, unit)
-                        val tirDelta = tirDelta(tir, previousTir)
-
-                        val lowDisplay =
-                            Formatters.toDisplayValue(settings.targetLowMgdl.toDouble(), unit)
-                                .toFloat()
-                        val highDisplay =
-                            Formatters.toDisplayValue(settings.targetHighMgdl.toDouble(), unit)
-                                .toFloat()
-                        val dataMin = values.minOrNull()
-                            ?.let { Formatters.toDisplayValue(it, unit).toFloat() }
-                        val dataMax = values.maxOrNull()
-                            ?.let { Formatters.toDisplayValue(it, unit).toFloat() }
-
-                        val padding = (highDisplay - lowDisplay) * 0.25f
-
-                        // The RangeSlider permits low == high; with all data
-                        // at that exact value the y-domain collapses to zero
-                        // height (minY == maxY) — undefined for axis/pixel
-                        // math. Guarantee a positive span.
-                        val rawMinY = minOf(dataMin ?: lowDisplay, lowDisplay) - padding
-                        val rawMaxY = maxOf(dataMax ?: highDisplay, highDisplay) + padding
-                        val safeMaxY = if (rawMaxY > rawMinY) rawMaxY else rawMinY + 1f
-
-                        _uiState.update { current ->
-                            current.copy(
-                                range = range,
-                                unit = unit,
-                                hasData = points.isNotEmpty(),
-                                avgDisplay = avg?.let { Formatters.glucose(it, unit) } ?: "–",
-                                tirDisplay = tir?.let { "%.0f%%".format(it * 100) } ?: "–",
-                                avgTrend = avgDelta?.direction ?: TrendDirection.UNKNOWN,
-                                avgDeltaDisplay = avgDelta?.text,
-                                tirTrend = tirDelta?.direction ?: TrendDirection.UNKNOWN,
-                                tirDeltaDisplay = tirDelta?.text,
-                                readingCount = values.size,
-                                minMaxDisplay = if (dataMin != null && dataMax != null) {
-                                    "${trim(dataMin)} / ${trim(dataMax)}"
-                                } else {
-                                    "–"
-                                },
-                                rangeStartMillis = sinceMillis,
-                                targetLowDisplay = lowDisplay,
-                                targetHighDisplay = highDisplay,
-                                chartMinY = rawMinY,
-                                chartMaxY = safeMaxY,
+                            // Sequential comparison window: the same length as the
+                            // selected range, ending exactly where the current
+                            // window begins (e.g. days 15–28 for the 14-day view).
+                            val previousStartMillis =
+                                sinceMillis - range.days * SupplyCalculator.MILLIS_PER_DAY
+                            val previousAvg = entryRepository.averageGlucoseBetween(
+                                previousStartMillis,
+                                sinceMillis,
                             )
+                            val previousTir = entryRepository.timeInRangeBetween(
+                                previousStartMillis,
+                                sinceMillis,
+                                settings.targetLowMgdl.toDouble(),
+                                settings.targetHighMgdl.toDouble(),
+                            )
+                            val avgDelta = glucoseDelta(currentAvg, previousAvg, unit)
+                            val tirDelta = tirDelta(currentTir, previousTir)
+
+                            val lowDisplay =
+                                Formatters.toDisplayValue(settings.targetLowMgdl.toDouble(), unit)
+                                    .toFloat()
+                            val highDisplay =
+                                Formatters.toDisplayValue(settings.targetHighMgdl.toDouble(), unit)
+                                    .toFloat()
+                            val dataMin = values.minOrNull()
+                                ?.let { Formatters.toDisplayValue(it, unit).toFloat() }
+                            val dataMax = values.maxOrNull()
+                                ?.let { Formatters.toDisplayValue(it, unit).toFloat() }
+
+                            val padding = (highDisplay - lowDisplay) * 0.25f
+
+                            // The RangeSlider permits low == high; with all data
+                            // at that exact value the y-domain collapses to zero
+                            // height (minY == maxY) — undefined for axis/pixel
+                            // math. Guarantee a positive span.
+                            val rawMinY = minOf(dataMin ?: lowDisplay, lowDisplay) - padding
+                            val rawMaxY = maxOf(dataMax ?: highDisplay, highDisplay) + padding
+                            val safeMaxY = if (rawMaxY > rawMinY) rawMaxY else rawMinY + 1f
+
+                            _uiState.update { current ->
+                                current.copy(
+                                    range = range,
+                                    unit = unit,
+                                    hasData = points.isNotEmpty(),
+                                    loadFailed = false,
+                                    avgDisplay = currentAvg?.let { Formatters.glucose(it, unit) } ?: "–",
+                                    tirDisplay = currentTir?.let { "%.0f%%".format(it * 100) } ?: "–",
+                                    avgTrend = avgDelta?.direction ?: TrendDirection.UNKNOWN,
+                                    avgDeltaDisplay = avgDelta?.text,
+                                    tirTrend = tirDelta?.direction ?: TrendDirection.UNKNOWN,
+                                    tirDeltaDisplay = tirDelta?.text,
+                                    readingCount = values.size,
+                                    minMaxDisplay = if (dataMin != null && dataMax != null) {
+                                        "${trim(dataMin)} / ${trim(dataMax)}"
+                                    } else {
+                                        "–"
+                                    },
+                                    rangeStartMillis = sinceMillis,
+                                    targetLowDisplay = lowDisplay,
+                                    targetHighDisplay = highDisplay,
+                                    chartMinY = rawMinY,
+                                    chartMaxY = safeMaxY,
+                                )
+                            }
                         }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        _uiState.update { it.copy(loadFailed = true) }
                     }
                 }
         }

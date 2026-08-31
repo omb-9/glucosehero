@@ -42,6 +42,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -49,6 +51,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,6 +87,13 @@ fun EntryDetailScreen(
     val entry by viewModel.entry.collectAsStateWithLifecycle()
     val form by viewModel.form.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val canSave by viewModel.canSave.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) {
+        viewModel.saveErrors.collect { error ->
+            snackbarHostState.showSnackbar(error.message ?: "Save failed")
+        }
+    }
 
     val entryTitle = editableCategoryTypes
         .firstOrNull { it in form.activeCategories }
@@ -125,6 +135,7 @@ fun EntryDetailScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         if (form.loadFailed) {
             Box(
@@ -385,7 +396,7 @@ fun EntryDetailScreen(
                 Button(
                     onClick = { viewModel.save(onDone) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = viewModel.buildUpdatedEvent() != null,
+                    enabled = canSave,
                 ) {
                     Text("Save changes")
                 }

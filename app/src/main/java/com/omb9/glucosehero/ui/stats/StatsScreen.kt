@@ -154,6 +154,22 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
 
             Spacer(Modifier.height(16.dp))
 
+            if (state.loadFailed) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.errorContainer,
+                ) {
+                    Text(
+                        text = "Couldn't load glucose data. Showing the last available values.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+
             StreakIndicator(
                 streakDays = streak,
                 modifier = Modifier.fillMaxWidth(),

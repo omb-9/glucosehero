@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
@@ -83,6 +84,11 @@ class EntryDetailViewModel @Inject constructor(
 
     private val _form = MutableStateFlow(EntryDetailFormState())
     val form: StateFlow<EntryDetailFormState> = _form.asStateFlow()
+
+    val canSave: StateFlow<Boolean> = combine(_form, entry, settings) { form, current, settings ->
+        current != null && form.isSeeded &&
+            form.toDraft().toLogEvent(settings, form.timestamp) != null
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     private val _saveErrors = MutableSharedFlow<Throwable>(extraBufferCapacity = 1)
     /** One-shot save failures surfaced to the UI. */
@@ -198,7 +204,9 @@ class EntryDetailViewModel @Inject constructor(
             var saved = false
             try {
                 entryRepository.update(updated)
-                reminderScheduler.cancelPostMealCheck()
+                if (updated.glucoseMgdl != null) {
+                    reminderScheduler.cancelPostMealCheck()
+                }
                 reminderScheduler.schedulePostMealCheck(updated)
                 saved = true
             } catch (e: CancellationException) {

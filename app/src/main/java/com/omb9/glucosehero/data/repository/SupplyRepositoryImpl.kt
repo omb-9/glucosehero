@@ -23,17 +23,14 @@ class SupplyRepositoryImpl @Inject constructor(
         type: SupplyType,
         startedAt: Long,
         expectedLifespanDays: Int,
-    ): Long {
-        // Retire the previous item of the same type at the moment its
-        // replacement starts, keeping `observeActive` a clean lifecycle query.
-        supplyDao.deactivateSuppliesOfType(type.name, startedAt)
-        return supplyDao.insert(
-            SupplyEntity(
-                type = type,
-                startedAt = startedAt,
-                expectedLifespanDays = expectedLifespanDays,
-                replacedAt = null,
-            )
-        )
-    }
+    ): Long = supplyDao.deactivateAndInsert(
+        type = type.name,
+        replacedAt = startedAt,
+        entity = SupplyEntity(
+            type = type,
+            startedAt = startedAt,
+            expectedLifespanDays = expectedLifespanDays,
+            replacedAt = null,
+        ),
+    )
 }

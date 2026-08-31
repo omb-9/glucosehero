@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Update
 import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.domain.model.DailyGlucoseSummary
+import com.omb9.glucosehero.domain.model.GlucosePointRow
 import com.omb9.glucosehero.domain.model.GlucoseStats
 import kotlinx.coroutines.flow.Flow
 
@@ -37,6 +38,20 @@ interface EntryDao {
         """
     )
     fun observeGlucoseEventsSince(since: Long): Flow<List<EntryEntity>>
+
+    /**
+     * Chart-only projection: timestamps and glucose values without dragging
+     * every nullable column into memory for the trend path.
+     */
+    @Query(
+        """
+        SELECT timestamp, glucose_mgdl AS glucoseMgdl
+        FROM entries
+        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
+        ORDER BY timestamp ASC
+        """
+    )
+    fun observeGlucosePoints(since: Long): Flow<List<GlucosePointRow>>
 
     @Query("SELECT * FROM entries WHERE id = :id")
     fun observeById(id: Long): Flow<EntryEntity?>
@@ -107,8 +122,9 @@ interface EntryDao {
     fun observeLoggedDays(since: Long): Flow<List<LoggedDayRow>>
 
     /**
-     * One-shot snapshot of the same streak-qualifying distinct days, bound by
-     * [since] so the save path never triggers a full-table scan.
+     * One-shot snapshot of the same streak-qualifying distinct days. Streak
+     * arithmetic needs the full history, so streak callers intentionally pass
+     * 0 as [since] even though that scans every logged day.
      */
     @Query(
         """

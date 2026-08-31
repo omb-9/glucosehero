@@ -14,6 +14,7 @@ import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.glance.WidgetRefresher
 import com.omb9.glucosehero.util.Formatters
+import com.omb9.glucosehero.util.StreakCalculator
 import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
@@ -114,6 +115,10 @@ class LogViewModel @Inject constructor(
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LogUiState())
 
+    val canSave: StateFlow<Boolean> = combine(_draft, settings) { draft, settings ->
+        draft.toLogEvent(settings, 0L) != null
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     // ---- Draft setters: each is a pure copy/update — no clearing, no side-effects ----
 
     fun onCategorySelected(type: EntryType) {
@@ -182,9 +187,16 @@ class LogViewModel @Inject constructor(
         viewModelScope.launch {
             var saved = false
             try {
-                val before = entryRepository.currentStreak()
+                val loggedDays = entryRepository.distinctLoggedDays().toMutableSet()
+                val before = StreakCalculator.currentStreak(loggedDays)
                 entryRepository.add(event)
-                val after = entryRepository.currentStreak()
+                val newLocalDate = Formatters.localDate(event.timestamp)
+                val after = if (event.qualifiesForStreak()) {
+                    loggedDays += newLocalDate
+                    StreakCalculator.currentStreak(loggedDays)
+                } else {
+                    before
+                }
 
                 when {
                     event.glucoseMgdl != null -> reminderScheduler.cancelPostMealCheck()
@@ -309,6 +321,15 @@ class LogViewModel @Inject constructor(
 
     private fun trim(value: Double): String =
         if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+
+    private fun LogEvent.qualifiesForStreak(): Boolean =
+        glucoseMgdl != null ||
+            insulinBasalUnits != null ||
+            insulinBolusUnits != null ||
+            carbsGrams != null ||
+            proteinGrams != null ||
+            fatGrams != null ||
+            !mealDescription.isNullOrBlank()
 
     private companion object {
         const val WINDOW_DAYS = 90

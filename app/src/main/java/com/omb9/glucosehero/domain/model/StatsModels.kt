@@ -7,6 +7,12 @@ enum class TimeRange(val days: Int, val label: String) {
     DAYS_90(90, "90D"),
 }
 
+/** Lightweight chart projection: only the columns the trend chart actually renders. */
+data class GlucosePointRow(
+    val timestamp: Long,
+    val glucoseMgdl: Double,
+)
+
 /** Row shape returned by the GROUP BY day aggregate query. */
 data class DailyGlucoseSummary(
     val day: String,
