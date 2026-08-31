@@ -19,13 +19,17 @@ import com.omb9.glucosehero.data.remote.dto.ApiTool
 import com.omb9.glucosehero.data.remote.sse.SseChatClient
 import com.omb9.glucosehero.domain.model.ChatRole
 import com.omb9.glucosehero.domain.model.ChatTurn
+import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.StreamEvent
+import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.work.PendingQueryWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -74,7 +78,9 @@ class ChatRepositoryImpl @Inject constructor(
         // Resolved fresh per request: provider/key changes apply immediately.
         val config = settingsRepository.resolveAiConfig()
         val messages = buildApiMessages(history)
-        sseChatClient.stream(config, messages, buildPrefillTools()).collect { emit(it) }
+        sseChatClient.stream(config, messages, buildPrefillTools())
+            .buffer(Channel.UNLIMITED)
+            .collect { emit(it) }
     }
 
     override suspend fun completeReply(history: List<ChatTurn>): String {
@@ -107,7 +113,7 @@ class ChatRepositoryImpl @Inject constructor(
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(
             PendingQueryWorker.UNIQUE_NAME,
-            ExistingWorkPolicy.KEEP,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
             request,
         )
     }
@@ -132,6 +138,7 @@ class ChatRepositoryImpl @Inject constructor(
      */
     override suspend fun buildSystemPrompt(): String {
         val settings = settingsRepository.settings.first()
+        val profile = settingsRepository.profile.first()
         val unit = settings.unit
 
         val avg7 = entryDao.averageGlucoseSince(Formatters.daysAgoMillis(7))
@@ -163,6 +170,8 @@ class ChatRepositoryImpl @Inject constructor(
                     e.insulinBasalUnits?.let { "basal insulin ${if (it % 1.0 == 0.0) it.toInt().toString() else "%.1f".format(it)} u" },
                     e.insulinBolusUnits?.let { "bolus insulin ${if (it % 1.0 == 0.0) it.toInt().toString() else "%.1f".format(it)} u" },
                     e.carbsGrams?.let { "carbs $it g" },
+                    e.proteinGrams?.let { "protein $it g" },
+                    e.fatGrams?.let { "fat $it g" },
                     e.mealDescription?.takeIf { it.isNotBlank() },
                     e.exerciseMinutes?.let { "exercise $it min" },
                 ).joinToString(", ").ifBlank { "note" }
@@ -174,7 +183,9 @@ class ChatRepositoryImpl @Inject constructor(
         val targetHigh = Formatters.glucose(settings.targetHighMgdl.toDouble(), unit)
         val tirPct = tir14?.let { "%.0f%%".format(it * 100) } ?: "n/a"
 
-        return """
+        val persona = buildPersonaSection(profile)
+
+        return persona + "\n\n" + """
             |You are Hero, the in-app assistant of GlucoseHero, a personal glucose logging app.
             |Be concise, warm, and concrete. Ground every answer in the user's data below.
             |You are not a medical professional: never give insulin dosing instructions or
@@ -197,6 +208,40 @@ class ChatRepositoryImpl @Inject constructor(
             |$recentBlock
         """.trimMargin()
     }
+
+    private fun buildPersonaSection(profile: UserProfile): String {
+        val name = profile.name.trim().takeIf { it.isNotEmpty() }
+        val details = listOfNotNull(
+            profile.age?.let { "Age: $it" },
+            profile.diabetesType?.trim()?.takeIf { it.isNotEmpty() }?.let { "Type: $it" },
+            profile.heightCm?.let { "Height: ${formatMetric(it)} cm" },
+            profile.weightKg?.let { "Weight: ${formatMetric(it)} kg" },
+        ).joinToString(", ")
+
+        val identity = buildString {
+            append(name ?: "the user")
+            if (details.isNotEmpty()) append(" ($details)")
+        }
+
+        return if (profile.profileTarget == ProfileTarget.SELF) {
+            "You are assisting $identity. Address the user directly using second-person pronouns ('you', 'your')."
+        } else {
+            val relationship = profile.profileTarget.displayName.removePrefix("My ").lowercase()
+            val description = buildString {
+                append(relationship)
+                if (name != null) append(" named $name")
+                if (details.isNotEmpty()) append(" ($details)")
+            }
+            val referred = name ?: "them"
+            "You are assisting a caregiver/guardian managing diabetes data for their $description. " +
+                "When providing insights, summaries, and meal/insulin discussions, refer to " +
+                "$referred in the third person ('they', 'their', '$referred') and address " +
+                "the logged user as their caregiver."
+        }
+    }
+
+    private fun formatMetric(value: Float): String =
+        if (value % 1.0f == 0.0f) value.toInt().toString() else "%.1f".format(value)
 
     /**
      * Function-calling schema for the `prefill_log_draft` tool. All parameters

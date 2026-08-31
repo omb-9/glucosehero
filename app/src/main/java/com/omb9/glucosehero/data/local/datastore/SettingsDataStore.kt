@@ -7,13 +7,16 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
 import com.omb9.glucosehero.domain.model.GlucoseUnit
+import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ThemeMode
+import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.model.UserSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +46,14 @@ class SettingsDataStore @Inject constructor(
         val AI_BASE_URL = stringPreferencesKey("ai_base_url")
         val AI_MODEL = stringPreferencesKey("ai_model")
         val AI_API_KEY_ENC = stringPreferencesKey("ai_api_key_enc")
+        val SHOW_ADVANCED_MACROS = booleanPreferencesKey("show_advanced_macros")
+        val POST_MEAL_REMINDERS_ENABLED = booleanPreferencesKey("post_meal_reminders_enabled")
+        val PROFILE_TARGET = stringPreferencesKey("profile_target")
+        val PROFILE_NAME = stringPreferencesKey("profile_name")
+        val PROFILE_AGE = intPreferencesKey("profile_age")
+        val PROFILE_DIABETES_TYPE = stringPreferencesKey("profile_diabetes_type")
+        val PROFILE_HEIGHT_CM = floatPreferencesKey("profile_height_cm")
+        val PROFILE_WEIGHT_KG = floatPreferencesKey("profile_weight_kg")
     }
 
     /**
@@ -65,7 +76,7 @@ class SettingsDataStore @Inject constructor(
 
     val settings: Flow<UserSettings> = safeData.map { p ->
         UserSettings(
-            themeMode = p[Keys.THEME_MODE].toEnum(ThemeMode.SYSTEM),
+            themeMode = p[Keys.THEME_MODE].toEnum(ThemeMode.LIGHT),
             accent = p[Keys.ACCENT].toEnum(AccentColor.LIGHT_RED),
             unit = p[Keys.UNIT].toEnum(GlucoseUnit.MGDL),
             // THEME_MODE/ACCENT/UNIT are stringPreferencesKeys: a type
@@ -81,12 +92,19 @@ class SettingsDataStore @Inject constructor(
             // default.
             use24HourTime = runCatching { p[Keys.USE_24H] }.getOrNull() ?: false,
             isHeroAiEnabled = runCatching { p[Keys.HERO_AI_ENABLED] }.getOrNull() ?: true,
+            showAdvancedMacros = runCatching { p[Keys.SHOW_ADVANCED_MACROS] }.getOrNull() ?: false,
+            postMealRemindersEnabled = runCatching { p[Keys.POST_MEAL_REMINDERS_ENABLED] }.getOrNull() ?: true,
             targetLowMgdl = runCatching { p[Keys.TARGET_LOW] }.getOrNull() ?: 70f,
             targetHighMgdl = runCatching { p[Keys.TARGET_HIGH] }.getOrNull() ?: 180f,
         )
     }
 
     val aiConfig: Flow<AiConfig> = safeData.map { p -> p.toAiConfig() }
+
+    val profile: Flow<UserProfile> = safeData.map { p -> p.toUserProfile() }
+
+    /** Single fresh snapshot used by the export utility when assembling a report. */
+    suspend fun profileSnapshot(): UserProfile = safeData.first().toUserProfile()
 
     /** Single fresh snapshot — read per-request by the network layer. */
     suspend fun aiConfigSnapshot(): AiConfig = safeData.first().toAiConfig()
@@ -104,11 +122,51 @@ class SettingsDataStore @Inject constructor(
         )
     }
 
+    private fun Preferences.toUserProfile(): UserProfile = UserProfile(
+        profileTarget = runCatching { this[Keys.PROFILE_TARGET] }
+            .getOrNull().toEnum(ProfileTarget.SELF),
+        name = runCatching { this[Keys.PROFILE_NAME] }.getOrNull().orEmpty(),
+        age = runCatching { this[Keys.PROFILE_AGE] }.getOrNull(),
+        diabetesType = runCatching { this[Keys.PROFILE_DIABETES_TYPE] }
+            .getOrNull()?.takeIf { it.isNotBlank() },
+        heightCm = runCatching { this[Keys.PROFILE_HEIGHT_CM] }.getOrNull(),
+        weightKg = runCatching { this[Keys.PROFILE_WEIGHT_KG] }.getOrNull(),
+    )
+
     suspend fun setThemeMode(mode: ThemeMode) = edit { it[Keys.THEME_MODE] = mode.name }
     suspend fun setAccent(accent: AccentColor) = edit { it[Keys.ACCENT] = accent.name }
     suspend fun setUnit(unit: GlucoseUnit) = edit { it[Keys.UNIT] = unit.name }
     suspend fun setUse24HourTime(enabled: Boolean) = edit { it[Keys.USE_24H] = enabled }
     suspend fun setIsHeroAiEnabled(enabled: Boolean) = edit { it[Keys.HERO_AI_ENABLED] = enabled }
+    suspend fun setShowAdvancedMacros(enabled: Boolean) = edit { it[Keys.SHOW_ADVANCED_MACROS] = enabled }
+    suspend fun setPostMealRemindersEnabled(enabled: Boolean) =
+        edit { it[Keys.POST_MEAL_REMINDERS_ENABLED] = enabled }
+
+    suspend fun setProfileTarget(target: ProfileTarget) =
+        edit { it[Keys.PROFILE_TARGET] = target.name }
+
+    suspend fun setProfileName(name: String) = edit {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) it.remove(Keys.PROFILE_NAME) else it[Keys.PROFILE_NAME] = trimmed
+    }
+
+    suspend fun setProfileAge(age: Int?) = edit {
+        if (age == null) it.remove(Keys.PROFILE_AGE) else it[Keys.PROFILE_AGE] = age
+    }
+
+    suspend fun setProfileDiabetesType(type: String?) = edit {
+        val trimmed = type?.trim().orEmpty()
+        if (trimmed.isEmpty()) it.remove(Keys.PROFILE_DIABETES_TYPE)
+        else it[Keys.PROFILE_DIABETES_TYPE] = trimmed
+    }
+
+    suspend fun setProfileHeightCm(heightCm: Float?) = edit {
+        if (heightCm == null) it.remove(Keys.PROFILE_HEIGHT_CM) else it[Keys.PROFILE_HEIGHT_CM] = heightCm
+    }
+
+    suspend fun setProfileWeightKg(weightKg: Float?) = edit {
+        if (weightKg == null) it.remove(Keys.PROFILE_WEIGHT_KG) else it[Keys.PROFILE_WEIGHT_KG] = weightKg
+    }
 
     suspend fun setTargetRange(low: Float, high: Float) = edit {
         it[Keys.TARGET_LOW] = low

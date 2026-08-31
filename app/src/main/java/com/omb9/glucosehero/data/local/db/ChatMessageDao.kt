@@ -15,6 +15,9 @@ interface ChatMessageDao {
     @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC, id ASC")
     suspend fun getAll(): List<ChatMessageEntity>
 
+    @Query("SELECT * FROM chat_messages WHERE id <= :maxId ORDER BY timestamp ASC, id ASC")
+    suspend fun getUpTo(maxId: Long): List<ChatMessageEntity>
+
     @Insert
     suspend fun insert(message: ChatMessageEntity): Long
 

@@ -1,44 +1,79 @@
 package com.omb9.glucosehero.ui.entrydetail
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bloodtype
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.omb9.glucosehero.ui.log.toLogEvent
+import com.omb9.glucosehero.domain.model.ActivityIntensity
+import com.omb9.glucosehero.domain.model.EntryType
+import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.util.Formatters
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
+
+private val editableCategoryTypes = listOf(
+    EntryType.GLUCOSE,
+    EntryType.INSULIN,
+    EntryType.MEAL,
+    EntryType.ACTIVITY,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,36 +82,23 @@ fun EntryDetailScreen(
     viewModel: EntryDetailViewModel = hiltViewModel(),
 ) {
     val entry by viewModel.entry.collectAsStateWithLifecycle()
+    val form by viewModel.form.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
 
-    var glucoseInput by rememberSaveable { mutableStateOf("") }
-    var noteInput by rememberSaveable { mutableStateOf("") }
-    var insulinBasalInput by rememberSaveable { mutableStateOf("") }
-    var insulinBolusInput by rememberSaveable { mutableStateOf("") }
-    var carbsInput by rememberSaveable { mutableStateOf("") }
-    var mealDescriptionInput by rememberSaveable { mutableStateOf("") }
-    var exerciseInput by rememberSaveable { mutableStateOf("") }
-    var seeded by rememberSaveable { mutableStateOf(false) }
-    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+    val entryTitle = editableCategoryTypes
+        .firstOrNull { it in form.activeCategories }
+        ?.detailTitle()
+        ?: EntryType.NOTE.detailTitle()
 
-    LaunchedEffect(entry, settings.unit) {
-        val e = entry
-        if (e != null && !seeded) {
-            glucoseInput = e.glucoseMgdl?.let { Formatters.glucose(it, settings.unit) } ?: ""
-            noteInput = e.note.orEmpty()
-            insulinBasalInput = e.insulinBasalUnits?.let { trimDouble(it) } ?: ""
-            insulinBolusInput = e.insulinBolusUnits?.let { trimDouble(it) } ?: ""
-            carbsInput = e.carbsGrams?.toString() ?: ""
-            mealDescriptionInput = e.mealDescription.orEmpty()
-            exerciseInput = e.exerciseMinutes?.toString() ?: ""
-            seeded = true
-        }
-    }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    var addCategoryExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Entry") },
+                title = { Text(entryTitle) },
                 navigationIcon = {
                     IconButton(onClick = onDone) {
                         Icon(
@@ -86,6 +108,17 @@ fun EntryDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = viewModel::onEditToggle) {
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = if (form.isEditing) "Done editing" else "Edit entry",
+                            tint = if (form.isEditing) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
                     IconButton(onClick = { showDeleteDialog = true }) {
                         Icon(Icons.Filled.Delete, contentDescription = "Delete entry")
                     }
@@ -93,8 +126,27 @@ fun EntryDetailScreen(
             )
         },
     ) { padding ->
-        val e = entry
-        if (e == null) {
+        if (form.loadFailed) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "This entry no longer exists",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "It may have been deleted.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        } else if (entry == null || !form.isSeeded) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -113,26 +165,68 @@ fun EntryDetailScreen(
             ) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Entry",
+                    entryTitle,
                     style = MaterialTheme.typography.headlineMedium,
                 )
-                Text(
-                    Formatters.dayHeader(Formatters.localDate(e.timestamp)) +
-                        " · " +
-                        Formatters.time(e.timestamp, settings.use24HourTime),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        Formatters.dayHeader(Formatters.localDate(form.timestamp)) +
+                            " · " +
+                            Formatters.time(form.timestamp, settings.use24HourTime),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { showDatePicker = true }) {
+                        Text("Change date & time")
+                    }
+                }
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(12.dp))
 
-                // A row only renders when its metric was originally present, so
-                // legacy single-metric events look unchanged while full multi-
-                // metric events show every editable slot at once.
-                if (e.glucoseMgdl != null) {
+                if (form.isEditing) {
+                    val available = editableCategoryTypes.filter { it !in form.activeCategories }
+                    if (available.isNotEmpty()) {
+                        Box {
+                            OutlinedButton(onClick = { addCategoryExpanded = true }) {
+                                Icon(Icons.Filled.Add, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Add category")
+                            }
+                            DropdownMenu(
+                                expanded = addCategoryExpanded,
+                                onDismissRequest = { addCategoryExpanded = false },
+                            ) {
+                                available.forEach { type ->
+                                    DropdownMenuItem(
+                                        text = { Text(type.detailTitle()) },
+                                        leadingIcon = {
+                                            Icon(type.icon(), contentDescription = null)
+                                        },
+                                        onClick = {
+                                            addCategoryExpanded = false
+                                            viewModel.onAddCategory(type)
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+                }
+
+                if (EntryType.GLUCOSE in form.activeCategories) {
+                    CategoryHeader(
+                        type = EntryType.GLUCOSE,
+                        isEditing = form.isEditing,
+                        onRemove = { viewModel.onRemoveCategory(EntryType.GLUCOSE) },
+                    )
                     OutlinedTextField(
-                        value = glucoseInput,
-                        onValueChange = { glucoseInput = it },
+                        value = form.glucose,
+                        onValueChange = viewModel::onGlucoseChange,
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("0", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         suffix = { Text(settings.unit.label) },
@@ -140,14 +234,54 @@ fun EntryDetailScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     )
                     Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(
+                            MealContext.FASTING to "Fasting",
+                            MealContext.BEFORE_MEAL to "Before",
+                            MealContext.AFTER_MEAL to "After",
+                            MealContext.BEDTIME to "Bedtime",
+                        ).forEach { (context, label) ->
+                            FilterChip(
+                                selected = form.mealContext == context,
+                                onClick = {
+                                    val next = if (form.mealContext == context) {
+                                        MealContext.NONE
+                                    } else {
+                                        context
+                                    }
+                                    viewModel.onMealContextChange(next)
+                                },
+                                label = { Text(label) },
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
                 }
 
-                if (e.insulinBasalUnits != null) {
+                if (EntryType.INSULIN in form.activeCategories) {
+                    CategoryHeader(
+                        type = EntryType.INSULIN,
+                        isEditing = form.isEditing,
+                        onRemove = { viewModel.onRemoveCategory(EntryType.INSULIN) },
+                    )
                     OutlinedTextField(
-                        value = insulinBasalInput,
-                        onValueChange = { insulinBasalInput = it },
+                        value = form.insulinBasal,
+                        onValueChange = viewModel::onInsulinBasalChange,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Basal (Long)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        label = { Text("Basal (Long)") },
+                        suffix = { Text("u") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = form.insulinBolus,
+                        onValueChange = viewModel::onInsulinBolusChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Bolus (Rapid)") },
                         suffix = { Text("u") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -155,60 +289,92 @@ fun EntryDetailScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
-                if (e.insulinBolusUnits != null) {
+                if (EntryType.MEAL in form.activeCategories) {
+                    CategoryHeader(
+                        type = EntryType.MEAL,
+                        isEditing = form.isEditing,
+                        onRemove = { viewModel.onRemoveCategory(EntryType.MEAL) },
+                    )
                     OutlinedTextField(
-                        value = insulinBolusInput,
-                        onValueChange = { insulinBolusInput = it },
+                        value = form.carbs,
+                        onValueChange = viewModel::onCarbsChange,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Bolus (Rapid)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                        suffix = { Text("u") },
+                        label = { Text("Carbs") },
+                        suffix = { Text("g") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     )
                     Spacer(Modifier.height(12.dp))
-                }
-
-                if (e.carbsGrams != null || e.mealDescription != null) {
-                    if (e.carbsGrams != null) {
+                    if (settings.showAdvancedMacros || form.protein.isNotBlank() || form.fat.isNotBlank()) {
                         OutlinedTextField(
-                            value = carbsInput,
-                            onValueChange = { carbsInput = it },
+                            value = form.protein,
+                            onValueChange = viewModel::onProteinChange,
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("0", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            label = { Text("Protein") },
+                            suffix = { Text("g") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = form.fat,
+                            onValueChange = viewModel::onFatChange,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Fat") },
                             suffix = { Text("g") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         )
                         Spacer(Modifier.height(12.dp))
                     }
-                    if (e.mealDescription != null) {
-                        OutlinedTextField(
-                            value = mealDescriptionInput,
-                            onValueChange = { mealDescriptionInput = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Meal", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                            singleLine = true,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                    }
+                    OutlinedTextField(
+                        value = form.mealDescription,
+                        onValueChange = viewModel::onMealDescriptionChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Meal") },
+                        singleLine = true,
+                    )
+                    Spacer(Modifier.height(12.dp))
                 }
 
-                if (e.exerciseMinutes != null) {
+                if (EntryType.ACTIVITY in form.activeCategories) {
+                    CategoryHeader(
+                        type = EntryType.ACTIVITY,
+                        isEditing = form.isEditing,
+                        onRemove = { viewModel.onRemoveCategory(EntryType.ACTIVITY) },
+                    )
                     OutlinedTextField(
-                        value = exerciseInput,
-                        onValueChange = { exerciseInput = it },
+                        value = form.exerciseMinutes,
+                        onValueChange = viewModel::onExerciseMinutesChange,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("0", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        label = { Text("Minutes") },
                         suffix = { Text("min") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     )
                     Spacer(Modifier.height(12.dp))
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        ActivityIntensity.entries.forEachIndexed { index, level ->
+                            SegmentedButton(
+                                selected = form.exerciseIntensity == level,
+                                onClick = { viewModel.onExerciseIntensityChange(level) },
+                                shape = SegmentedButtonDefaults.itemShape(
+                                    index = index,
+                                    count = ActivityIntensity.entries.size,
+                                ),
+                            ) {
+                                Text(
+                                    level.name.lowercase().replaceFirstChar { it.uppercase() }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
                 }
 
                 OutlinedTextField(
-                    value = noteInput,
-                    onValueChange = { noteInput = it },
+                    value = form.note,
+                    onValueChange = viewModel::onNoteChange,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Note") },
                     minLines = 3,
@@ -216,37 +382,10 @@ fun EntryDetailScreen(
 
                 Spacer(Modifier.height(20.dp))
 
-                // Seed a DraftEventState from the loaded event so `toLogEvent`
-                // is the single validator here too — no second validator copy.
-                val canSave = run {
-                    val draft = viewModel.toDetailDraft(
-                        e = e,
-                        glucoseInput = glucoseInput,
-                        insulinBasalInput = insulinBasalInput,
-                        insulinBolusInput = insulinBolusInput,
-                        carbsInput = carbsInput,
-                        mealDescriptionInput = mealDescriptionInput,
-                        exerciseInput = exerciseInput,
-                        noteInput = noteInput,
-                    )
-                    draft.toLogEvent(settings, e.timestamp) != null
-                }
-
                 Button(
-                    onClick = {
-                        viewModel.save(
-                            glucoseInput = glucoseInput,
-                            insulinBasalInput = insulinBasalInput,
-                            insulinBolusInput = insulinBolusInput,
-                            carbsInput = carbsInput,
-                            mealDescriptionInput = mealDescriptionInput,
-                            exerciseInput = exerciseInput,
-                            noteInput = noteInput,
-                            onDone = onDone,
-                        )
-                    },
+                    onClick = { viewModel.save(onDone) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = canSave,
+                    enabled = viewModel.buildUpdatedEvent() != null,
                 ) {
                     Text("Save changes")
                 }
@@ -277,7 +416,151 @@ fun EntryDetailScreen(
             },
         )
     }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = form.timestamp.toUtcDateMillis(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { selectedDateMillis ->
+                            val selectedDate = Instant.ofEpochMilli(selectedDateMillis)
+                                .atZone(ZoneOffset.UTC)
+                                .toLocalDate()
+                            val currentTime = Instant.ofEpochMilli(form.timestamp)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalTime()
+                            viewModel.onTimestampChange(
+                                selectedDate
+                                    .atTime(currentTime)
+                                    .atZone(ZoneId.systemDefault())
+                                    .toInstant()
+                                    .toEpochMilli()
+                            )
+                            showTimePicker = true
+                        }
+                        showDatePicker = false
+                    },
+                ) {
+                    Text("Next")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel")
+                }
+            },
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showTimePicker) {
+        val zoned = Instant.ofEpochMilli(form.timestamp).atZone(ZoneId.systemDefault())
+        val timePickerState = rememberTimePickerState(
+            initialHour = zoned.hour,
+            initialMinute = zoned.minute,
+            is24Hour = settings.use24HourTime,
+        )
+        TimePickerDialog(
+            onDismiss = { showTimePicker = false },
+            onConfirm = {
+                val date = Instant.ofEpochMilli(form.timestamp)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+                viewModel.onTimestampChange(
+                    date
+                        .atTime(timePickerState.hour, timePickerState.minute)
+                        .atZone(ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli()
+                )
+                showTimePicker = false
+            },
+        ) {
+            TimePicker(state = timePickerState)
+        }
+    }
 }
 
-private fun trimDouble(value: Double): String =
-    if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+@Composable
+private fun CategoryHeader(
+    type: EntryType,
+    isEditing: Boolean,
+    onRemove: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            type.icon(),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            type.detailTitle(),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+        )
+        if (isEditing) {
+            IconButton(onClick = onRemove) {
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = "Remove ${type.detailTitle()}",
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimePickerDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select time") },
+        text = { content() },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("OK") }
+        },
+    )
+}
+
+private fun Long.toUtcDateMillis(): Long {
+    val localDate = Instant.ofEpochMilli(this)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+    return localDate
+        .atStartOfDay(ZoneOffset.UTC)
+        .toInstant()
+        .toEpochMilli()
+}
+
+private fun EntryType.icon(): ImageVector = when (this) {
+    EntryType.GLUCOSE -> Icons.Filled.Bloodtype
+    EntryType.INSULIN -> Icons.Filled.Vaccines
+    EntryType.MEAL -> Icons.Filled.Restaurant
+    EntryType.ACTIVITY -> Icons.AutoMirrored.Filled.DirectionsRun
+    EntryType.NOTE -> Icons.AutoMirrored.Filled.Notes
+}
+
+private fun EntryType.detailTitle(): String = when (this) {
+    EntryType.GLUCOSE -> "Blood Glucose"
+    EntryType.INSULIN -> "Insulin"
+    EntryType.MEAL -> "Meal"
+    EntryType.ACTIVITY -> "Exercise"
+    EntryType.NOTE -> "Note"
+}

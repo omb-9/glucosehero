@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -43,6 +44,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.R
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.conflate
 import com.omb9.glucosehero.domain.model.ChatRole
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,19 +55,27 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val streaming by viewModel.streamingText.collectAsStateWithLifecycle()
     var input by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
-
-    val itemCount = state.messages.size + (if (state.streamingText != null) 1 else 0)
 
     LaunchedEffect(Unit) {
         viewModel.openLogRequests.collect { onOpenLog() }
     }
 
     // Keep the newest token in view: follow both new messages and the
-    // growing streamed text.
-    LaunchedEffect(itemCount, state.streamingText?.length) {
-        if (itemCount > 0) listState.animateScrollToItem(itemCount - 1)
+    // growing streamed text. snapshotFlow only observes reads made inside the
+    // block, then conflate drops stale scrolls and collectLatest cancels an
+    // in-flight scroll when a newer one arrives.
+    LaunchedEffect(Unit) {
+        snapshotFlow {
+            val itemCount = state.messages.size + (if (streaming != null) 1 else 0)
+            itemCount to streaming?.length
+        }
+            .conflate()
+            .collectLatest { (itemCount, _) ->
+                if (itemCount > 0) listState.scrollToItem(itemCount - 1)
+            }
     }
 
     Scaffold(
@@ -100,7 +111,7 @@ fun ChatScreen(
                 )
             }
 
-            if (state.messages.isEmpty() && state.streamingText == null) {
+            if (state.messages.isEmpty() && streaming == null) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -131,11 +142,11 @@ fun ChatScreen(
                             isUser = turn.role == ChatRole.USER,
                         )
                     }
-                    val streaming = state.streamingText
-                    if (streaming != null) {
+                    val streamingText = streaming
+                    if (streamingText != null) {
                         item(key = "streaming") {
                             MessageBubble(
-                                text = streaming.ifEmpty { "…" },
+                                text = streamingText.ifEmpty { "…" },
                                 isUser = false,
                             )
                         }
@@ -163,12 +174,12 @@ fun ChatScreen(
                         viewModel.send(input)
                         input = ""
                     },
-                    enabled = input.isNotBlank() && state.streamingText == null,
+                    enabled = input.isNotBlank() && streaming == null,
                 ) {
                     Icon(
                         Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Send",
-                        tint = if (input.isNotBlank() && state.streamingText == null) {
+                        tint = if (input.isNotBlank() && streaming == null) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant

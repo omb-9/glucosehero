@@ -4,6 +4,7 @@ import com.omb9.glucosehero.data.remote.dto.ApiChatMessage
 import com.omb9.glucosehero.data.remote.dto.ApiTool
 import com.omb9.glucosehero.data.remote.dto.ChatCompletionChunk
 import com.omb9.glucosehero.data.remote.dto.ChatCompletionRequest
+import com.omb9.glucosehero.domain.model.ProviderHttpException
 import com.omb9.glucosehero.domain.model.ResolvedAiConfig
 import com.omb9.glucosehero.domain.model.StreamEvent
 import com.omb9.glucosehero.util.AppJson
@@ -15,6 +16,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -66,12 +68,22 @@ class SseChatClient @Inject constructor(
 
         fun finish() {
             if (!finished.compareAndSet(false, true)) return
-            toolCalls.values.forEach { call ->
-                val name = call.name?.takeIf { it.isNotBlank() } ?: return@forEach
-                trySend(StreamEvent.FunctionCall(name, call.arguments.toString()))
+            launch {
+                toolCalls.values.forEach { call ->
+                    val name = call.name?.takeIf { it.isNotBlank() } ?: return@forEach
+                    send(StreamEvent.FunctionCall(name, call.arguments.toString()))
+                }
+                send(StreamEvent.Done(accumulated.toString()))
+                close()
             }
-            trySend(StreamEvent.Done(accumulated.toString()))
-            close()
+        }
+
+        fun fail(error: Throwable) {
+            if (!finished.compareAndSet(false, true)) return
+            launch {
+                send(StreamEvent.Failure(error))
+                close()
+            }
         }
 
         val listener = object : EventSourceListener() {
@@ -128,7 +140,7 @@ class SseChatClient @Inject constructor(
                         val bodyExcerpt = runCatching {
                             response.body?.string()?.take(200)
                         }.getOrNull()?.takeIf { it.isNotBlank() }
-                        IOException(
+                        ProviderHttpException(
                             "HTTP ${response.code}" +
                                 (bodyExcerpt?.let { ": $it" } ?: "")
                         )
@@ -136,8 +148,7 @@ class SseChatClient @Inject constructor(
                     t != null -> t
                     else -> IOException("SSE stream failed")
                 }
-                trySend(StreamEvent.Failure(error))
-                close()
+                fail(error)
             }
         }
 

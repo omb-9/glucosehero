@@ -1,7 +1,13 @@
 package com.omb9.glucosehero.ui.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -42,6 +49,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -49,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiProvider
 import com.omb9.glucosehero.domain.model.GlucoseUnit
+import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.util.Formatters
 
@@ -57,6 +67,13 @@ import com.omb9.glucosehero.util.Formatters
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val aiConfig by viewModel.aiConfig.collectAsStateWithLifecycle()
+    val profile by viewModel.profile.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) viewModel.setPostMealRemindersEnabled(true)
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Settings") }) },
@@ -68,6 +85,132 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
+            // ============ Profile & Persona ============
+            SectionHeader("Profile & Persona")
+
+            var targetExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = targetExpanded,
+                onExpandedChange = { targetExpanded = it },
+            ) {
+                OutlinedTextField(
+                    value = profile.profileTarget.displayName,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Who are you logging for?") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = targetExpanded)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                )
+                ExposedDropdownMenu(
+                    expanded = targetExpanded,
+                    onDismissRequest = { targetExpanded = false },
+                ) {
+                    ProfileTarget.entries.forEach { target ->
+                        DropdownMenuItem(
+                            text = { Text(target.displayName) },
+                            onClick = {
+                                viewModel.setProfileTarget(target)
+                                targetExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            var nameText by remember(profile.name) { mutableStateOf(profile.name) }
+            OutlinedTextField(
+                value = nameText,
+                onValueChange = {
+                    nameText = it
+                    viewModel.setProfileName(it)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Name / Nickname") },
+                singleLine = true,
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            var ageText by remember(profile.age) { mutableStateOf(profile.age?.toString() ?: "") }
+            OutlinedTextField(
+                value = ageText,
+                onValueChange = {
+                    ageText = it
+                    viewModel.setProfileAge(it.toIntOrNull())
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Age") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            var diabetesTypeText by remember(profile.diabetesType) {
+                mutableStateOf(profile.diabetesType.orEmpty())
+            }
+            OutlinedTextField(
+                value = diabetesTypeText,
+                onValueChange = {
+                    diabetesTypeText = it
+                    viewModel.setProfileDiabetesType(it)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Diabetes Type") },
+                singleLine = true,
+                supportingText = {
+                    Text("e.g. Type 1, Type 2, Gestational, LADA, Prediabetes")
+                },
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            var heightText by remember(profile.heightCm) {
+                mutableStateOf(
+                    profile.heightCm?.let {
+                        if (it % 1.0f == 0.0f) it.toInt().toString() else it.toString()
+                    } ?: "",
+                )
+            }
+            OutlinedTextField(
+                value = heightText,
+                onValueChange = {
+                    heightText = it
+                    viewModel.setProfileHeightCm(it)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Height (cm)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            var weightText by remember(profile.weightKg) {
+                mutableStateOf(
+                    profile.weightKg?.let {
+                        if (it % 1.0f == 0.0f) it.toInt().toString() else it.toString()
+                    } ?: "",
+                )
+            }
+            OutlinedTextField(
+                value = weightText,
+                onValueChange = {
+                    weightText = it
+                    viewModel.setProfileWeightKg(it)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Weight (kg)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            )
+
             // ============ Appearance ============
             SectionHeader("Appearance")
 
@@ -170,6 +313,53 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 Switch(
                     checked = settings.use24HourTime,
                     onCheckedChange = viewModel::setUse24HourTime,
+                )
+            }
+
+            // ============ Meal Logging ============
+            SectionHeader("Meal Logging")
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Enable Post-Meal Reminders (+2h)",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Switch(
+                    checked = settings.postMealRemindersEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.POST_NOTIFICATIONS,
+                            ) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            notificationPermissionLauncher.launch(
+                                Manifest.permission.POST_NOTIFICATIONS,
+                            )
+                        } else {
+                            viewModel.setPostMealRemindersEnabled(enabled)
+                        }
+                    },
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Show Advanced Macros (Protein & Fat)",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Switch(
+                    checked = settings.showAdvancedMacros,
+                    onCheckedChange = viewModel::setShowAdvancedMacros,
                 )
             }
 

@@ -5,18 +5,21 @@ import androidx.room.RoomDatabase
 import com.omb9.glucosehero.data.local.entity.ChatMessageEntity
 import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
+import com.omb9.glucosehero.data.local.entity.SupplyEntity
 
 @Database(
     entities = [
         EntryEntity::class,
         ChatMessageEntity::class,
         PendingAiQueryEntity::class,
+        SupplyEntity::class,
     ],
-    version = 3,
+    version = 5,
     exportSchema = true,
 )
 abstract class GlucoseHeroDatabase : RoomDatabase() {
     abstract fun entryDao(): EntryDao
     abstract fun chatMessageDao(): ChatMessageDao
     abstract fun pendingAiQueryDao(): PendingAiQueryDao
+    abstract fun supplyDao(): SupplyDao
 }

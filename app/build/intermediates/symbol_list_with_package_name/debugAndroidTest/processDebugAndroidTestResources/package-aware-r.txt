@@ -1,3 +1,0 @@
-com.omb9.glucosehero.test
-style WhiteBackgroundDialogTheme
-style WhiteBackgroundTheme

@@ -3,27 +3,65 @@ package com.omb9.glucosehero.ui.stats
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.omb9.glucosehero.data.export.ExportManager
 import com.omb9.glucosehero.domain.model.Ea1cConfidence
+import com.omb9.glucosehero.domain.model.ExportFormat
+import com.omb9.glucosehero.domain.model.ExportedFile
 import com.omb9.glucosehero.domain.model.GlucoseUnit
+import com.omb9.glucosehero.domain.model.Supply
+import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.TimeRange
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
+import com.omb9.glucosehero.domain.repository.SupplyRepository
 import com.omb9.glucosehero.util.Formatters
+import com.omb9.glucosehero.util.SupplyCalculator
 import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
 import com.patrykandpatrick.vico.core.entry.entryOf
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
+import kotlin.math.abs
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+
+enum class TrendDirection { UP, DOWN, FLAT, UNKNOWN }
+
+private data class MetricDelta(
+    val direction: TrendDirection,
+    val text: String,
+)
+
+@Immutable
+data class ActiveSupplyUi(
+    val id: Long,
+    val type: SupplyType,
+    val startedAt: Long,
+    val daysRemaining: Double,
+    val hoursRemaining: Double,
+    val progressPercentage: Float,
+    val isExpired: Boolean,
+)
 
 @Immutable
 data class StatsUiState(
@@ -32,6 +70,10 @@ data class StatsUiState(
     val hasData: Boolean = false,
     val avgDisplay: String = "–",
     val tirDisplay: String = "–",
+    val avgTrend: TrendDirection = TrendDirection.UNKNOWN,
+    val avgDeltaDisplay: String? = null,
+    val tirTrend: TrendDirection = TrendDirection.UNKNOWN,
+    val tirDeltaDisplay: String? = null,
     val readingCount: Int = 0,
     /** Estimated A1c value (percentage only; the UI appends "%"). */
     val ea1cValue: String = "–",
@@ -48,6 +90,12 @@ data class StatsUiState(
     val chartMaxY: Float = 260f,
 )
 
+/** One-shot events consumed by the Stats screen to launch the share sheet. */
+sealed interface ExportEvent {
+    data class Ready(val file: ExportedFile) : ExportEvent
+    data class Failed(val message: String) : ExportEvent
+}
+
 /**
  * Spec §4: every heavy step — folding rows into Vico chart entries, averages,
  * TIR, min/max, shading bounds — runs inside the ViewModel on
@@ -58,15 +106,48 @@ data class StatsUiState(
 class StatsViewModel @Inject constructor(
     private val entryRepository: EntryRepository,
     settingsRepository: SettingsRepository,
+    private val supplyRepository: SupplyRepository,
+    private val exportManager: ExportManager,
 ) : ViewModel() {
 
     /** Owned by the ViewModel so chart data survives recomposition. */
     val chartModelProducer = ChartEntryModelProducer()
 
+    /** Continuous daily-logging streak, emitted reactively from Room. */
+    val currentStreakDays: StateFlow<Int> = entryRepository.observeCurrentStreak()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** Active supply cards, with lifecycle math evaluated on each emission and
+     * a 60-second ticker so remaining counts advance without a DB emission. */
+    val activeSupplies: StateFlow<ImmutableList<ActiveSupplyUi>> = combine(
+        supplyRepository.observeActiveSupplies(),
+        flow {
+            while (true) {
+                emit(Unit)
+                delay(60_000L)
+            }
+        },
+    ) { supplies, _ -> supplies.map { it.toUiModel() }.toImmutableList() }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            persistentListOf(),
+        )
+
     private val selectedRange = MutableStateFlow(TimeRange.DAYS_14)
 
     private val _uiState = MutableStateFlow(StatsUiState())
     val uiState: StateFlow<StatsUiState> = _uiState.asStateFlow()
+
+    private val _isExporting = MutableStateFlow(false)
+    val isExporting: StateFlow<Boolean> = _isExporting.asStateFlow()
+
+    private val _exportEvents = MutableSharedFlow<ExportEvent>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val exportEvents: SharedFlow<ExportEvent> = _exportEvents.asSharedFlow()
 
     init {
         viewModelScope.launch {
@@ -103,6 +184,24 @@ class StatsViewModel @Inject constructor(
                             settings.targetHighMgdl.toDouble(),
                         )
 
+                        // Sequential comparison window: the same length as the
+                        // selected range, ending exactly where the current
+                        // window begins (e.g. days 15–28 for the 14-day view).
+                        val previousStartMillis =
+                            sinceMillis - range.days * SupplyCalculator.MILLIS_PER_DAY
+                        val previousAvg = entryRepository.averageGlucoseBetween(
+                            previousStartMillis,
+                            sinceMillis,
+                        )
+                        val previousTir = entryRepository.timeInRangeBetween(
+                            previousStartMillis,
+                            sinceMillis,
+                            settings.targetLowMgdl.toDouble(),
+                            settings.targetHighMgdl.toDouble(),
+                        )
+                        val avgDelta = glucoseDelta(avg, previousAvg, unit)
+                        val tirDelta = tirDelta(tir, previousTir)
+
                         val lowDisplay =
                             Formatters.toDisplayValue(settings.targetLowMgdl.toDouble(), unit)
                                 .toFloat()
@@ -124,24 +223,30 @@ class StatsViewModel @Inject constructor(
                         val rawMaxY = maxOf(dataMax ?: highDisplay, highDisplay) + padding
                         val safeMaxY = if (rawMaxY > rawMinY) rawMaxY else rawMinY + 1f
 
-                        _uiState.value = StatsUiState(
-                            range = range,
-                            unit = unit,
-                            hasData = points.isNotEmpty(),
-                            avgDisplay = avg?.let { Formatters.glucose(it, unit) } ?: "–",
-                            tirDisplay = tir?.let { "%.0f%%".format(it * 100) } ?: "–",
-                            readingCount = values.size,
-                            minMaxDisplay = if (dataMin != null && dataMax != null) {
-                                "${trim(dataMin)} / ${trim(dataMax)}"
-                            } else {
-                                "–"
-                            },
-                            rangeStartMillis = sinceMillis,
-                            targetLowDisplay = lowDisplay,
-                            targetHighDisplay = highDisplay,
-                            chartMinY = rawMinY,
-                            chartMaxY = safeMaxY,
-                        )
+                        _uiState.update { current ->
+                            current.copy(
+                                range = range,
+                                unit = unit,
+                                hasData = points.isNotEmpty(),
+                                avgDisplay = avg?.let { Formatters.glucose(it, unit) } ?: "–",
+                                tirDisplay = tir?.let { "%.0f%%".format(it * 100) } ?: "–",
+                                avgTrend = avgDelta?.direction ?: TrendDirection.UNKNOWN,
+                                avgDeltaDisplay = avgDelta?.text,
+                                tirTrend = tirDelta?.direction ?: TrendDirection.UNKNOWN,
+                                tirDeltaDisplay = tirDelta?.text,
+                                readingCount = values.size,
+                                minMaxDisplay = if (dataMin != null && dataMax != null) {
+                                    "${trim(dataMin)} / ${trim(dataMax)}"
+                                } else {
+                                    "–"
+                                },
+                                rangeStartMillis = sinceMillis,
+                                targetLowDisplay = lowDisplay,
+                                targetHighDisplay = highDisplay,
+                                chartMinY = rawMinY,
+                                chartMaxY = safeMaxY,
+                            )
+                        }
                     }
                 }
         }
@@ -180,6 +285,82 @@ class StatsViewModel @Inject constructor(
 
     fun selectRange(range: TimeRange) {
         selectedRange.value = range
+    }
+
+    fun logSupply(type: SupplyType, expectedLifespanDays: Int) {
+        viewModelScope.launch {
+            supplyRepository.addSupply(
+                type = type,
+                startedAt = System.currentTimeMillis(),
+                expectedLifespanDays = expectedLifespanDays,
+            )
+        }
+    }
+
+    fun export(format: ExportFormat) {
+        if (_isExporting.value) return
+        viewModelScope.launch {
+            _isExporting.value = true
+            try {
+                val file = exportManager.generate(format)
+                _isExporting.value = false
+                _exportEvents.tryEmit(ExportEvent.Ready(file))
+            } catch (e: Exception) {
+                _isExporting.value = false
+                _exportEvents.tryEmit(
+                    ExportEvent.Failed(e.message ?: "Couldn't generate the export"),
+                )
+            } finally {
+                _isExporting.value = false
+            }
+        }
+    }
+
+    private fun glucoseDelta(
+        currentMgdl: Double?,
+        previousMgdl: Double?,
+        unit: GlucoseUnit,
+    ): MetricDelta? {
+        if (currentMgdl == null || previousMgdl == null) return null
+        val current = Formatters.toDisplayValue(currentMgdl, unit)
+        val previous = Formatters.toDisplayValue(previousMgdl, unit)
+        val delta = current - previous
+        val magnitude = abs(delta)
+        return MetricDelta(
+            direction = directionFor(delta),
+            text = when (unit) {
+                GlucoseUnit.MGDL -> "%.0f".format(magnitude)
+                GlucoseUnit.MMOL -> "%.1f".format(magnitude)
+            } + " " + unit.label,
+        )
+    }
+
+    private fun tirDelta(currentTir: Double?, previousTir: Double?): MetricDelta? {
+        if (currentTir == null || previousTir == null) return null
+        val deltaPoints = (currentTir - previousTir) * 100.0
+        return MetricDelta(
+            direction = directionFor(deltaPoints),
+            text = "%.0f%%".format(abs(deltaPoints)),
+        )
+    }
+
+    private fun directionFor(delta: Double): TrendDirection = when {
+        delta > 0.0005 -> TrendDirection.UP
+        delta < -0.0005 -> TrendDirection.DOWN
+        else -> TrendDirection.FLAT
+    }
+
+    private fun Supply.toUiModel(): ActiveSupplyUi {
+        val status = SupplyCalculator.status(this, Instant.now())
+        return ActiveSupplyUi(
+            id = id,
+            type = type,
+            startedAt = startedAt,
+            daysRemaining = status.daysRemaining,
+            hoursRemaining = status.hoursRemaining,
+            progressPercentage = status.progressPercentage,
+            isExpired = status.isExpired,
+        )
     }
 
     /**

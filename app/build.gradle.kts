@@ -117,6 +117,13 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.kotlinx.coroutines.play.services)
+
+    // Coil (image loading)
+    implementation(libs.coil.compose)
+
+    // ML Kit (barcode scanning)
+    implementation(libs.mlkit.barcode.scanning)
 
     // Charts
     implementation(libs.vico.compose.m3)
@@ -124,6 +131,12 @@ dependencies {
 
     // Background work
     implementation(libs.androidx.work.runtime)
+
+    // Glance app widgets
+    implementation(libs.glance.appwidget)
+
+    // Play Billing
+    implementation(libs.billing.ktx)
 
     // Testing
     testImplementation(libs.junit)

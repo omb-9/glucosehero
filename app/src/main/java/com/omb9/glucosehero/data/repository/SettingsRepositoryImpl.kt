@@ -7,8 +7,10 @@ import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
 import com.omb9.glucosehero.domain.model.ApiKeyMissingException
 import com.omb9.glucosehero.domain.model.GlucoseUnit
+import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ResolvedAiConfig
 import com.omb9.glucosehero.domain.model.ThemeMode
+import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -24,12 +26,35 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override val settings: Flow<UserSettings> = dataStore.settings
     override val aiConfig: Flow<AiConfig> = dataStore.aiConfig
+    override val profile: Flow<UserProfile> = dataStore.profile
+
+    override suspend fun profileSnapshot(): UserProfile = dataStore.profileSnapshot()
 
     override suspend fun setThemeMode(mode: ThemeMode) = dataStore.setThemeMode(mode)
     override suspend fun setAccent(accent: AccentColor) = dataStore.setAccent(accent)
     override suspend fun setUnit(unit: GlucoseUnit) = dataStore.setUnit(unit)
     override suspend fun setUse24HourTime(enabled: Boolean) = dataStore.setUse24HourTime(enabled)
     override suspend fun setIsHeroAiEnabled(enabled: Boolean) = dataStore.setIsHeroAiEnabled(enabled)
+    override suspend fun setShowAdvancedMacros(enabled: Boolean) = dataStore.setShowAdvancedMacros(enabled)
+    override suspend fun setPostMealRemindersEnabled(enabled: Boolean) =
+        dataStore.setPostMealRemindersEnabled(enabled)
+
+    override suspend fun setProfileTarget(target: ProfileTarget) =
+        dataStore.setProfileTarget(target)
+
+    override suspend fun setProfileName(name: String) = dataStore.setProfileName(name)
+
+    override suspend fun setProfileAge(age: Int?) = dataStore.setProfileAge(age)
+
+    override suspend fun setProfileDiabetesType(type: String?) =
+        dataStore.setProfileDiabetesType(type)
+
+    override suspend fun setProfileHeightCm(heightCm: Float?) =
+        dataStore.setProfileHeightCm(heightCm)
+
+    override suspend fun setProfileWeightKg(weightKg: Float?) =
+        dataStore.setProfileWeightKg(weightKg)
+
     override suspend fun setTargetRange(lowMgdl: Float, highMgdl: Float) =
         dataStore.setTargetRange(lowMgdl, highMgdl)
 

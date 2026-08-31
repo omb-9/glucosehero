@@ -10,6 +10,11 @@ import com.omb9.glucosehero.domain.model.DailyGlucoseSummary
 import com.omb9.glucosehero.domain.model.GlucoseStats
 import kotlinx.coroutines.flow.Flow
 
+/** Single-column projection for distinct local calendar days with a logged entry. */
+data class LoggedDayRow(
+    val day: String,
+)
+
 @Dao
 interface EntryDao {
 
@@ -77,6 +82,54 @@ interface EntryDao {
     )
     fun observeGlucoseStatsSince(since: Long): Flow<GlucoseStats>
 
+    /**
+     * Distinct local calendar days (yyyy-MM-dd) that have at least one
+     * streak-qualifying entry: glucose, insulin, or meal. Notes and exercise
+     * alone do not count toward a logging streak.
+     */
+    @Query(
+        """
+        SELECT DISTINCT strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch', 'localtime') AS day
+        FROM entries
+        WHERE (
+                   glucose_mgdl IS NOT NULL
+                OR insulin_basal_units IS NOT NULL
+                OR insulin_bolus_units IS NOT NULL
+                OR carbs_grams IS NOT NULL
+                OR protein_grams IS NOT NULL
+                OR fat_grams IS NOT NULL
+                OR (meal_description IS NOT NULL AND meal_description != '')
+              )
+              AND timestamp >= :since
+        ORDER BY day DESC
+        """
+    )
+    fun observeLoggedDays(since: Long): Flow<List<LoggedDayRow>>
+
+    /**
+     * One-shot snapshot of the same streak-qualifying distinct days, bound by
+     * [since] so the save path never triggers a full-table scan.
+     */
+    @Query(
+        """
+        SELECT DISTINCT strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch', 'localtime') AS day
+        FROM entries
+        WHERE (
+                   glucose_mgdl IS NOT NULL
+                OR insulin_basal_units IS NOT NULL
+                OR insulin_bolus_units IS NOT NULL
+                OR carbs_grams IS NOT NULL
+                OR protein_grams IS NOT NULL
+                OR fat_grams IS NOT NULL
+                OR (meal_description IS NOT NULL AND meal_description != '')
+              )
+              AND timestamp >= :since
+        ORDER BY day DESC
+        """
+    )
+    suspend fun loggedDaysSince(since: Long): List<LoggedDayRow>
+
+
     @Query(
         """
         SELECT CAST(SUM(CASE WHEN glucose_mgdl BETWEEN :low AND :high THEN 1 ELSE 0 END) AS REAL)
@@ -86,6 +139,29 @@ interface EntryDao {
         """
     )
     suspend fun timeInRangeSince(since: Long, low: Double, high: Double): Double?
+
+    @Query(
+        """
+        SELECT AVG(glucose_mgdl) FROM entries
+        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :startMillis AND timestamp < :endMillis
+        """
+    )
+    suspend fun averageGlucoseBetween(startMillis: Long, endMillis: Long): Double?
+
+    @Query(
+        """
+        SELECT CAST(SUM(CASE WHEN glucose_mgdl BETWEEN :low AND :high THEN 1 ELSE 0 END) AS REAL)
+               / COUNT(*)
+        FROM entries
+        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :startMillis AND timestamp < :endMillis
+        """
+    )
+    suspend fun timeInRangeBetween(
+        startMillis: Long,
+        endMillis: Long,
+        low: Double,
+        high: Double,
+    ): Double?
 
     /**
      * Daily averages computed entirely inside SQLite: native GROUP BY day,
@@ -110,4 +186,12 @@ interface EntryDao {
 
     @Query("SELECT * FROM entries ORDER BY timestamp DESC LIMIT :limit")
     suspend fun recentEntries(limit: Int): List<EntryEntity>
+
+    /** One-shot snapshot of everything since [since], oldest first (exports). */
+    @Query("SELECT * FROM entries WHERE timestamp >= :since ORDER BY timestamp ASC")
+    suspend fun entriesSince(since: Long): List<EntryEntity>
+
+    /** The single newest entry that carries a glucose reading (home-screen widget). */
+    @Query("SELECT * FROM entries WHERE glucose_mgdl IS NOT NULL ORDER BY timestamp DESC LIMIT 1")
+    suspend fun latestGlucoseEntry(): EntryEntity?
 }

@@ -12,15 +12,21 @@ import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
+import com.omb9.glucosehero.ui.glance.WidgetRefresher
 import com.omb9.glucosehero.util.Formatters
+import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
@@ -62,11 +68,19 @@ data class LogUiState(
     val unit: GlucoseUnit = GlucoseUnit.MGDL,
 )
 
+/** One-shot reward payload surfaced to the Add Entry sheet after a streak-extending save. */
+data class StreakReward(
+    val previousStreak: Int,
+    val currentStreak: Int,
+)
+
 @HiltViewModel
 class LogViewModel @Inject constructor(
     private val entryRepository: EntryRepository,
     settingsRepository: SettingsRepository,
     private val heroAiPrefillCoordinator: HeroAiPrefillCoordinator,
+    private val reminderScheduler: ReminderScheduler,
+    private val widgetRefresher: WidgetRefresher,
 ) : ViewModel() {
 
     val settings: StateFlow<UserSettings> = settingsRepository.settings
@@ -77,6 +91,14 @@ class LogViewModel @Inject constructor(
 
     /** Pending Hero AI prefill waiting for the Log screen to consume it. */
     val pendingHeroAiPrefill: StateFlow<HeroAiPrefill?> = heroAiPrefillCoordinator.pendingPrefill
+
+    private val _streakReward = MutableStateFlow<StreakReward?>(null)
+    /** Set once after a save that extends the streak; consumed by the UI. */
+    val streakReward: StateFlow<StreakReward?> = _streakReward.asStateFlow()
+
+    private val _saveErrors = MutableSharedFlow<Throwable>(extraBufferCapacity = 1)
+    /** One-shot save failures surfaced to the UI. */
+    val saveErrors: SharedFlow<Throwable> = _saveErrors.asSharedFlow()
 
     val uiState: StateFlow<LogUiState> =
         combine(
@@ -103,12 +125,24 @@ class LogViewModel @Inject constructor(
     fun onInsulinBasalChange(value: String) { _draft.update { it.copy(insulinBasal = value) } }
     fun onInsulinBolusChange(value: String) { _draft.update { it.copy(insulinBolus = value) } }
     fun onCarbsChange(value: String) { _draft.update { it.copy(carbsGrams = value) } }
+    fun onProteinChange(value: String) { _draft.update { it.copy(proteinGrams = value) } }
+    fun onFatChange(value: String) { _draft.update { it.copy(fatGrams = value) } }
     fun onMealDescriptionChange(value: String) { _draft.update { it.copy(mealDescription = value) } }
     fun onExerciseMinutesChange(value: String) { _draft.update { it.copy(exerciseMinutes = value) } }
     fun onExerciseIntensityChange(value: ActivityIntensity) {
         _draft.update { it.copy(exerciseIntensity = value) }
     }
     fun onNoteChange(value: String) { _draft.update { it.copy(note = value) } }
+
+    fun onPostMealReminderChange(enabled: Boolean) {
+        _draft.update { it.copy(postMealReminderEnabled = enabled) }
+    }
+
+    /** Starts a fresh draft with the user's saved reminder default applied. */
+    fun openNewDraft(postMealReminderEnabled: Boolean) {
+        _streakReward.value = null
+        _draft.value = DraftEventState(postMealReminderEnabled = postMealReminderEnabled)
+    }
 
     /** Applies a Hero AI `prefill_log_draft` payload to the draft state. */
     fun applyHeroAiPrefill(prefill: HeroAiPrefill) {
@@ -128,6 +162,7 @@ class LogViewModel @Inject constructor(
             carbsGrams = prefill.carbsGrams?.toString() ?: "",
             mealDescription = prefill.mealDescription ?: "",
             exerciseMinutes = prefill.exerciseMinutes?.toString() ?: "",
+            postMealReminderEnabled = settings.value.postMealRemindersEnabled,
         )
     }
 
@@ -143,15 +178,49 @@ class LogViewModel @Inject constructor(
             _draft.update { it.copy(isSaving = false) }
             return
         }
+        val reminderEnabled = _draft.value.postMealReminderEnabled
         viewModelScope.launch {
-            entryRepository.add(event)
-            _draft.value = DraftEventState()
-            onSaved()
+            var saved = false
+            try {
+                val before = entryRepository.currentStreak()
+                entryRepository.add(event)
+                val after = entryRepository.currentStreak()
+
+                when {
+                    event.glucoseMgdl != null -> reminderScheduler.cancelPostMealCheck()
+                    reminderEnabled -> reminderScheduler.schedulePostMealCheck(event)
+                }
+
+                _draft.value = DraftEventState(
+                    postMealReminderEnabled = settings.value.postMealRemindersEnabled,
+                )
+                if (after > before) {
+                    _streakReward.value =
+                        StreakReward(previousStreak = before, currentStreak = after)
+                } else {
+                    onSaved()
+                }
+                saved = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _saveErrors.emit(e)
+            } finally {
+                _draft.update { it.copy(isSaving = false) }
+            }
+            if (saved) widgetRefresher.refresh()
         }
     }
 
+    fun consumeStreakReward() {
+        _streakReward.value = null
+    }
+
     fun discardDraft() {
-        _draft.value = DraftEventState()
+        _streakReward.value = null
+        _draft.value = DraftEventState(
+            postMealReminderEnabled = settings.value.postMealRemindersEnabled,
+        )
     }
 
     private fun groupByDay(
@@ -198,7 +267,8 @@ class LogViewModel @Inject constructor(
     private fun primaryType(event: LogEvent): EntryType = when {
         event.glucoseMgdl != null -> EntryType.GLUCOSE
         event.insulinBasalUnits != null || event.insulinBolusUnits != null -> EntryType.INSULIN
-        event.carbsGrams != null || !event.mealDescription.isNullOrBlank() -> EntryType.MEAL
+        event.carbsGrams != null || event.proteinGrams != null || event.fatGrams != null ||
+            !event.mealDescription.isNullOrBlank() -> EntryType.MEAL
         event.exerciseMinutes != null -> EntryType.ACTIVITY
         else -> EntryType.NOTE
     }
@@ -215,6 +285,8 @@ class LogViewModel @Inject constructor(
         event.insulinBasalUnits?.let { tokens += "${trim(it)}u Long" }
         event.insulinBolusUnits?.let { tokens += "${trim(it)}u Rapid" }
         event.carbsGrams?.let { tokens += "$it g" }
+        event.proteinGrams?.let { tokens += "$it g protein" }
+        event.fatGrams?.let { tokens += "$it g fat" }
         event.mealDescription?.takeIf { it.isNotBlank() }?.let { tokens += it }
         event.exerciseMinutes?.let { tokens += "$it min" }
 
@@ -226,7 +298,9 @@ class LogViewModel @Inject constructor(
         val titleParts = mutableListOf<String>()
         if (event.glucoseMgdl != null) titleParts += "Glucose"
         if (event.insulinBasalUnits != null || event.insulinBolusUnits != null) titleParts += "Insulin"
-        if (event.carbsGrams != null || !event.mealDescription.isNullOrBlank()) titleParts += "Meal"
+        if (event.carbsGrams != null || event.proteinGrams != null || event.fatGrams != null ||
+            !event.mealDescription.isNullOrBlank()
+        ) titleParts += "Meal"
         if (event.exerciseMinutes != null) titleParts += "Activity"
         val title = titleParts.joinToString(" · ").ifBlank { "Note" }
 

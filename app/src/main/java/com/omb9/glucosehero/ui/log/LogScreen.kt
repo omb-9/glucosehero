@@ -57,6 +57,7 @@ import com.omb9.glucosehero.ui.theme.GlucoseLow
 @Composable
 fun LogScreen(
     onEntryClick: (Long) -> Unit,
+    addGlucoseTick: Int = 0,
     viewModel: LogViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -64,6 +65,7 @@ fun LogScreen(
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val canSave = draft.toLogEvent(settings, 0L) != null
     var showSheet by rememberSaveable { mutableStateOf(false) }
+    val streakReward by viewModel.streakReward.collectAsStateWithLifecycle()
 
     val pendingPrefill by viewModel.pendingHeroAiPrefill.collectAsStateWithLifecycle()
     LaunchedEffect(pendingPrefill) {
@@ -73,10 +75,20 @@ fun LogScreen(
         showSheet = true
     }
 
+    LaunchedEffect(addGlucoseTick) {
+        if (addGlucoseTick > 0) {
+            viewModel.openNewDraft(settings.postMealRemindersEnabled)
+            showSheet = true
+        }
+    }
+
     Scaffold(
         topBar = { TopAppBar(title = { Text("Log") }) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showSheet = true }) {
+            FloatingActionButton(onClick = {
+                viewModel.openNewDraft(settings.postMealRemindersEnabled)
+                showSheet = true
+            }) {
                 Icon(Icons.Filled.Add, contentDescription = "Add entry")
             }
         },
@@ -138,13 +150,18 @@ fun LogScreen(
         AddEntrySheet(
             draft = draft,
             unit = settings.unit,
+            showAdvancedMacros = settings.showAdvancedMacros,
             canSave = canSave,
+            postMealReminderEnabled = draft.postMealReminderEnabled,
+            onPostMealReminderChange = viewModel::onPostMealReminderChange,
             onCategorySelected = viewModel::onCategorySelected,
             onGlucoseChange = viewModel::onGlucoseChange,
             onMealContextChange = viewModel::onMealContextChange,
             onInsulinBasalChange = viewModel::onInsulinBasalChange,
             onInsulinBolusChange = viewModel::onInsulinBolusChange,
             onCarbsChange = viewModel::onCarbsChange,
+            onProteinChange = viewModel::onProteinChange,
+            onFatChange = viewModel::onFatChange,
             onMealDescriptionChange = viewModel::onMealDescriptionChange,
             onExerciseMinutesChange = viewModel::onExerciseMinutesChange,
             onExerciseIntensityChange = viewModel::onExerciseIntensityChange,
@@ -152,6 +169,12 @@ fun LogScreen(
             onSave = { viewModel.saveDraft { showSheet = false } },
             onDismiss = {
                 viewModel.discardDraft()
+                viewModel.consumeStreakReward()
+                showSheet = false
+            },
+            streakReward = streakReward,
+            onRewardConsumed = {
+                viewModel.consumeStreakReward()
                 showSheet = false
             },
         )

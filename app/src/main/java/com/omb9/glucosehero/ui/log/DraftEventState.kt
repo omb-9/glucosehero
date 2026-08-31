@@ -17,10 +17,13 @@ data class DraftEventState(
     val insulinBasal: String = "",
     val insulinBolus: String = "",
     val carbsGrams: String = "",
+    val proteinGrams: String = "",
+    val fatGrams: String = "",
     val mealDescription: String = "",
     val exerciseMinutes: String = "",
     val exerciseIntensity: ActivityIntensity = ActivityIntensity.MODERATE,
     val note: String = "",
+    val postMealReminderEnabled: Boolean = true,
     val isSaving: Boolean = false,
 )
 
@@ -34,7 +37,9 @@ val DraftEventState.filledMetrics: Set<Metric>
     get() = buildSet {
         if (glucose.isNotBlank()) add(Metric.GLUCOSE)
         if (insulinBasal.isNotBlank() || insulinBolus.isNotBlank()) add(Metric.INSULIN)
-        if (carbsGrams.isNotBlank() || mealDescription.isNotBlank()) add(Metric.CARBS)
+        if (carbsGrams.isNotBlank() || proteinGrams.isNotBlank() || fatGrams.isNotBlank() ||
+            mealDescription.isNotBlank()
+        ) add(Metric.CARBS)
         if (exerciseMinutes.isNotBlank()) add(Metric.EXERCISE)
         if (note.isNotBlank()) add(Metric.NOTE)
     }
@@ -73,6 +78,16 @@ fun DraftEventState.toLogEvent(settings: UserSettings, now: Long): LogEvent? {
         else -> carbsGrams.trim().toIntOrNull()?.takeIf { it > 0 } ?: return null
     }
 
+    val proteinValue: Int? = when {
+        proteinGrams.isBlank() -> null
+        else -> proteinGrams.trim().toIntOrNull()?.takeIf { it > 0 } ?: return null
+    }
+
+    val fatValue: Int? = when {
+        fatGrams.isBlank() -> null
+        else -> fatGrams.trim().toIntOrNull()?.takeIf { it > 0 } ?: return null
+    }
+
     val exerciseValue: Int? = when {
         exerciseMinutes.isBlank() -> null
         else -> exerciseMinutes.trim().toIntOrNull()?.takeIf { it > 0 } ?: return null
@@ -99,6 +114,8 @@ fun DraftEventState.toLogEvent(settings: UserSettings, now: Long): LogEvent? {
         insulinBasalUnits = basalValue,
         insulinBolusUnits = bolusValue,
         carbsGrams = carbsValue,
+        proteinGrams = proteinValue,
+        fatGrams = fatValue,
         mealDescription = mealDescriptionClean,
         exerciseMinutes = exerciseValue,
         exerciseIntensity = resolvedExerciseIntensity,

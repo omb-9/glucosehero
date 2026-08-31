@@ -1,5 +1,14 @@
 package com.omb9.glucosehero.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bloodtype
@@ -34,29 +44,54 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import com.omb9.glucosehero.domain.model.ActivityIntensity
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.domain.model.Metric
 import com.omb9.glucosehero.ui.log.DraftEventState
+import com.omb9.glucosehero.ui.log.StreakReward
 import com.omb9.glucosehero.ui.log.filledMetrics
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import coil3.compose.AsyncImage
+import com.omb9.glucosehero.data.vision.MealBarcodeScanner
+import java.io.File
 
 private data class Category(
     val type: EntryType,
@@ -88,23 +123,94 @@ private val categories = listOf(
 fun AddEntrySheet(
     draft: DraftEventState,
     unit: GlucoseUnit,
+    showAdvancedMacros: Boolean,
     canSave: Boolean,
+    postMealReminderEnabled: Boolean,
+    onPostMealReminderChange: (Boolean) -> Unit,
     onCategorySelected: (EntryType) -> Unit,
     onGlucoseChange: (String) -> Unit,
     onMealContextChange: (MealContext) -> Unit,
     onInsulinBasalChange: (String) -> Unit,
     onInsulinBolusChange: (String) -> Unit,
     onCarbsChange: (String) -> Unit,
+    onProteinChange: (String) -> Unit,
+    onFatChange: (String) -> Unit,
     onMealDescriptionChange: (String) -> Unit,
     onExerciseMinutesChange: (String) -> Unit,
     onExerciseIntensityChange: (ActivityIntensity) -> Unit,
     onNoteChange: (String) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
+    streakReward: StreakReward? = null,
+    onRewardConsumed: () -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val haptic = LocalHapticFeedback.current
+    var showStreakConfirmation by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val barcodeScanner = remember { MealBarcodeScanner() }
+    var mealPhotoUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingMealPhotoUri by remember { mutableStateOf<Uri?>(null) }
+    var scannedBarcodeValues by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isScanningBarcode by remember { mutableStateOf(false) }
+    var cameraPermissionDenied by remember { mutableStateOf(false) }
+
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+    ) { photoTaken ->
+        if (photoTaken) {
+            mealPhotoUri = pendingMealPhotoUri
+        }
+        pendingMealPhotoUri = null
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            createMealPhotoUri(context)?.let { uri ->
+                pendingMealPhotoUri = uri
+                takePictureLauncher.launch(uri)
+            }
+        } else {
+            cameraPermissionDenied = true
+        }
+    }
+
+    val captureMealPhoto: () -> Unit = {
+        val hasCameraPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasCameraPermission) {
+            createMealPhotoUri(context)?.let { uri ->
+                pendingMealPhotoUri = uri
+                takePictureLauncher.launch(uri)
+            }
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    LaunchedEffect(mealPhotoUri) {
+        val uri = mealPhotoUri ?: return@LaunchedEffect
+        isScanningBarcode = true
+        scannedBarcodeValues = barcodeScanner.scanBarcodes(context, uri)
+        isScanningBarcode = false
+    }
+
+    LaunchedEffect(streakReward) {
+        streakReward ?: return@LaunchedEffect
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        showStreakConfirmation = true
+        delay(1600)
+        showStreakConfirmation = false
+        delay(400)
+        onRewardConsumed()
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -257,6 +363,40 @@ fun AddEntrySheet(
                         ),
                     )
                     Spacer(Modifier.height(12.dp))
+                    AnimatedVisibility(
+                        visible = showAdvancedMacros,
+                        enter = expandVertically(),
+                        exit = shrinkVertically(),
+                    ) {
+                        Column {
+                            OutlinedTextField(
+                                value = draft.proteinGrams,
+                                onValueChange = onProteinChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("Protein (g)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                suffix = { Text("g") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Next,
+                                ),
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = draft.fatGrams,
+                                onValueChange = onFatChange,
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("Fat (g)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                suffix = { Text("g") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Next,
+                                ),
+                            )
+                            Spacer(Modifier.height(12.dp))
+                        }
+                    }
                     OutlinedTextField(
                         value = draft.mealDescription,
                         onValueChange = onMealDescriptionChange,
@@ -264,6 +404,19 @@ fun AddEntrySheet(
                         placeholder = { Text("What did you eat?", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    MealPhotoCaptureSection(
+                        photoUri = mealPhotoUri,
+                        scannedBarcodeValues = scannedBarcodeValues,
+                        isScanning = isScanningBarcode,
+                        cameraPermissionDenied = cameraPermissionDenied,
+                        onCapture = captureMealPhoto,
+                        onClear = {
+                            mealPhotoUri = null
+                            pendingMealPhotoUri = null
+                            scannedBarcodeValues = emptyList()
+                        },
                     )
                 }
 
@@ -304,6 +457,18 @@ fun AddEntrySheet(
                 EntryType.NOTE -> Unit // The quick-note field below is the input.
             }
 
+            val showReminderToggle = draft.activeCategory == EntryType.MEAL ||
+                (draft.activeCategory == EntryType.INSULIN && draft.insulinBolus.isNotBlank())
+
+            if (showReminderToggle) {
+                Spacer(Modifier.height(8.dp))
+                FilterChip(
+                    selected = postMealReminderEnabled,
+                    onClick = { onPostMealReminderChange(!postMealReminderEnabled) },
+                    label = { Text("+2hr Reminder") },
+                )
+            }
+
             Spacer(Modifier.height(12.dp))
 
             // --- Quick note (always present per spec) ---
@@ -332,12 +497,185 @@ fun AddEntrySheet(
             ) {
                 Text("Save")
             }
+
+            Spacer(Modifier.height(12.dp))
+
+            AnimatedVisibility(
+                visible = showStreakConfirmation,
+                enter = fadeIn(tween(200)) +
+                    slideInVertically(tween(240)) { fullHeight -> fullHeight / 3 },
+                exit = fadeOut(tween(320)) +
+                    slideOutVertically(tween(320)) { fullHeight -> fullHeight / 3 },
+            ) {
+                StreakExtendedConfirmation(
+                    currentStreak = streakReward?.currentStreak ?: 0,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             Spacer(Modifier.height(16.dp))
         }
     }
 
-    LaunchedEffect(draft.activeCategory) {
+    LaunchedEffect(draft.activeCategory, streakReward) {
+        if (streakReward != null) return@LaunchedEffect
         focusRequester.requestFocus()
         keyboard?.show()
+    }
+}
+
+private fun createMealPhotoUri(context: Context): Uri? {
+    val photoDir = File(context.cacheDir, "meal_photos").apply { mkdirs() }
+    val photoFile = File(photoDir, "meal_${System.currentTimeMillis()}.jpg")
+    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MealPhotoCaptureSection(
+    photoUri: Uri?,
+    scannedBarcodeValues: List<String>,
+    isScanning: Boolean,
+    cameraPermissionDenied: Boolean,
+    onCapture: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Surface(
+                onClick = onCapture,
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PhotoCamera,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "Capture meal photo",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+
+            if (photoUri != null) {
+                Box {
+                    AsyncImage(
+                        model = photoUri,
+                        contentDescription = "Captured meal photo",
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        contentScale = ContentScale.Crop,
+                    )
+                    IconButton(
+                        onClick = onClear,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(24.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Remove meal photo",
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        when {
+            cameraPermissionDenied && photoUri == null -> {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Camera permission is needed to capture a meal photo.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            isScanning -> {
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    Text(
+                        text = "Scanning barcode…",
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
+
+            photoUri != null && scannedBarcodeValues.isNotEmpty() -> {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Barcode: ${scannedBarcodeValues.joinToString()}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            photoUri != null -> {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "No barcode detected in this photo.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StreakExtendedConfirmation(
+    currentStreak: Int,
+    modifier: Modifier = Modifier,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.35f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(accent, CircleShape),
+            )
+            Text(
+                text = "Streak Extended",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = if (currentStreak == 1) "1 day" else "$currentStreak days",
+                style = MaterialTheme.typography.labelLarge,
+                color = accent,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }

@@ -59,3 +59,14 @@ data class ResolvedAiConfig(
 class ApiKeyMissingException(
     message: String = "No API key configured. Add one in Settings → Hero AI."
 ) : IOException(message)
+
+/**
+ * Raised when the provider answers with a non-2xx HTTP status. Unlike a plain
+ * [IOException] (which the ViewModel interprets as "offline" and queues for
+ * retry), this signals a misconfiguration — bad key, wrong model name, wrong
+ * base URL — so callers can surface a settings warning instead of retrying.
+ */
+class ProviderHttpException(
+    message: String,
+) : IOException(message)
+

@@ -15,6 +15,12 @@ interface EntryRepository {
     /** Reactive glucose aggregate for the rolling 90-day eA1c window. */
     fun observeGlucoseStats(sinceMillis: Long): Flow<GlucoseStats>
 
+    /** Continuous daily-logging streak (glucose, insulin, or meal days only). */
+    fun observeCurrentStreak(): Flow<Int>
+
+    /** One-shot current streak, used by the save flow to detect an extension. */
+    suspend fun currentStreak(): Int
+
     fun observeEntry(id: Long): Flow<LogEvent?>
 
     suspend fun add(event: LogEvent): Long
@@ -24,6 +30,19 @@ interface EntryRepository {
     // --- SQL-level aggregates (AI context assembly + stats) ---
     suspend fun averageGlucoseSince(sinceMillis: Long): Double?
     suspend fun timeInRangeSince(sinceMillis: Long, lowMgdl: Double, highMgdl: Double): Double?
+
+    // --- Previous-window aggregates (trend comparisons) ---
+    suspend fun averageGlucoseBetween(startMillis: Long, endMillis: Long): Double?
+    suspend fun timeInRangeBetween(
+        startMillis: Long,
+        endMillis: Long,
+        lowMgdl: Double,
+        highMgdl: Double,
+    ): Double?
+
     suspend fun dailySummaries(sinceMillis: Long, limit: Int): List<DailyGlucoseSummary>
     suspend fun recentEntries(limit: Int): List<LogEvent>
+
+    /** One-shot snapshot of all entries since [sinceMillis], oldest first. */
+    suspend fun entriesSince(sinceMillis: Long): List<LogEvent>
 }

@@ -27,6 +27,8 @@ data class LogEvent(
     val insulinBasalUnits: Double? = null,
     val insulinBolusUnits: Double? = null,
     val carbsGrams: Int? = null,
+    val proteinGrams: Int? = null,
+    val fatGrams: Int? = null,
     val mealDescription: String? = null,
     val exerciseMinutes: Int? = null,
     val exerciseIntensity: ActivityIntensity? = null,
@@ -34,15 +36,17 @@ data class LogEvent(
 ) {
     val isEmpty: Boolean
         get() = glucoseMgdl == null && insulinBasalUnits == null && insulinBolusUnits == null &&
-            carbsGrams == null && exerciseMinutes == null &&
-            mealDescription.isNullOrBlank() && note.isNullOrBlank()
+            carbsGrams == null && proteinGrams == null && fatGrams == null &&
+            exerciseMinutes == null && mealDescription.isNullOrBlank() && note.isNullOrBlank()
 
     /** Which metric slots this event actually carries data for. */
     val presentMetrics: Set<Metric>
         get() = buildSet {
             if (glucoseMgdl != null) add(Metric.GLUCOSE)
             if (insulinBasalUnits != null || insulinBolusUnits != null) add(Metric.INSULIN)
-            if (carbsGrams != null || !mealDescription.isNullOrBlank()) add(Metric.CARBS)
+            if (carbsGrams != null || proteinGrams != null || fatGrams != null ||
+                !mealDescription.isNullOrBlank()
+            ) add(Metric.CARBS)
             if (exerciseMinutes != null) add(Metric.EXERCISE)
             if (!note.isNullOrBlank()) add(Metric.NOTE)
         }

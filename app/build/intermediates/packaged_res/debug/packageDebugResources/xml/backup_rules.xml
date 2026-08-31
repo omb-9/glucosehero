@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<full-backup-content>
-    <!-- Never back up DataStore: it holds the KeyStore-encrypted API key blob,
-         and the hardware key it was encrypted with does not travel between devices. -->
-    <exclude domain="file" path="datastore/" />
-</full-backup-content>

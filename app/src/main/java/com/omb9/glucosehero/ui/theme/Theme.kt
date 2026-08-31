@@ -12,17 +12,21 @@ import com.omb9.glucosehero.domain.model.UserSettings
 /**
  * Light + strict AMOLED pure-black (#000000) themes, parameterized by the
  * user-selected accent (default Light Red #FF5252 per spec).
+ *
+ * Light is the out-of-the-box aesthetic: [UserSettings.themeMode] defaults
+ * to [ThemeMode.LIGHT], so the bright, true-white Material 3 canvas is used
+ * until the user explicitly opts into SYSTEM or AMOLED in Settings.
  */
 @Composable
 fun GlucoseHeroTheme(
-    settings: UserSettings,
+    settings: UserSettings = UserSettings(),
     content: @Composable () -> Unit,
 ) {
     val accent = Color(settings.accent.argb)
     val dark = when (settings.themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
         ThemeMode.AMOLED -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
     val colorScheme = if (dark) {

@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 3,
-    "identityHash": "491fcbe1a1570aaee358bd5615ed3972",
+    "identityHash": "6aba67823e8f5f1bdde0dfe36fb87b43",
     "entities": [
       {
         "tableName": "entries",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `timestamp` INTEGER NOT NULL, `glucose_mgdl` REAL, `meal_context` TEXT, `insulin_basal_units` REAL, `insulin_bolus_units` REAL, `carbs_grams` INTEGER, `meal_description` TEXT, `exercise_minutes` INTEGER, `exercise_intensity` TEXT, `note` TEXT)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `timestamp` INTEGER NOT NULL, `glucose_mgdl` REAL, `meal_context` TEXT, `insulin_basal_units` REAL, `insulin_bolus_units` REAL, `carbs_grams` INTEGER, `protein_grams` INTEGER, `fat_grams` INTEGER, `meal_description` TEXT, `exercise_minutes` INTEGER, `exercise_intensity` TEXT, `note` TEXT)",
         "fields": [
           {
             "fieldPath": "id",
@@ -43,6 +43,16 @@
           {
             "fieldPath": "carbsGrams",
             "columnName": "carbs_grams",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "proteinGrams",
+            "columnName": "protein_grams",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "fatGrams",
+            "columnName": "fat_grams",
             "affinity": "INTEGER"
           },
           {
@@ -179,7 +189,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '491fcbe1a1570aaee358bd5615ed3972')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6aba67823e8f5f1bdde0dfe36fb87b43')"
     ]
   }
 }

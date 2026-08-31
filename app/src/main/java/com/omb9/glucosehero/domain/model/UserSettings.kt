@@ -22,11 +22,13 @@ enum class AccentColor(val argb: Long, val label: String) {
 }
 
 data class UserSettings(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val themeMode: ThemeMode = ThemeMode.LIGHT,
     val accent: AccentColor = AccentColor.LIGHT_RED,
     val unit: GlucoseUnit = GlucoseUnit.MGDL,
     val use24HourTime: Boolean = false,
     val targetLowMgdl: Float = 70f,
     val targetHighMgdl: Float = 180f,
     val isHeroAiEnabled: Boolean = true,
+    val showAdvancedMacros: Boolean = false,
+    val postMealRemindersEnabled: Boolean = true,
 )

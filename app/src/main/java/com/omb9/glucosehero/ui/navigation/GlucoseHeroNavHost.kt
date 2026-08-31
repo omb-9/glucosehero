@@ -61,6 +61,7 @@ private val topLevelDestinations = listOf(
 fun GlucoseHeroNavHost(
     navController: NavHostController,
     isHeroAiEnabled: Boolean,
+    addGlucoseTick: Int = 0,
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -108,6 +109,7 @@ fun GlucoseHeroNavHost(
             composable(Routes.LOG) {
                 LogScreen(
                     onEntryClick = { id -> navController.navigate(Routes.entryDetail(id)) },
+                    addGlucoseTick = addGlucoseTick,
                 )
             }
             composable(Routes.STATS) { StatsScreen() }

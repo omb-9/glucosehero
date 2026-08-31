@@ -6,8 +6,11 @@ import com.omb9.glucosehero.data.local.db.ChatMessageDao
 import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
 import com.omb9.glucosehero.data.local.db.PendingAiQueryDao
+import com.omb9.glucosehero.data.local.db.SupplyDao
 import com.omb9.glucosehero.data.local.db.migration.Migration1To2
 import com.omb9.glucosehero.data.local.db.migration.Migration2To3
+import com.omb9.glucosehero.data.local.db.migration.Migration3To4
+import com.omb9.glucosehero.data.local.db.migration.Migration4To5
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -27,7 +30,7 @@ object DatabaseModule {
             GlucoseHeroDatabase::class.java,
             "glucosehero.db",
         )
-            .addMigrations(Migration1To2, Migration2To3)
+            .addMigrations(Migration1To2, Migration2To3, Migration3To4, Migration4To5)
             .build()
 
     @Provides
@@ -39,4 +42,7 @@ object DatabaseModule {
     @Provides
     fun providePendingAiQueryDao(db: GlucoseHeroDatabase): PendingAiQueryDao =
         db.pendingAiQueryDao()
+
+    @Provides
+    fun provideSupplyDao(db: GlucoseHeroDatabase): SupplyDao = db.supplyDao()
 }

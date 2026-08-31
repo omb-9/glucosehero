@@ -4,9 +4,11 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.omb9.glucosehero.domain.model.ApiKeyMissingException
+import com.omb9.glucosehero.domain.model.ProviderHttpException
 import com.omb9.glucosehero.domain.model.ChatTurn
 import com.omb9.glucosehero.domain.model.HeroAiPrefill
 import com.omb9.glucosehero.domain.model.StreamEvent
+import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.log.HeroAiPrefillCoordinator
@@ -32,8 +34,6 @@ import javax.inject.Inject
 @Immutable
 data class ChatUiState(
     val messages: ImmutableList<ChatTurn> = persistentListOf(),
-    /** Non-null while a reply is streaming; grows token-by-token (typewriter). */
-    val streamingText: String? = null,
     val pendingCount: Int = 0,
     val hasApiKey: Boolean = false,
     val providerLabel: String = "",
@@ -51,7 +51,8 @@ class ChatViewModel @Inject constructor(
     val openLogRequests = heroAiPrefillCoordinator.openLogRequests
 
     /** SSE tokens fold into this StateFlow; Compose renders it live. */
-    private val streamingText = MutableStateFlow<String?>(null)
+    private val _streamingText = MutableStateFlow<String?>(null)
+    val streamingText: StateFlow<String?> = _streamingText
 
     /**
      * In-flight send guard. The old `streamingText.value != null` check only
@@ -66,18 +67,19 @@ class ChatViewModel @Inject constructor(
     val uiState: StateFlow<ChatUiState> =
         combine(
             chatRepository.observeHistory(),
-            streamingText,
             chatRepository.observePendingCount(),
             settingsRepository.aiConfig,
-        ) { history, streaming, pending, aiConfig ->
+        ) { history, pending, aiConfig ->
             ChatUiState(
                 messages = history.toImmutableList(),
-                streamingText = streaming,
                 pendingCount = pending,
                 hasApiKey = aiConfig.hasApiKey,
                 providerLabel = aiConfig.provider.label,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState())
+
+    val profile: StateFlow<UserProfile> = settingsRepository.profile
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserProfile())
 
     fun send(text: String) {
         val prompt = text.trim()
@@ -96,15 +98,18 @@ class ChatViewModel @Inject constructor(
                 }
 
                 val history = chatRepository.observeHistory().first()
-                streamingText.value = ""
+                _streamingText.value = ""
+                val response = StringBuilder()
                 var prefillHandled = false
 
                 chatRepository.streamReply(history)
                     .catch { e -> handleFailure(e, messageId, prompt) }
                     .collect { event ->
                         when (event) {
-                            is StreamEvent.Token ->
-                                streamingText.value = (streamingText.value ?: "") + event.text
+                            is StreamEvent.Token -> {
+                                response.append(event.text)
+                                _streamingText.value = response.toString()
+                            }
 
                             is StreamEvent.FunctionCall -> {
                                 prefillHandled = handleFunctionCall(event) || prefillHandled
@@ -120,7 +125,7 @@ class ChatViewModel @Inject constructor(
                                         "Your provider returned an empty reply — please try again."
                                     )
                                 }
-                                streamingText.value = null
+                                _streamingText.value = null
                             }
 
                             is StreamEvent.Failure ->
@@ -137,7 +142,7 @@ class ChatViewModel @Inject constructor(
                 if (id != null) runCatching { handleFailure(e, id, prompt) }
             } finally {
                 // No exit path may leave the UI stuck in "streaming" state.
-                streamingText.value = null
+                _streamingText.value = null
             }
         }
     }
@@ -147,8 +152,13 @@ class ChatViewModel @Inject constructor(
     }
 
     private suspend fun handleFailure(error: Throwable, userMessageId: Long, prompt: String) {
-        streamingText.value = null
+        _streamingText.value = null
         when (error) {
+            is ProviderHttpException -> chatRepository.appendAssistantMessage(
+                "Your AI provider returned an error — double-check the base URL, " +
+                    "model, and API key under Settings → Hero AI, then try again."
+            )
+
             is ApiKeyMissingException -> chatRepository.appendAssistantMessage(
                 "I can't reach your AI provider yet — add an API key under " +
                     "Settings → Hero AI and ask me again."
@@ -181,7 +191,7 @@ class ChatViewModel @Inject constructor(
         if (prefill.isEmpty) return false
 
         heroAiPrefillCoordinator.requestPrefill(prefill)
-        streamingText.value = null
+        _streamingText.value = null
         return true
     }
 
