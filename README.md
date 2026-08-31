@@ -4,11 +4,6 @@
 
 GlucoseHero is a privacy-first, local-first health log with a clean true-white and red clinical aesthetic. Log glucose, insulin, meals, activity, and notes in seconds - then let the built-in **Hero AI** turn natural language into structured log drafts, or check your **estimated A1c** on a rolling 90-day clinical window.
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/USERNAME/REPO/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/USERNAME/REPO/actions)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](#)
-[![Min SDK](https://img.shields.io/badge/Min%20SDK-26-4CAF82?style=for-the-badge)](#)
-[![License](https://img.shields.io/badge/License-TBD-lightgrey?style=for-the-badge)](#)
-
 > [!IMPORTANT]
 > **Not medical advice.** GlucoseHero is a logging and informational tool. It must not be used for insulin-dosing decisions or diagnosis. Always consult your healthcare provider.
 
