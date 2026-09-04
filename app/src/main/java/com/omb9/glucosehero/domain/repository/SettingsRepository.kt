@@ -3,6 +3,7 @@ package com.omb9.glucosehero.domain.repository
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
+import com.omb9.glucosehero.domain.model.BolusSettings
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ResolvedAiConfig
@@ -15,11 +16,15 @@ interface SettingsRepository {
     val settings: Flow<UserSettings>
     val aiConfig: Flow<AiConfig>
     val profile: Flow<UserProfile>
+    val bolusSettings: Flow<BolusSettings>
 
     suspend fun profileSnapshot(): UserProfile
 
     /** Reads the latest config from DataStore without decrypting the API key. */
     suspend fun aiConfigSnapshot(): AiConfig
+
+    /** Insulin-dosing parameters (DIA, CIR, ISF, target glucose). */
+    suspend fun bolusSettingsSnapshot(): BolusSettings
 
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setAccent(accent: AccentColor)
@@ -37,6 +42,11 @@ interface SettingsRepository {
     suspend fun setProfileWeightKg(weightKg: Float?)
 
     suspend fun setTargetRange(lowMgdl: Float, highMgdl: Float)
+
+    suspend fun setDiaHours(diaHours: Float)
+    suspend fun setCirRatio(ratio: Float)
+    suspend fun setIsfMgdl(isf: Float)
+    suspend fun setTargetGlucoseMgdl(target: Float)
 
     suspend fun setAiProvider(provider: AiProvider)
     suspend fun setAiBaseUrl(url: String)

@@ -37,6 +37,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import javax.inject.Inject
@@ -274,7 +276,8 @@ class ChatRepositoryImpl @Inject constructor(
             function = ApiFunction(
                 name = "prefill_log_draft",
                 description = "Extract health metrics, dietary intake, and insulin doses " +
-                    "from the user's message so the app can pre-fill a new log entry.",
+                    "from the user's message so the app can pre-fill a new log entry. " +
+                    "Report glucose exactly as the user stated it with its unit, and never convert units.",
                 parameters = buildJsonObject {
                     put("type", "object")
                     put(
@@ -302,10 +305,31 @@ class ChatRepositoryImpl @Inject constructor(
                                 },
                             )
                             put(
-                                "glucose_mgdl",
+                                "glucose_value",
                                 buildJsonObject {
-                                    put("type", "integer")
-                                    put("description", "Glucose reading in mg/dL")
+                                    put("type", "number")
+                                    put(
+                                        "description",
+                                        "The glucose value exactly as the user stated it, without converting units.",
+                                    )
+                                },
+                            )
+                            put(
+                                "glucose_unit",
+                                buildJsonObject {
+                                    put("type", "string")
+                                    put(
+                                        "enum",
+                                        buildJsonArray {
+                                            add("mg/dL")
+                                            add("mmol/L")
+                                        },
+                                    )
+                                    put(
+                                        "description",
+                                        "The unit the user stated the value in. If the user did not say, " +
+                                            "use the unit their log is displayed in.",
+                                    )
                                 },
                             )
                             put(

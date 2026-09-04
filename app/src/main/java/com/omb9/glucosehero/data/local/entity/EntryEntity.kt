@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.omb9.glucosehero.domain.model.ActivityIntensity
+import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.LogEvent
 import com.omb9.glucosehero.domain.model.MealContext
 
@@ -19,7 +20,11 @@ import com.omb9.glucosehero.domain.model.MealContext
  */
 @Entity(
     tableName = "entries",
-    indices = [Index("timestamp"), Index("glucose_mgdl")],
+    indices = [
+        Index("timestamp"),
+        Index("glucose_mgdl"),
+        Index(value = ["glucose_mgdl", "timestamp"]),
+    ],
 )
 data class EntryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
@@ -35,6 +40,8 @@ data class EntryEntity(
     @ColumnInfo(name = "exercise_minutes") val exerciseMinutes: Int? = null,
     @ColumnInfo(name = "exercise_intensity") val exerciseIntensity: ActivityIntensity? = null,
     @ColumnInfo(name = "note") val note: String? = null,
+    @ColumnInfo(name = "source", defaultValue = "MANUAL") val source: EntrySource = EntrySource.MANUAL,
+    @ColumnInfo(name = "hc_record_id") val hcRecordId: String? = null,
 )
 
 fun EntryEntity.toDomain() = LogEvent(

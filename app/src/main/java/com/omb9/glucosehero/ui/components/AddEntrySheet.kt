@@ -46,6 +46,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -139,6 +140,8 @@ fun AddEntrySheet(
     onExerciseMinutesChange: (String) -> Unit,
     onExerciseIntensityChange: (ActivityIntensity) -> Unit,
     onNoteChange: (String) -> Unit,
+    suggestedBolus: Double? = null,
+    onUseSuggestion: () -> Unit = {},
     onSave: () -> Unit,
     onDismiss: () -> Unit,
     streakReward: StreakReward? = null,
@@ -344,6 +347,12 @@ fun AddEntrySheet(
                                 imeAction = ImeAction.Next,
                             ),
                         )
+                        if (suggestedBolus != null) {
+                            SuggestedBolusRow(
+                                suggestedBolus = suggestedBolus,
+                                onUseSuggestion = onUseSuggestion,
+                            )
+                        }
                     }
                 }
 
@@ -679,3 +688,27 @@ private fun StreakExtendedConfirmation(
         }
     }
 }
+
+@Composable
+private fun SuggestedBolusRow(
+    suggestedBolus: Double,
+    onUseSuggestion: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Suggested bolus: ${formatInsulinUnits(suggestedBolus)} u",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onUseSuggestion) {
+            Text("Use suggestion")
+        }
+    }
+}
+
+private fun formatInsulinUnits(value: Double): String =
+    if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)

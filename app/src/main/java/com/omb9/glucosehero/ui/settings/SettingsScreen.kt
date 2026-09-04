@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -68,6 +69,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val aiConfig by viewModel.aiConfig.collectAsStateWithLifecycle()
     val profile by viewModel.profile.collectAsStateWithLifecycle()
+    val bolus by viewModel.bolusSettings.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -316,6 +318,49 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 )
             }
 
+            // ============ Smart Bolus ============
+            SectionHeader("Smart Bolus")
+
+            SmartBolusSlider(
+                label = "Duration of Insulin Action (DIA)",
+                value = bolus.diaHours,
+                valueRange = 2f..8f,
+                steps = 11,
+                displayText = { v ->
+                    if (v % 1f == 0f) "${v.toInt()} hr" else "%.1f hr".format(v)
+                },
+                onValueChangeFinished = viewModel::setDiaHours,
+            )
+
+            SmartBolusSlider(
+                label = "Carb-to-Insulin Ratio (CIR)",
+                value = bolus.cirRatio,
+                valueRange = 1f..50f,
+                steps = 48,
+                displayText = { v -> "${v.toInt()} g/U" },
+                onValueChangeFinished = viewModel::setCirRatio,
+            )
+
+            SmartBolusSlider(
+                label = "Insulin Sensitivity Factor (ISF)",
+                value = bolus.isfMgdl,
+                valueRange = 10f..150f,
+                steps = 139,
+                displayText = { v -> "${v.toInt()} mg/dL per U" },
+                onValueChangeFinished = viewModel::setIsfMgdl,
+            )
+
+            SmartBolusSlider(
+                label = "Target Glucose",
+                value = bolus.targetGlucoseMgdl,
+                valueRange = 60f..180f,
+                steps = 119,
+                displayText = { v ->
+                    "${Formatters.glucose(v.toDouble(), settings.unit)} ${settings.unit.label}"
+                },
+                onValueChangeFinished = viewModel::setTargetGlucoseMgdl,
+            )
+
             // ============ Meal Logging ============
             SectionHeader("Meal Logging")
 
@@ -516,4 +561,33 @@ private fun SectionHeader(title: String) {
         color = MaterialTheme.colorScheme.primary,
     )
     Spacer(Modifier.height(12.dp))
+}
+
+@Composable
+private fun SmartBolusSlider(
+    label: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    displayText: (Float) -> String,
+    onValueChangeFinished: (Float) -> Unit,
+) {
+    // Local drag state keyed on the persisted value: the thumb follows the
+    // finger immediately, and the slider re-syncs if DataStore emits changes
+    // from elsewhere. The commit happens only on release, so DataStore isn't
+    // written on every drag frame.
+    var sliderValue by remember(value) { mutableStateOf(value) }
+    Text(
+        text = "$label: ${displayText(sliderValue)}",
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Slider(
+        value = sliderValue,
+        onValueChange = { sliderValue = it },
+        onValueChangeFinished = { onValueChangeFinished(sliderValue) },
+        valueRange = valueRange,
+        steps = steps,
+    )
+    Spacer(Modifier.height(8.dp))
 }

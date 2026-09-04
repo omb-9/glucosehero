@@ -88,6 +88,7 @@ fun EntryDetailScreen(
     val form by viewModel.form.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val canSave by viewModel.canSave.collectAsStateWithLifecycle()
+    val suggestedBolus by viewModel.suggestedBolus.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {
         viewModel.saveErrors.collect { error ->
@@ -297,6 +298,12 @@ fun EntryDetailScreen(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     )
+                    suggestedBolus?.let { smartBolus ->
+                        SuggestedBolusRow(
+                            suggestedBolus = smartBolus,
+                            onUseSuggestion = viewModel::useSuggestedBolus,
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                 }
 
@@ -575,3 +582,27 @@ private fun EntryType.detailTitle(): String = when (this) {
     EntryType.ACTIVITY -> "Exercise"
     EntryType.NOTE -> "Note"
 }
+
+@Composable
+private fun SuggestedBolusRow(
+    suggestedBolus: Double,
+    onUseSuggestion: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Suggested bolus: ${formatInsulinUnits(suggestedBolus)} u",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onUseSuggestion) {
+            Text("Use suggestion")
+        }
+    }
+}
+
+private fun formatInsulinUnits(value: Double): String =
+    if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)

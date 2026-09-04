@@ -2,6 +2,7 @@ package com.omb9.glucosehero.ui.stats
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +22,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -49,6 +52,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.toArgb
@@ -57,10 +63,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.domain.model.Ea1cConfidence
 import com.omb9.glucosehero.domain.model.ExportFormat
 import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.TimeRange
+import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
 import com.omb9.glucosehero.util.Formatters
 import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
@@ -78,12 +86,20 @@ import java.time.ZoneId
 import kotlin.math.ceil
 import kotlinx.collections.immutable.ImmutableList
 
+private val InsightCardBackground = Color(0xFF000000)
+private val InsightCardTitle = Color(0xFFFFFFFF)
+private val InsightCardDescription = Color(0xFF9E9EA4)
+private val InsightCardOutline = Color(0xFF3A3A3E)
+private val InsightStandardAccent = Color(0xFF9E9EA4)
+private val HighSeverityAccent = Color(0xFFFF5252)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val streak by viewModel.currentStreakDays.collectAsStateWithLifecycle()
     val supplies by viewModel.activeSupplies.collectAsStateWithLifecycle()
+    val insights by viewModel.insights.collectAsStateWithLifecycle()
     val isExporting by viewModel.isExporting.collectAsStateWithLifecycle()
     var showExportSheet by remember { mutableStateOf(false) }
     var showSupplySheet by remember { mutableStateOf(false) }
@@ -187,6 +203,13 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
                     preselectedSupplyType = type
                     showSupplySheet = true
                 },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            InsightsSection(
+                insights = insights,
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -525,6 +548,123 @@ private fun StreakIndicator(
 }
 
 @Composable
+private fun InsightsSection(
+    insights: List<InsightCardEntity>,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = "Insights",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(Modifier.height(8.dp))
+        if (insights.isEmpty()) {
+            InsightsEmptyState()
+        } else {
+            // Rendered as a plain Column (not LazyColumn) so the cards simply
+            // participate in the screen's existing verticalScroll. The worker
+            // caps this list, so a lazy container would only add a nested
+            // scrolling surface with no measurable benefit.
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                insights.forEach { insight ->
+                    InsightCard(insight = insight)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InsightCard(
+    insight: InsightCardEntity,
+    modifier: Modifier = Modifier,
+) {
+    val isHighSeverity = insight.severityLevel >= InsightCardEntity.SEVERITY_CRITICAL
+    val accent = if (isHighSeverity) HighSeverityAccent else InsightStandardAccent
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = InsightCardBackground,
+        border = BorderStroke(1.dp, InsightCardOutline),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(color = accent.copy(alpha = 0.14f), shape = CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = insightIcon(insight),
+                    contentDescription = insightIconDescription(insight),
+                    tint = accent,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = insight.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = InsightCardTitle,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = insight.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InsightCardDescription,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InsightsEmptyState(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = InsightCardBackground,
+        border = BorderStroke(1.dp, InsightCardOutline),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = null,
+                tint = InsightStandardAccent,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "Gathering baseline data. Your insights will appear here after a few days of logging.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = InsightCardDescription,
+            )
+        }
+    }
+}
+
+private fun insightIcon(insight: InsightCardEntity): ImageVector = when {
+    insight.title.contains("low", ignoreCase = true) -> Icons.Filled.ArrowDownward
+    insight.title.contains("high", ignoreCase = true) -> Icons.Filled.ArrowUpward
+    else -> Icons.Filled.Info
+}
+
+private fun insightIconDescription(insight: InsightCardEntity): String = when {
+    insight.title.contains("low", ignoreCase = true) -> "Glucose trending down"
+    insight.title.contains("high", ignoreCase = true) -> "Glucose trending up"
+    else -> "Insight"
+}
+
+@Composable
 private fun TrendChart(state: StatsUiState, viewModel: StatsViewModel) {
     val accent = MaterialTheme.colorScheme.primary
     val shadeColor = accent.copy(alpha = 0.12f).toArgb()
@@ -828,4 +968,50 @@ private fun ExportOptionRow(
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 16.dp),
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun InsightCardPreview() {
+    GlucoseHeroTheme {
+        Column(
+            modifier = Modifier
+                .background(InsightCardBackground)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            InsightCard(
+                insight = InsightCardEntity(
+                    title = "Frequent overnight lows",
+                    description = "Glucose dropped below 70 mg/dL 3 times between " +
+                        "2 AM and 4 AM over the last 14 days.",
+                    severityLevel = InsightCardEntity.SEVERITY_CRITICAL,
+                    createdAt = 1_700_000_000_000L,
+                )
+            )
+            InsightCard(
+                insight = InsightCardEntity(
+                    title = "Recurring high around 6 PM",
+                    description = "Average glucose was 198 mg/dL during the " +
+                        "6 PM hour over the last 14 days.",
+                    severityLevel = InsightCardEntity.SEVERITY_WARNING,
+                    createdAt = 1_700_000_000_000L,
+                )
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun InsightsEmptyStatePreview() {
+    GlucoseHeroTheme {
+        Box(
+            modifier = Modifier
+                .background(InsightCardBackground)
+                .padding(16.dp),
+        ) {
+            InsightsEmptyState()
+        }
+    }
 }

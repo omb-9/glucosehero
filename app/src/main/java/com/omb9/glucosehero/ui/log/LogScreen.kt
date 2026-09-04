@@ -1,5 +1,6 @@
 package com.omb9.glucosehero.ui.log
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -67,6 +68,8 @@ fun LogScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val canSave by viewModel.canSave.collectAsStateWithLifecycle()
+    val activeInsulin by viewModel.activeInsulin.collectAsStateWithLifecycle()
+    val suggestedBolus by viewModel.suggestedBolus.collectAsStateWithLifecycle()
     var showSheet by rememberSaveable { mutableStateOf(false) }
     val streakReward by viewModel.streakReward.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -95,44 +98,49 @@ fun LogScreen(
         topBar = { TopAppBar(title = { Text("Log") }) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                viewModel.openNewDraft(settings.postMealRemindersEnabled)
-                showSheet = true
-            }) {
+            FloatingActionButton(
+                onClick = {
+                    viewModel.openNewDraft(settings.postMealRemindersEnabled)
+                    showSheet = true
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) {
                 Icon(Icons.Filled.Add, contentDescription = "Add entry")
             }
         },
     ) { padding ->
-        when {
-            state.isLoading -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            ActiveInsulinBar(activeInsulinUnits = activeInsulin)
 
-            state.days.isEmpty() -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_logo_display),
-                    contentDescription = null,
-                    modifier = Modifier.size(120.dp),
-                    alpha = 0.15f,
-                )
-            }
+            when {
+                state.isLoading -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
 
-            else -> LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            ) {
+                state.days.isEmpty() -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_logo_display),
+                        contentDescription = null,
+                        modifier = Modifier.size(120.dp),
+                        alpha = 0.15f,
+                    )
+                }
+
+                else -> LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                ) {
                 state.days.forEach { day ->
                     item(key = "day-${day.epochDay}") {
                         Text(
@@ -152,6 +160,7 @@ fun LogScreen(
                     }
                 }
                 item { Spacer(Modifier.height(72.dp)) }
+                }
             }
         }
     }
@@ -176,6 +185,8 @@ fun LogScreen(
             onExerciseMinutesChange = viewModel::onExerciseMinutesChange,
             onExerciseIntensityChange = viewModel::onExerciseIntensityChange,
             onNoteChange = viewModel::onNoteChange,
+            suggestedBolus = suggestedBolus,
+            onUseSuggestion = viewModel::useSuggestedBolus,
             onSave = { viewModel.saveDraft { showSheet = false } },
             onDismiss = {
                 viewModel.discardDraft()
@@ -198,6 +209,51 @@ private fun EntryType.icon(): ImageVector = when (this) {
     EntryType.ACTIVITY -> Icons.Filled.DirectionsRun
     EntryType.NOTE -> Icons.Filled.Notes
 }
+
+/**
+ * Prominent, glanceable insulin-on-board readout pinned above the log list.
+ * Uses the clinical true-black/true-white palette with the accent for the
+ * value, so it stays legible without competing with the entries below.
+ */
+@Composable
+private fun ActiveInsulinBar(activeInsulinUnits: Double) {
+    val accent = MaterialTheme.colorScheme.primary
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.4f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Active Insulin",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    formatInsulinUnits(activeInsulinUnits),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = accent,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            Text(
+                "U on board",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private fun formatInsulinUnits(value: Double): String =
+    if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
 
 @Composable
 private fun EntryRow(

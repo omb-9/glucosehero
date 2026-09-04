@@ -4,6 +4,9 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import com.omb9.glucosehero.data.local.entity.ChatMessageEntity
 import com.omb9.glucosehero.data.local.entity.EntryEntity
+import com.omb9.glucosehero.data.local.entity.GlucoseReadingView
+import com.omb9.glucosehero.data.local.entity.GlucoseSampleEntity
+import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
 import com.omb9.glucosehero.data.local.entity.SupplyEntity
 
@@ -13,8 +16,11 @@ import com.omb9.glucosehero.data.local.entity.SupplyEntity
         ChatMessageEntity::class,
         PendingAiQueryEntity::class,
         SupplyEntity::class,
+        InsightCardEntity::class,
+        GlucoseSampleEntity::class,
     ],
-    version = 5,
+    views = [GlucoseReadingView::class],
+    version = 8,
     exportSchema = true,
 )
 abstract class GlucoseHeroDatabase : RoomDatabase() {
@@ -22,4 +28,6 @@ abstract class GlucoseHeroDatabase : RoomDatabase() {
     abstract fun chatMessageDao(): ChatMessageDao
     abstract fun pendingAiQueryDao(): PendingAiQueryDao
     abstract fun supplyDao(): SupplyDao
+    abstract fun insightDao(): InsightDao
+    abstract fun glucoseSampleDao(): GlucoseSampleDao
 }

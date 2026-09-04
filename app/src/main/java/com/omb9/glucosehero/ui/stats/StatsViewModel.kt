@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.omb9.glucosehero.data.export.ExportManager
+import com.omb9.glucosehero.data.local.db.InsightDao
+import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.domain.model.Ea1cConfidence
 import com.omb9.glucosehero.domain.model.ExportFormat
 import com.omb9.glucosehero.domain.model.ExportedFile
@@ -109,6 +111,7 @@ class StatsViewModel @Inject constructor(
     private val entryRepository: EntryRepository,
     settingsRepository: SettingsRepository,
     private val supplyRepository: SupplyRepository,
+    private val insightDao: InsightDao,
     private val exportManager: ExportManager,
 ) : ViewModel() {
 
@@ -118,6 +121,10 @@ class StatsViewModel @Inject constructor(
     /** Continuous daily-logging streak, emitted reactively from Room. */
     val currentStreakDays: StateFlow<Int> = entryRepository.observeCurrentStreak()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** Latest generated pattern-recognition insights, newest first. */
+    val insights: StateFlow<List<InsightCardEntity>> = insightDao.observeLatest(INSIGHT_LIMIT)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Active supply cards, with lifecycle math evaluated on each emission and
      * a 60-second ticker so remaining counts advance without a DB emission. */
@@ -397,5 +404,6 @@ class StatsViewModel @Inject constructor(
         const val EA1C_WINDOW_DAYS = 90
         const val MIN_CONFIDENT_DAYS = 14
         const val MIN_CONFIDENT_READINGS = 20
+        const val INSIGHT_LIMIT = 5
     }
 }

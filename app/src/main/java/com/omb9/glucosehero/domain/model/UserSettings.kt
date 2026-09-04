@@ -1,5 +1,7 @@
 package com.omb9.glucosehero.domain.model
 
+import androidx.compose.runtime.Immutable
+
 enum class ThemeMode { SYSTEM, LIGHT, AMOLED }
 
 enum class GlucoseUnit(val label: String) {
@@ -21,6 +23,7 @@ enum class AccentColor(val argb: Long, val label: String) {
     ROSE(0xFFFF80AB, "Rose"),
 }
 
+@Immutable
 data class UserSettings(
     val themeMode: ThemeMode = ThemeMode.LIGHT,
     val accent: AccentColor = AccentColor.LIGHT_RED,

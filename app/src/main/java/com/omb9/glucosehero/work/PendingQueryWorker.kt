@@ -6,8 +6,11 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.omb9.glucosehero.data.local.db.ChatMessageDao
 import com.omb9.glucosehero.data.local.db.PendingAiQueryDao
+import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
 import com.omb9.glucosehero.data.local.entity.toDomain
 import com.omb9.glucosehero.domain.model.ApiKeyMissingException
+import com.omb9.glucosehero.domain.model.ChatRole
+import com.omb9.glucosehero.domain.model.ChatTurn
 import com.omb9.glucosehero.domain.model.ProviderHttpException
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import dagger.assisted.Assisted
@@ -43,10 +46,7 @@ class PendingQueryWorker @AssistedInject constructor(
 
             for (query in pending) {
                 try {
-                    // History up to (and including) the queued user message, so the
-                    // model sees the conversation exactly as it stood when asked.
-                    val history = chatMessageDao.getUpTo(query.userMessageId)
-                        .map { it.toDomain() }
+                    val history = resolveHistoryForDispatch(query)
 
                     val reply = chatRepository.completeReply(history)
                     chatRepository.appendAssistantMessage(reply)
@@ -87,7 +87,37 @@ class PendingQueryWorker @AssistedInject constructor(
         }
     }
 
+    /**
+     * Rebuilds the conversation context for a queued prompt. If the referenced
+     * user message is no longer present in the local repository (for example,
+     * the user cleared their chat history while offline, so Room returns an
+     * empty history), we synthesise a single "user" turn so the payload can
+     * still be dispatched. The warning prefix tells the model that the original
+     * conversation is gone and this is a standalone question.
+     */
+    private suspend fun resolveHistoryForDispatch(query: PendingAiQueryEntity): List<ChatTurn> {
+        val history = chatMessageDao.getUpTo(query.userMessageId)
+            .map { it.toDomain() }
+            .toMutableList()
+
+        val referencedTurnStillPresent = history.any {
+            it.id == query.userMessageId && it.role == ChatRole.USER
+        }
+
+        return if (referencedTurnStillPresent) {
+            history
+        } else {
+            history + ChatTurn(
+                id = query.userMessageId,
+                role = ChatRole.USER,
+                content = CLEARED_CONTEXT_PREFIX + query.prompt,
+                timestamp = query.createdAt,
+            )
+        }
+    }
+
     companion object {
         const val UNIQUE_NAME = "pending_ai_query_worker"
+        private const val CLEARED_CONTEXT_PREFIX = "[Original Context Cleared] "
     }
 }

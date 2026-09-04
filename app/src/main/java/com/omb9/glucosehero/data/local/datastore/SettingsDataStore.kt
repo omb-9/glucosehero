@@ -13,6 +13,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
+import com.omb9.glucosehero.domain.model.BolusSettings
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ThemeMode
@@ -54,6 +55,10 @@ class SettingsDataStore @Inject constructor(
         val PROFILE_DIABETES_TYPE = stringPreferencesKey("profile_diabetes_type")
         val PROFILE_HEIGHT_CM = floatPreferencesKey("profile_height_cm")
         val PROFILE_WEIGHT_KG = floatPreferencesKey("profile_weight_kg")
+        val DIA_HOURS = floatPreferencesKey("dia_hours")
+        val CIR_RATIO = floatPreferencesKey("cir_ratio")
+        val ISF_MGDL = floatPreferencesKey("isf_mgdl")
+        val TARGET_GLUCOSE_MGDL = floatPreferencesKey("target_glucose_mgdl")
     }
 
     /**
@@ -103,22 +108,31 @@ class SettingsDataStore @Inject constructor(
 
     val profile: Flow<UserProfile> = safeData.map { p -> p.toUserProfile() }
 
+    val bolusSettings: Flow<BolusSettings> = safeData.map { p -> p.toBolusSettings() }
+
     /** Single fresh snapshot used by the export utility when assembling a report. */
     suspend fun profileSnapshot(): UserProfile = safeData.first().toUserProfile()
+
+    /** Single fresh snapshot of the insulin-dosing parameters. */
+    suspend fun bolusSettingsSnapshot(): BolusSettings = safeData.first().toBolusSettings()
 
     /** Single fresh snapshot — read per-request by the network layer. */
     suspend fun aiConfigSnapshot(): AiConfig = safeData.first().toAiConfig()
 
     suspend fun encryptedApiKey(): String? =
-        safeData.first()[Keys.AI_API_KEY_ENC]?.takeIf { it.isNotBlank() }
+        runCatching { safeData.first()[Keys.AI_API_KEY_ENC] }
+            .getOrNull()?.takeIf { it.isNotBlank() }
 
     private fun Preferences.toAiConfig(): AiConfig {
-        val provider = this[Keys.AI_PROVIDER].toEnum(AiProvider.GEMINI)
+        val provider = runCatching { this[Keys.AI_PROVIDER] }
+            .getOrNull().toEnum(AiProvider.GEMINI)
         return AiConfig(
             provider = provider,
-            baseUrl = this[Keys.AI_BASE_URL]?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl,
-            model = this[Keys.AI_MODEL]?.takeIf { it.isNotBlank() } ?: provider.defaultModel,
-            hasApiKey = !this[Keys.AI_API_KEY_ENC].isNullOrBlank(),
+            baseUrl = runCatching { this[Keys.AI_BASE_URL] }
+                .getOrNull()?.takeIf { it.isNotBlank() } ?: provider.defaultBaseUrl,
+            model = runCatching { this[Keys.AI_MODEL] }
+                .getOrNull()?.takeIf { it.isNotBlank() } ?: provider.defaultModel,
+            hasApiKey = !runCatching { this[Keys.AI_API_KEY_ENC] }.getOrNull().isNullOrBlank(),
         )
     }
 
@@ -131,6 +145,13 @@ class SettingsDataStore @Inject constructor(
             .getOrNull()?.takeIf { it.isNotBlank() },
         heightCm = runCatching { this[Keys.PROFILE_HEIGHT_CM] }.getOrNull(),
         weightKg = runCatching { this[Keys.PROFILE_WEIGHT_KG] }.getOrNull(),
+    )
+
+    private fun Preferences.toBolusSettings(): BolusSettings = BolusSettings(
+        diaHours = runCatching { this[Keys.DIA_HOURS] }.getOrNull() ?: 4.0f,
+        cirRatio = runCatching { this[Keys.CIR_RATIO] }.getOrNull() ?: 10.0f,
+        isfMgdl = runCatching { this[Keys.ISF_MGDL] }.getOrNull() ?: 50.0f,
+        targetGlucoseMgdl = runCatching { this[Keys.TARGET_GLUCOSE_MGDL] }.getOrNull() ?: 100.0f,
     )
 
     suspend fun setThemeMode(mode: ThemeMode) = edit { it[Keys.THEME_MODE] = mode.name }
@@ -172,6 +193,11 @@ class SettingsDataStore @Inject constructor(
         it[Keys.TARGET_LOW] = low
         it[Keys.TARGET_HIGH] = high
     }
+
+    suspend fun setDiaHours(diaHours: Float) = edit { it[Keys.DIA_HOURS] = diaHours }
+    suspend fun setCirRatio(ratio: Float) = edit { it[Keys.CIR_RATIO] = ratio }
+    suspend fun setIsfMgdl(isf: Float) = edit { it[Keys.ISF_MGDL] = isf }
+    suspend fun setTargetGlucoseMgdl(target: Float) = edit { it[Keys.TARGET_GLUCOSE_MGDL] = target }
 
     /** Switching provider resets base URL + model to the preset defaults. */
     suspend fun setAiProvider(provider: AiProvider) = edit {

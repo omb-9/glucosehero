@@ -13,15 +13,20 @@ import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.glance.WidgetRefresher
+import com.omb9.glucosehero.util.BolusCalculator
 import com.omb9.glucosehero.util.Formatters
+import com.omb9.glucosehero.util.IobCalculator
 import com.omb9.glucosehero.util.StreakCalculator
 import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -30,6 +35,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -70,6 +76,7 @@ data class LogUiState(
 )
 
 /** One-shot reward payload surfaced to the Add Entry sheet after a streak-extending save. */
+@Immutable
 data class StreakReward(
     val previousStreak: Int,
     val currentStreak: Int,
@@ -87,8 +94,58 @@ class LogViewModel @Inject constructor(
     val settings: StateFlow<UserSettings> = settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserSettings())
 
+    /** Minute-grain ticker so the IOB value keeps decaying without a DB emission. */
+    private val timeTick: Flow<Unit> = flow {
+        while (true) {
+            emit(Unit)
+            delay(IOB_TICK_MILLIS)
+        }
+    }
+
+    /** Live insulin-on-board (units) for the home dashboard. */
+    val activeInsulin: StateFlow<Double> = combine(
+        settingsRepository.bolusSettings,
+        entryRepository.observeEntries(System.currentTimeMillis() - ACTIVE_INSULIN_WINDOW_MILLIS),
+        timeTick,
+    ) { bolus, entries, _ ->
+        val boluses = entries
+            .filter { it.insulinBolusUnits != null }
+            .map { IobCalculator.BolusEntry(it.timestamp, it.insulinBolusUnits!!) }
+        IobCalculator.activeInsulinOnBoard(
+            boluses = boluses,
+            diaHours = bolus.diaHours.toDouble(),
+            now = Instant.now(),
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
+
     private val _draft = MutableStateFlow(DraftEventState())
     val draft: StateFlow<DraftEventState> = _draft.asStateFlow()
+
+    /**
+     * Recommended bolus for the in-progress draft, or null until the user has
+     * typed both a carb count and a glucose value. Recomputed reactively as
+     * either field, the dosing parameters, or the current IOB changes.
+     */
+    val suggestedBolus: StateFlow<Double?> = combine(
+        _draft,
+        settingsRepository.bolusSettings,
+        settings,
+        activeInsulin,
+    ) { draft, bolus, userSettings, iob ->
+        val carbs = draft.carbsGrams.trim().toIntOrNull()?.takeIf { it > 0 }
+            ?: return@combine null
+        val glucoseDisplay = Formatters.parseDecimal(draft.glucose)?.takeIf { it > 0 }
+            ?: return@combine null
+        val glucoseMgdl = Formatters.displayToMgdl(glucoseDisplay, userSettings.unit)
+        BolusCalculator.recommend(
+            currentGlucoseMgdl = glucoseMgdl,
+            targetGlucoseMgdl = bolus.targetGlucoseMgdl.toDouble(),
+            carbsGrams = carbs.toDouble(),
+            carbRatio = bolus.cirRatio.toDouble(),
+            insulinSensitivityMgdl = bolus.isfMgdl.toDouble(),
+            insulinOnBoard = iob,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Pending Hero AI prefill waiting for the Log screen to consume it. */
     val pendingHeroAiPrefill: StateFlow<HeroAiPrefill?> = heroAiPrefillCoordinator.pendingPrefill
@@ -129,6 +186,12 @@ class LogViewModel @Inject constructor(
     fun onMealContextChange(context: MealContext) { _draft.update { it.copy(mealContext = context) } }
     fun onInsulinBasalChange(value: String) { _draft.update { it.copy(insulinBasal = value) } }
     fun onInsulinBolusChange(value: String) { _draft.update { it.copy(insulinBolus = value) } }
+
+    /** Populates the bolus field with the current smart-bolus suggestion. */
+    fun useSuggestedBolus() {
+        val suggestion = suggestedBolus.value ?: return
+        onInsulinBolusChange(trim(suggestion))
+    }
     fun onCarbsChange(value: String) { _draft.update { it.copy(carbsGrams = value) } }
     fun onProteinChange(value: String) { _draft.update { it.copy(proteinGrams = value) } }
     fun onFatChange(value: String) { _draft.update { it.copy(fatGrams = value) } }
@@ -333,5 +396,9 @@ class LogViewModel @Inject constructor(
 
     private companion object {
         const val WINDOW_DAYS = 90
+
+        /** Bolus lookback window — generous enough for any realistic DIA. */
+        const val ACTIVE_INSULIN_WINDOW_MILLIS = 6 * IobCalculator.MILLIS_PER_HOUR
+        const val IOB_TICK_MILLIS = 60_000L
     }
 }

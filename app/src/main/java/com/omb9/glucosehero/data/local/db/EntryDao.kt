@@ -16,6 +16,21 @@ data class LoggedDayRow(
     val day: String,
 )
 
+/** Hour-of-day average used to spot recurring time-based lows/highs. */
+data class HourlyGlucoseAverageRow(
+    val hour: Int,
+    val avgMgdl: Double,
+    val readings: Int,
+)
+
+/** Hour-of-day avg(x) and avg(x*x) so variance can be derived in Kotlin. */
+data class HourlyGlucoseVarianceRow(
+    val hour: Int,
+    val avgMgdl: Double,
+    val avgSqMgdl: Double,
+    val readings: Int,
+)
+
 @Dao
 interface EntryDao {
 
@@ -91,7 +106,7 @@ interface EntryDao {
                COUNT(*) AS readingCount,
                COUNT(DISTINCT strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch', 'localtime'))
                    AS loggedDays
-        FROM entries
+        FROM glucose_readings
         WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
         """
     )
@@ -150,7 +165,7 @@ interface EntryDao {
         """
         SELECT CAST(SUM(CASE WHEN glucose_mgdl BETWEEN :low AND :high THEN 1 ELSE 0 END) AS REAL)
                / COUNT(*)
-        FROM entries
+        FROM glucose_readings
         WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
         """
     )
@@ -191,7 +206,7 @@ interface EntryDao {
                MIN(glucose_mgdl) AS minMgdl,
                MAX(glucose_mgdl) AS maxMgdl,
                COUNT(*) AS readings
-        FROM entries
+        FROM glucose_readings
         WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
         GROUP BY day
         ORDER BY day DESC
@@ -210,4 +225,84 @@ interface EntryDao {
     /** The single newest entry that carries a glucose reading (home-screen widget). */
     @Query("SELECT * FROM entries WHERE glucose_mgdl IS NOT NULL ORDER BY timestamp DESC LIMIT 1")
     suspend fun latestGlucoseEntry(): EntryEntity?
+
+    // ---------- Hashtag analytics ----------
+
+    /**
+     * Every log entry whose free-text note contains a hashtag (`#`). The
+     * LIKE predicate is intentionally coarse: actual tag extraction is done in
+     * Kotlin via [com.omb9.glucosehero.util.HashtagExtractor], keeping SQL free
+     * of regex semantics.
+     */
+    @Query("SELECT * FROM entries WHERE note IS NOT NULL AND note LIKE '%#%'")
+    suspend fun taggedEntries(): List<EntryEntity>
+
+    /**
+     * The glucose reading nearest to [targetMillis] within the closed window
+     * [startMillis, endMillis]. Used to find the ~2-hour post-event reading
+     * when computing per-hashtag glucose deltas.
+     */
+    @Query(
+        """
+        SELECT * FROM entries
+        WHERE glucose_mgdl IS NOT NULL
+          AND timestamp BETWEEN :startMillis AND :endMillis
+        ORDER BY ABS(timestamp - :targetMillis) ASC
+        LIMIT 1
+        """
+    )
+    suspend fun glucoseReadingNearestTo(
+        startMillis: Long,
+        endMillis: Long,
+        targetMillis: Long,
+    ): EntryEntity?
+
+    // ---------- Nightly pattern-recognition aggregates ----------
+
+    /** One-shot version of [observeGlucosePoints] for background analysis. */
+    @Query(
+        """
+        SELECT timestamp, glucose_mgdl AS glucoseMgdl
+        FROM entries
+        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
+        ORDER BY timestamp ASC
+        """
+    )
+    suspend fun glucosePointsSince(since: Long): List<GlucosePointRow>
+
+    /**
+     * Average glucose grouped by hour of the day. The WHERE clause on
+     * `glucose_mgdl` and `timestamp` is served by the composite
+     * `(glucose_mgdl, timestamp)` index.
+     */
+    @Query(
+        """
+        SELECT CAST(strftime('%H', timestamp / 1000, 'unixepoch', 'localtime') AS INTEGER) AS hour,
+               AVG(glucose_mgdl) AS avgMgdl,
+               COUNT(*) AS readings
+        FROM glucose_readings
+        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
+        GROUP BY hour
+        ORDER BY hour ASC
+        """
+    )
+    suspend fun hourlyAveragesSince(since: Long): List<HourlyGlucoseAverageRow>
+
+    /**
+     * Per-hour E[x] and E[x^2] aggregates. Standard deviation is derived in
+     * Kotlin as sqrt(E[x^2] - E[x]^2), avoiding SQLite's missing STDDEV.
+     */
+    @Query(
+        """
+        SELECT CAST(strftime('%H', timestamp / 1000, 'unixepoch', 'localtime') AS INTEGER) AS hour,
+               AVG(glucose_mgdl) AS avgMgdl,
+               AVG(glucose_mgdl * glucose_mgdl) AS avgSqMgdl,
+               COUNT(*) AS readings
+        FROM glucose_readings
+        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
+        GROUP BY hour
+        ORDER BY hour ASC
+        """
+    )
+    suspend fun hourlyVarianceSince(since: Long): List<HourlyGlucoseVarianceRow>
 }

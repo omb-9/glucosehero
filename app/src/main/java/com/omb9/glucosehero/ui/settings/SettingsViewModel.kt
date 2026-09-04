@@ -6,6 +6,7 @@ import com.omb9.glucosehero.data.billing.BillingRepository
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
+import com.omb9.glucosehero.domain.model.BolusSettings
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ThemeMode
@@ -39,6 +40,10 @@ class SettingsViewModel @Inject constructor(
 
     val profile: StateFlow<UserProfile> = settingsRepository.profile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserProfile())
+
+    /** Insulin-dosing parameters (DIA, CIR, ISF, target glucose) backing Smart Bolus + IOB. */
+    val bolusSettings: StateFlow<BolusSettings> = settingsRepository.bolusSettings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BolusSettings())
 
     /** Whether the user owns an active Pro subscription. */
     val isPremium: StateFlow<Boolean> = billingRepository.isPremium
@@ -144,6 +149,18 @@ class SettingsViewModel @Inject constructor(
 
     fun setTargetRange(lowMgdl: Float, highMgdl: Float) =
         viewModelScope.launch { settingsRepository.setTargetRange(lowMgdl, highMgdl) }
+
+    fun setDiaHours(diaHours: Float) =
+        viewModelScope.launch { settingsRepository.setDiaHours(diaHours) }
+
+    fun setCirRatio(ratio: Float) =
+        viewModelScope.launch { settingsRepository.setCirRatio(ratio) }
+
+    fun setIsfMgdl(isf: Float) =
+        viewModelScope.launch { settingsRepository.setIsfMgdl(isf) }
+
+    fun setTargetGlucoseMgdl(target: Float) =
+        viewModelScope.launch { settingsRepository.setTargetGlucoseMgdl(target) }
 
     fun setAiProvider(provider: AiProvider) =
         viewModelScope.launch { settingsRepository.setAiProvider(provider) }

@@ -6,6 +6,7 @@ import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
 import com.omb9.glucosehero.domain.model.ApiKeyMissingException
+import com.omb9.glucosehero.domain.model.BolusSettings
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ResolvedAiConfig
@@ -27,10 +28,13 @@ class SettingsRepositoryImpl @Inject constructor(
     override val settings: Flow<UserSettings> = dataStore.settings
     override val aiConfig: Flow<AiConfig> = dataStore.aiConfig
     override val profile: Flow<UserProfile> = dataStore.profile
+    override val bolusSettings: Flow<BolusSettings> = dataStore.bolusSettings
 
     override suspend fun profileSnapshot(): UserProfile = dataStore.profileSnapshot()
 
     override suspend fun aiConfigSnapshot(): AiConfig = dataStore.aiConfigSnapshot()
+
+    override suspend fun bolusSettingsSnapshot(): BolusSettings = dataStore.bolusSettingsSnapshot()
 
     override suspend fun setThemeMode(mode: ThemeMode) = dataStore.setThemeMode(mode)
     override suspend fun setAccent(accent: AccentColor) = dataStore.setAccent(accent)
@@ -59,6 +63,11 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setTargetRange(lowMgdl: Float, highMgdl: Float) =
         dataStore.setTargetRange(lowMgdl, highMgdl)
+
+    override suspend fun setDiaHours(diaHours: Float) = dataStore.setDiaHours(diaHours)
+    override suspend fun setCirRatio(ratio: Float) = dataStore.setCirRatio(ratio)
+    override suspend fun setIsfMgdl(isf: Float) = dataStore.setIsfMgdl(isf)
+    override suspend fun setTargetGlucoseMgdl(target: Float) = dataStore.setTargetGlucoseMgdl(target)
 
     override suspend fun setAiProvider(provider: AiProvider) = dataStore.setAiProvider(provider)
     override suspend fun setAiBaseUrl(url: String) = dataStore.setAiBaseUrl(url)

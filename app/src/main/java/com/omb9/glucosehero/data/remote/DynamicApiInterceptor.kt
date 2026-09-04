@@ -16,8 +16,9 @@ import javax.inject.Singleton
  * Net effect: switching providers in Settings takes effect on the very next
  * request — no rebuilt Retrofit/OkHttp singletons, no app restart.
  *
- * runBlocking is safe here: interceptors always execute on OkHttp's background
- * dispatcher threads, never the main thread.
+ * runBlocking is safe here: the block is bounded to a small DataStore read +
+ * decrypt, and interceptors always execute on OkHttp's background dispatcher
+ * threads, never the main thread.
  */
 @Singleton
 class DynamicApiInterceptor @Inject constructor(

@@ -1,7 +1,10 @@
 package com.omb9.glucosehero.domain.model
 
+import androidx.compose.runtime.Immutable
+
 enum class ChatRole { USER, ASSISTANT, SYSTEM }
 
+@Immutable
 data class ChatTurn(
     val id: Long = 0L,
     val role: ChatRole,

@@ -1,5 +1,6 @@
 package com.omb9.glucosehero.domain.model
 
+import androidx.compose.runtime.Immutable
 import java.io.IOException
 
 /**
@@ -35,6 +36,7 @@ enum class AiProvider(
 }
 
 /** Persisted AI configuration. [encryptedApiKey] is the KeyStore-wrapped blob. */
+@Immutable
 data class AiConfig(
     val provider: AiProvider = AiProvider.GEMINI,
     val baseUrl: String = AiProvider.GEMINI.defaultBaseUrl,
