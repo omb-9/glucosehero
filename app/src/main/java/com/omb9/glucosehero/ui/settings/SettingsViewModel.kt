@@ -10,14 +10,17 @@ import com.omb9.glucosehero.domain.model.BolusSettings
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ThemeMode
+import com.omb9.glucosehero.domain.model.UnitSystem
 import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.SettingsRepository
+import com.omb9.glucosehero.util.Formatters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
@@ -32,8 +35,19 @@ class SettingsViewModel @Inject constructor(
     private val billingRepository: BillingRepository,
 ) : ViewModel() {
 
-    val settings: StateFlow<UserSettings> = settingsRepository.settings
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserSettings())
+    /**
+     * [UserSettings.unitSystem] is a presentation-layer preference and is not
+     * persisted by [SettingsRepository]; hold the in-session override here and
+     * layer it over the stored settings.
+     */
+    private val unitSystemOverride = MutableStateFlow<UnitSystem?>(null)
+
+    val settings: StateFlow<UserSettings> = combine(
+        settingsRepository.settings,
+        unitSystemOverride,
+    ) { stored, override ->
+        if (override == null) stored else stored.copy(unitSystem = override)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserSettings())
 
     val aiConfig: StateFlow<AiConfig> = settingsRepository.aiConfig
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AiConfig())
@@ -79,14 +93,14 @@ class SettingsViewModel @Inject constructor(
             heightInput
                 .filterNotNull()
                 .debounce(DEBOUNCE_MILLIS)
-                .collectLatest { settingsRepository.setProfileHeightCm(it.toFloatOrNull()) }
+                .collectLatest { settingsRepository.setProfileHeightCm(Formatters.parseDecimal(it)?.toFloat()) }
         }
 
         viewModelScope.launch {
             weightInput
                 .filterNotNull()
                 .debounce(DEBOUNCE_MILLIS)
-                .collectLatest { settingsRepository.setProfileWeightKg(it.toFloatOrNull()) }
+                .collectLatest { settingsRepository.setProfileWeightKg(Formatters.parseDecimal(it)?.toFloat()) }
         }
 
         viewModelScope.launch {
@@ -112,6 +126,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setUnit(unit: GlucoseUnit) =
         viewModelScope.launch { settingsRepository.setUnit(unit) }
+
+    fun setUnitSystem(system: UnitSystem) {
+        unitSystemOverride.value = system
+    }
 
     fun setUse24HourTime(enabled: Boolean) =
         viewModelScope.launch { settingsRepository.setUse24HourTime(enabled) }
@@ -139,12 +157,27 @@ class SettingsViewModel @Inject constructor(
         diabetesTypeInput.value = type.orEmpty()
     }
 
-    fun setProfileHeightCm(heightCm: String) {
-        heightInput.value = heightCm
+    fun setProfileHeightMetric(value: String) {
+        heightInput.value = value
     }
 
-    fun setProfileWeightKg(weightKg: String) {
-        weightInput.value = weightKg
+    fun setProfileHeightImperial(feet: String, inches: String) {
+        val feetValue = feet.trim().toIntOrNull()
+        heightInput.value = if (feetValue == null) {
+            ""
+        } else {
+            val inchesValue = inches.trim().toIntOrNull() ?: 0
+            Formatters.feetInchesToCm(feetValue, inchesValue).toString()
+        }
+    }
+
+    fun setProfileWeightMetric(value: String) {
+        weightInput.value = value
+    }
+
+    fun setProfileWeightImperial(value: String) {
+        val lbs = Formatters.parseDecimal(value)
+        weightInput.value = if (lbs == null) value else Formatters.lbsToKg(lbs.toFloat()).toString()
     }
 
     fun setTargetRange(lowMgdl: Float, highMgdl: Float) =

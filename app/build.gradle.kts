@@ -126,8 +126,8 @@ dependencies {
     implementation(libs.mlkit.barcode.scanning)
 
     // Charts
+    implementation(libs.vico.compose)
     implementation(libs.vico.compose.m3)
-    implementation(libs.vico.core)
 
     // Background work
     implementation(libs.androidx.work.runtime)
@@ -138,9 +138,13 @@ dependencies {
     // Play Billing
     implementation(libs.billing.ktx)
 
+    // Health Connect
+    implementation(libs.health.connect.client)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.health.connect.testing)
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)

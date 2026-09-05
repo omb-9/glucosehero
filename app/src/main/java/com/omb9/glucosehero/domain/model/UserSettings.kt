@@ -1,6 +1,7 @@
 package com.omb9.glucosehero.domain.model
 
 import androidx.compose.runtime.Immutable
+import java.util.Locale
 
 enum class ThemeMode { SYSTEM, LIGHT, AMOLED }
 
@@ -10,6 +11,17 @@ enum class GlucoseUnit(val label: String) {
 
     companion object {
         const val MGDL_PER_MMOL = 18.0182
+    }
+}
+
+enum class UnitSystem(val label: String) {
+    METRIC("Metric (cm, kg)"),
+    IMPERIAL("Imperial (ft/in, lb)");
+
+    companion object {
+        /** First-launch default: Imperial for US locales, Metric otherwise. */
+        fun default(): UnitSystem =
+            if (Locale.getDefault().country.equals("US", ignoreCase = true)) IMPERIAL else METRIC
     }
 }
 
@@ -28,6 +40,7 @@ data class UserSettings(
     val themeMode: ThemeMode = ThemeMode.LIGHT,
     val accent: AccentColor = AccentColor.LIGHT_RED,
     val unit: GlucoseUnit = GlucoseUnit.MGDL,
+    val unitSystem: UnitSystem = UnitSystem.default(),
     val use24HourTime: Boolean = false,
     val targetLowMgdl: Float = 70f,
     val targetHighMgdl: Float = 180f,

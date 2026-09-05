@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bloodtype
@@ -35,6 +37,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.R
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.ui.components.AddEntrySheet
+import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
 import com.omb9.glucosehero.ui.theme.GlucoseHigh
 import com.omb9.glucosehero.ui.theme.GlucoseInRange
 import com.omb9.glucosehero.ui.theme.GlucoseLow
@@ -72,7 +77,9 @@ fun LogScreen(
     val suggestedBolus by viewModel.suggestedBolus.collectAsStateWithLifecycle()
     var showSheet by rememberSaveable { mutableStateOf(false) }
     val streakReward by viewModel.streakReward.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val pullToRefreshState = rememberPullToRefreshState()
     LaunchedEffect(viewModel) {
         viewModel.saveErrors.collect { error ->
             snackbarHostState.showSnackbar(error.message ?: "Save failed")
@@ -110,56 +117,72 @@ fun LogScreen(
             }
         },
     ) { padding ->
-        Column(
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = viewModel::refresh,
+            state = pullToRefreshState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
+            indicator = {
+                GlucoseHeroRefreshIndicator(
+                    state = pullToRefreshState,
+                    isRefreshing = isRefreshing,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            },
         ) {
-            ActiveInsulinBar(activeInsulinUnits = activeInsulin)
+            Column(modifier = Modifier.fillMaxSize()) {
+                ActiveInsulinBar(activeInsulinUnits = activeInsulin)
 
-            when {
-                state.isLoading -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator()
-                }
+                when {
+                    state.isLoading -> Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
 
-                state.days.isEmpty() -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_logo_display),
-                        contentDescription = null,
-                        modifier = Modifier.size(120.dp),
-                        alpha = 0.15f,
-                    )
-                }
-
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                state.days.forEach { day ->
-                    item(key = "day-${day.epochDay}") {
-                        Text(
-                            day.header,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                    state.days.isEmpty() -> Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.ic_logo_display),
+                            contentDescription = null,
+                            modifier = Modifier.size(120.dp),
+                            alpha = 0.15f,
                         )
                     }
-                    items(day.entries, key = { it.id }) { entry ->
-                        EntryRow(
-                            item = entry,
-                            unitLabel = state.unit.label,
-                            onClick = { onEntryClick(entry.id) },
-                        )
-                        Spacer(Modifier.height(8.dp))
+
+                    else -> LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    ) {
+                        state.days.forEach { day ->
+                            item(key = "day-${day.epochDay}") {
+                                Text(
+                                    day.header,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                                )
+                            }
+                            items(day.entries, key = { it.id }) { entry ->
+                                EntryRow(
+                                    item = entry,
+                                    unitLabel = state.unit.label,
+                                    onClick = { onEntryClick(entry.id) },
+                                )
+                                Spacer(Modifier.height(8.dp))
+                            }
+                        }
+                        item { Spacer(Modifier.height(72.dp)) }
                     }
-                }
-                item { Spacer(Modifier.height(72.dp)) }
                 }
             }
         }

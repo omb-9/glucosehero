@@ -6,6 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.omb9.glucosehero.domain.model.Supply
 import com.omb9.glucosehero.domain.model.SupplyType
+import java.util.UUID
 
 /**
  * Persisted supply lifecycle row. [replacedAt] is null while the item is
@@ -15,7 +16,10 @@ import com.omb9.glucosehero.domain.model.SupplyType
  */
 @Entity(
     tableName = "supplies",
-    indices = [Index("started_at")],
+    indices = [
+        Index("started_at"),
+        Index(value = ["uuid"], unique = true),
+    ],
 )
 data class SupplyEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
@@ -23,6 +27,7 @@ data class SupplyEntity(
     @ColumnInfo(name = "started_at") val startedAt: Long,
     @ColumnInfo(name = "expected_lifespan_days") val expectedLifespanDays: Int,
     @ColumnInfo(name = "replaced_at") val replacedAt: Long? = null,
+    @ColumnInfo(name = "uuid", defaultValue = "") val uuid: String = UUID.randomUUID().toString(),
 )
 
 fun SupplyEntity.toDomain() = Supply(

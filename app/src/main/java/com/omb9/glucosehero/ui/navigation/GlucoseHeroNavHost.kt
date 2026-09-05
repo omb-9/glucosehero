@@ -112,7 +112,11 @@ fun GlucoseHeroNavHost(
                     addGlucoseTick = addGlucoseTick,
                 )
             }
-            composable(Routes.STATS) { StatsScreen() }
+            composable(Routes.STATS) {
+                StatsScreen(
+                    onEntryClick = { id -> navController.navigate(Routes.entryDetail(id)) },
+                )
+            }
             composable(Routes.HERO) {
                 ChatScreen(
                     onOpenLog = {

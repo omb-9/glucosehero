@@ -9,17 +9,21 @@ import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.domain.model.Ea1cConfidence
 import com.omb9.glucosehero.domain.model.ExportFormat
 import com.omb9.glucosehero.domain.model.ExportedFile
+import com.omb9.glucosehero.domain.model.GlucosePointRow
 import com.omb9.glucosehero.domain.model.GlucoseUnit
+import com.omb9.glucosehero.domain.model.LogEvent
 import com.omb9.glucosehero.domain.model.Supply
 import com.omb9.glucosehero.domain.model.SupplyType
+import com.omb9.glucosehero.domain.model.ThemeMode
+import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.model.TimeRange
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.domain.repository.SupplyRepository
 import com.omb9.glucosehero.util.Formatters
+import com.omb9.glucosehero.util.GlucoseRangeColor
+import com.omb9.glucosehero.util.RangeCategory
 import com.omb9.glucosehero.util.SupplyCalculator
-import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
-import com.patrykandpatrick.vico.core.entry.entryOf
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import kotlin.math.abs
@@ -55,6 +59,13 @@ private data class MetricDelta(
     val text: String,
 )
 
+private data class StatsPipelineInput(
+    val range: TimeRange,
+    val points: List<GlucosePointRow>,
+    val events: List<LogEvent>,
+    val settings: UserSettings,
+)
+
 @Immutable
 data class ActiveSupplyUi(
     val id: Long,
@@ -66,10 +77,40 @@ data class ActiveSupplyUi(
     val isExpired: Boolean,
 )
 
+/** A single glucose reading in chart coordinates (x = days since range start, y = display value). */
+@Immutable
+data class GlucoseChartPoint(
+    val x: Double,
+    val y: Float,
+)
+
+/** The revealable content categories a foreground marker can carry. */
+enum class MarkerCategory(val label: String) {
+    MEAL("Meal"),
+    EXERCISE("Exercise"),
+    NOTE("Note"),
+}
+
+/**
+ * A sparse, tappable foreground marker. Unlike the dense background line, this is sourced only
+ * from user-authored `entries` and carries a revealable category (meal/exercise/note).
+ */
+@Immutable
+data class GlucoseMarker(
+    val entryId: Long,
+    val x: Double,
+    val y: Float,
+    val range: RangeCategory,
+    val category: MarkerCategory,
+    val note: String? = null,
+    val mealDescription: String? = null,
+)
+
 @Immutable
 data class StatsUiState(
     val range: TimeRange = TimeRange.DAYS_14,
     val unit: GlucoseUnit = GlucoseUnit.MGDL,
+    val themeMode: ThemeMode = ThemeMode.LIGHT,
     val hasData: Boolean = false,
     val loadFailed: Boolean = false,
     val avgDisplay: String = "–",
@@ -85,6 +126,10 @@ data class StatsUiState(
     val ea1cNeededDays: Int = 14,
     val ea1cNeededReadings: Int = 20,
     val minMaxDisplay: String = "–",
+    /** Chart points in display-unit space; x is days since the window start. */
+    val chartPoints: List<GlucoseChartPoint> = emptyList(),
+    /** Sparse, tappable foreground markers (meal/exercise/note entries only). */
+    val markers: List<GlucoseMarker> = emptyList(),
     /** Epoch millis of the window start; the bottom axis maps x (days) → dates. */
     val rangeStartMillis: Long = 0L,
     /** Target range + y bounds, already converted to the display unit. */
@@ -101,7 +146,7 @@ sealed interface ExportEvent {
 }
 
 /**
- * Spec §4: every heavy step — folding rows into Vico chart entries, averages,
+ * Spec §4: every heavy step — folding rows into chart points, averages,
  * TIR, min/max, shading bounds — runs inside the ViewModel on
  * Dispatchers.Default. The composable only ever renders finished values.
  */
@@ -114,9 +159,6 @@ class StatsViewModel @Inject constructor(
     private val insightDao: InsightDao,
     private val exportManager: ExportManager,
 ) : ViewModel() {
-
-    /** Owned by the ViewModel so chart data survives recomposition. */
-    val chartModelProducer = ChartEntryModelProducer()
 
     /** Continuous daily-logging streak, emitted reactively from Room. */
     val currentStreakDays: StateFlow<Int> = entryRepository.observeCurrentStreak()
@@ -145,11 +187,19 @@ class StatsViewModel @Inject constructor(
 
     private val selectedRange = MutableStateFlow(TimeRange.DAYS_14)
 
+    private val _enabledMarkerCategories = MutableStateFlow(MarkerCategory.entries.toSet())
+    /** Session-scoped foreground-marker category filters. */
+    val enabledMarkerCategories: StateFlow<Set<MarkerCategory>> = _enabledMarkerCategories.asStateFlow()
+
     private val _uiState = MutableStateFlow(StatsUiState())
     val uiState: StateFlow<StatsUiState> = _uiState.asStateFlow()
 
     private val _isExporting = MutableStateFlow(false)
     val isExporting: StateFlow<Boolean> = _isExporting.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    /** True while the pull-to-refresh indicator is animating. */
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     private val _exportEvents = MutableSharedFlow<ExportEvent>(
         replay = 0,
@@ -165,26 +215,47 @@ class StatsViewModel @Inject constructor(
                     val since = Formatters.daysAgoMillis(range.days)
                     combine(
                         entryRepository.observeGlucosePoints(since),
+                        entryRepository.observeGlucose(since),
                         settingsRepository.settings,
-                    ) { entries, settings -> Triple(range, entries, settings) }
+                    ) { points, events, settings -> StatsPipelineInput(range, points, events, settings) }
                 }
-                .collectLatest { (range, entries, settings) ->
+                .collectLatest { input ->
                     try {
                         withContext(Dispatchers.Default) {
+                            val range = input.range
+                            val settings = input.settings
                             val unit = settings.unit
                             val sinceMillis = Formatters.daysAgoMillis(range.days)
 
-                            val points = entries.mapNotNull { entry ->
+                            val points = input.points.mapNotNull { row ->
                                 // Non-finite values (a NaN/Infinity that reached
                                 // storage) would poison the y-axis domain below.
-                                val mgdl = entry.glucoseMgdl.takeIf { it.isFinite() }
+                                val mgdl = row.glucoseMgdl.takeIf { it.isFinite() }
                                     ?: return@mapNotNull null
-                                val x = (entry.timestamp - sinceMillis).toFloat() / MILLIS_PER_DAY
-                                entryOf(x, Formatters.toDisplayValue(mgdl, unit).toFloat())
+                                val x = (row.timestamp - sinceMillis).toDouble() / MILLIS_PER_DAY.toDouble()
+                                GlucoseChartPoint(x, Formatters.toDisplayValue(mgdl, unit).toFloat())
                             }
-                            chartModelProducer.setEntries(points)
 
-                            val values = entries.mapNotNull { e ->
+                            val markers = input.events.mapNotNull { event ->
+                                val category = markerCategoryFor(event) ?: return@mapNotNull null
+                                val mgdl = event.glucoseMgdl?.takeIf { it.isFinite() }
+                                    ?: return@mapNotNull null
+                                GlucoseMarker(
+                                    entryId = event.id,
+                                    x = (event.timestamp - sinceMillis).toDouble() / MILLIS_PER_DAY.toDouble(),
+                                    y = Formatters.toDisplayValue(mgdl, unit).toFloat(),
+                                    range = GlucoseRangeColor.forValue(
+                                        mgdl.toFloat(),
+                                        settings.targetLowMgdl,
+                                        settings.targetHighMgdl,
+                                    ),
+                                    category = category,
+                                    note = event.note,
+                                    mealDescription = event.mealDescription,
+                                )
+                            }
+
+                            val values = input.points.mapNotNull { e ->
                                 e.glucoseMgdl.takeIf { it.isFinite() }
                             }
                             val currentAvg = values.takeIf { it.isNotEmpty() }?.average()
@@ -250,6 +321,9 @@ class StatsViewModel @Inject constructor(
                                     } else {
                                         "–"
                                     },
+                                    chartPoints = points,
+                                    markers = markers,
+                                    themeMode = settings.themeMode,
                                     rangeStartMillis = sinceMillis,
                                     targetLowDisplay = lowDisplay,
                                     targetHighDisplay = highDisplay,
@@ -302,6 +376,32 @@ class StatsViewModel @Inject constructor(
         selectedRange.value = range
     }
 
+    fun toggleMarkerCategory(category: MarkerCategory) {
+        _enabledMarkerCategories.update { current ->
+            if (category in current) current - category else current + category
+        }
+    }
+
+    /**
+     * Pull-to-refresh entry point. The stats pipeline is already reactive via
+     * Room flows (see init), so there is no re-fetch to perform — this only
+     * enforces a minimum duration so the indicator animation always plays fully.
+     */
+    fun refresh() {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                // TODO(health-connect): once HealthConnectSyncWorker exists, trigger a
+                // one-shot expedited sync run here. Out of scope for this lane - the
+                // worker does not exist yet.
+                delay(REFRESH_MIN_MILLIS)
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
+
     fun logSupply(type: SupplyType, expectedLifespanDays: Int) {
         viewModelScope.launch {
             supplyRepository.addSupply(
@@ -329,6 +429,14 @@ class StatsViewModel @Inject constructor(
                 _isExporting.value = false
             }
         }
+    }
+
+    private fun markerCategoryFor(event: LogEvent): MarkerCategory? = when {
+        event.carbsGrams != null || event.proteinGrams != null || event.fatGrams != null ||
+            !event.mealDescription.isNullOrBlank() -> MarkerCategory.MEAL
+        event.exerciseMinutes != null -> MarkerCategory.EXERCISE
+        !event.note.isNullOrBlank() -> MarkerCategory.NOTE
+        else -> null
     }
 
     private fun glucoseDelta(
@@ -401,6 +509,7 @@ class StatsViewModel @Inject constructor(
 
     private companion object {
         const val MILLIS_PER_DAY = 24f * 60f * 60f * 1000f
+        const val REFRESH_MIN_MILLIS = 600L
         const val EA1C_WINDOW_DAYS = 90
         const val MIN_CONFIDENT_DAYS = 14
         const val MIN_CONFIDENT_READINGS = 20

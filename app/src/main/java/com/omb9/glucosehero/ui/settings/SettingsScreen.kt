@@ -61,6 +61,7 @@ import com.omb9.glucosehero.domain.model.AiProvider
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ThemeMode
+import com.omb9.glucosehero.domain.model.UnitSystem
 import com.omb9.glucosehero.util.Formatters
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -173,42 +174,100 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
 
             Spacer(Modifier.height(12.dp))
 
-            var heightText by remember(profile.heightCm) {
-                mutableStateOf(
-                    profile.heightCm?.let {
-                        if (it % 1.0f == 0.0f) it.toInt().toString() else it.toString()
-                    } ?: "",
-                )
-            }
-            OutlinedTextField(
-                value = heightText,
-                onValueChange = {
-                    heightText = it
-                    viewModel.setProfileHeightCm(it)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Height (cm)") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            Text(
+                "Units",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(8.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                UnitSystem.entries.forEachIndexed { index, system ->
+                    SegmentedButton(
+                        selected = settings.unitSystem == system,
+                        onClick = { viewModel.setUnitSystem(system) },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = UnitSystem.entries.size,
+                        ),
+                    ) {
+                        Text(system.label)
+                    }
+                }
+            }
 
             Spacer(Modifier.height(12.dp))
 
-            var weightText by remember(profile.weightKg) {
-                mutableStateOf(
-                    profile.weightKg?.let {
-                        if (it % 1.0f == 0.0f) it.toInt().toString() else it.toString()
-                    } ?: "",
+            if (settings.unitSystem == UnitSystem.METRIC) {
+                var heightText by remember(profile.heightCm, settings.unitSystem) {
+                    mutableStateOf(Formatters.formatHeight(profile.heightCm, UnitSystem.METRIC))
+                }
+                OutlinedTextField(
+                    value = heightText,
+                    onValueChange = {
+                        heightText = it
+                        viewModel.setProfileHeightMetric(it)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Height (cm)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 )
+            } else {
+                val imperialHeight = profile.heightCm?.let { Formatters.cmToFeetInches(it) }
+                var heightFeetText by remember(profile.heightCm, settings.unitSystem) {
+                    mutableStateOf(imperialHeight?.first?.toString() ?: "")
+                }
+                var heightInchesText by remember(profile.heightCm, settings.unitSystem) {
+                    mutableStateOf(imperialHeight?.second?.toString() ?: "")
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = heightFeetText,
+                        onValueChange = {
+                            heightFeetText = it
+                            viewModel.setProfileHeightImperial(it, heightInchesText)
+                        },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("Height (ft)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                    OutlinedTextField(
+                        value = heightInchesText,
+                        onValueChange = {
+                            heightInchesText = it
+                            viewModel.setProfileHeightImperial(heightFeetText, it)
+                        },
+                        modifier = Modifier.weight(1f),
+                        label = { Text("Height (in)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            var weightText by remember(profile.weightKg, settings.unitSystem) {
+                mutableStateOf(Formatters.formatWeight(profile.weightKg, settings.unitSystem))
             }
             OutlinedTextField(
                 value = weightText,
                 onValueChange = {
                     weightText = it
-                    viewModel.setProfileWeightKg(it)
+                    if (settings.unitSystem == UnitSystem.METRIC) {
+                        viewModel.setProfileWeightMetric(it)
+                    } else {
+                        viewModel.setProfileWeightImperial(it)
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Weight (kg)") },
+                label = {
+                    Text(if (settings.unitSystem == UnitSystem.METRIC) "Weight (kg)" else "Weight (lb)")
+                },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             )

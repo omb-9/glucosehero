@@ -1,11 +1,13 @@
 package com.omb9.glucosehero.util
 
 import com.omb9.glucosehero.domain.model.GlucoseUnit
+import com.omb9.glucosehero.domain.model.UnitSystem
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 object Formatters {
 
@@ -104,4 +106,43 @@ object Formatters {
             .replace(',', '.')
             .toDoubleOrNull()
             ?.takeIf { it.isFinite() }
+
+    // ---------- Height & weight display units ----------
+
+    private const val CM_PER_INCH = 2.54
+    private const val LB_PER_KG = 2.20462
+
+    /** Canonical cm → display string in the chosen unit. Null/blank height → empty string. */
+    fun formatHeight(cm: Float?, system: UnitSystem): String = when (system) {
+        UnitSystem.METRIC -> cm?.let(::formatNumber) ?: ""
+        UnitSystem.IMPERIAL -> cm?.let {
+            val (feet, inches) = cmToFeetInches(it)
+            "$feet'$inches\""
+        } ?: ""
+    }
+
+    /** Canonical kg → display string in the chosen unit. Null/blank weight → empty string. */
+    fun formatWeight(kg: Float?, system: UnitSystem): String = when (system) {
+        UnitSystem.METRIC -> kg?.let(::formatNumber) ?: ""
+        UnitSystem.IMPERIAL -> kg?.let { formatNumber(roundToOneDecimal(kgToLbs(it))) } ?: ""
+    }
+
+    /** feet/inches -> canonical cm. */
+    fun feetInchesToCm(feet: Int, inches: Int): Float =
+        ((feet * 12) + inches) * CM_PER_INCH.toFloat()
+
+    /** canonical cm -> feet/inches for display. */
+    fun cmToFeetInches(cm: Float): Pair<Int, Int> {
+        val totalInches = (cm / CM_PER_INCH).roundToInt()
+        return totalInches / 12 to totalInches % 12
+    }
+
+    fun lbsToKg(lbs: Float): Float = lbs / LB_PER_KG.toFloat()
+    fun kgToLbs(kg: Float): Float = kg * LB_PER_KG.toFloat()
+
+    private fun formatNumber(value: Float): String =
+        if (value % 1.0f == 0.0f) value.toInt().toString() else value.toString()
+
+    private fun roundToOneDecimal(value: Float): Float =
+        (value * 10).roundToInt() / 10f
 }

@@ -45,6 +45,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,7 +59,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -68,21 +69,10 @@ import com.omb9.glucosehero.domain.model.Ea1cConfidence
 import com.omb9.glucosehero.domain.model.ExportFormat
 import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.TimeRange
+import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
+import com.omb9.glucosehero.ui.stats.components.GlucoseChart
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
 import com.omb9.glucosehero.util.Formatters
-import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
-import com.patrykandpatrick.vico.compose.chart.Chart
-import com.patrykandpatrick.vico.compose.chart.line.lineChart
-import com.patrykandpatrick.vico.compose.chart.line.lineSpec
-import com.patrykandpatrick.vico.core.axis.AxisItemPlacer
-import com.patrykandpatrick.vico.core.axis.AxisPosition
-import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
-import com.patrykandpatrick.vico.core.chart.decoration.ThresholdLine
-import com.patrykandpatrick.vico.core.chart.values.AxisValuesOverrider
-import com.patrykandpatrick.vico.core.component.shape.ShapeComponent
-import java.time.Instant
-import java.time.ZoneId
 import kotlin.math.ceil
 import kotlinx.collections.immutable.ImmutableList
 
@@ -95,15 +85,21 @@ private val HighSeverityAccent = Color(0xFFFF5252)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
+fun StatsScreen(
+    onEntryClick: (Long) -> Unit,
+    viewModel: StatsViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val enabledCategories by viewModel.enabledMarkerCategories.collectAsStateWithLifecycle()
     val streak by viewModel.currentStreakDays.collectAsStateWithLifecycle()
     val supplies by viewModel.activeSupplies.collectAsStateWithLifecycle()
     val insights by viewModel.insights.collectAsStateWithLifecycle()
     val isExporting by viewModel.isExporting.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     var showExportSheet by remember { mutableStateOf(false) }
     var showSupplySheet by remember { mutableStateOf(false) }
     var preselectedSupplyType by remember { mutableStateOf<SupplyType?>(null) }
+    val pullToRefreshState = rememberPullToRefreshState()
     val context = LocalContext.current
 
     LaunchedEffect(viewModel) {
@@ -145,10 +141,24 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
             )
         },
     ) { padding ->
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = viewModel::refresh,
+            state = pullToRefreshState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            indicator = {
+                GlucoseHeroRefreshIndicator(
+                    state = pullToRefreshState,
+                    isRefreshing = isRefreshing,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            },
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
@@ -234,7 +244,25 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
                     )
                     Spacer(Modifier.height(12.dp))
                     if (state.hasData) {
-                        TrendChart(state = state, viewModel = viewModel)
+                        MarkerFilterRow(
+                            enabledCategories = enabledCategories,
+                            onToggle = viewModel::toggleMarkerCategory,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        GlucoseChart(
+                            points = state.chartPoints,
+                            markers = state.markers,
+                            enabledCategories = enabledCategories,
+                            targetLow = state.targetLowDisplay,
+                            targetHigh = state.targetHighDisplay,
+                            minY = state.chartMinY,
+                            maxY = state.chartMaxY,
+                            rangeDays = state.range.days,
+                            rangeStartMillis = state.rangeStartMillis,
+                            themeMode = state.themeMode,
+                            onMarkerClick = onEntryClick,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     } else {
                         Box(
                             modifier = Modifier
@@ -290,6 +318,7 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
             }
             Spacer(Modifier.height(24.dp))
         }
+        }
     }
 
     if (showSupplySheet) {
@@ -309,6 +338,22 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
             onSelect = { format -> viewModel.export(format) },
             onDismiss = { showExportSheet = false },
         )
+    }
+}
+
+@Composable
+private fun MarkerFilterRow(
+    enabledCategories: Set<MarkerCategory>,
+    onToggle: (MarkerCategory) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        MarkerCategory.entries.forEach { category ->
+            FilterChip(
+                selected = category in enabledCategories,
+                onClick = { onToggle(category) },
+                label = { Text(category.label) },
+            )
+        }
     }
 }
 
@@ -662,71 +707,6 @@ private fun insightIconDescription(insight: InsightCardEntity): String = when {
     insight.title.contains("low", ignoreCase = true) -> "Glucose trending down"
     insight.title.contains("high", ignoreCase = true) -> "Glucose trending up"
     else -> "Insight"
-}
-
-@Composable
-private fun TrendChart(state: StatsUiState, viewModel: StatsViewModel) {
-    val accent = MaterialTheme.colorScheme.primary
-    val shadeColor = accent.copy(alpha = 0.12f).toArgb()
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-
-    // Target-range shading: a ThresholdLine decoration spanning low..high in
-    // the display unit, rebuilt only when the range bounds actually change.
-    val thresholdLine = remember(state.targetLowDisplay, state.targetHighDisplay, shadeColor) {
-        ThresholdLine(
-            thresholdRange = state.targetLowDisplay..state.targetHighDisplay,
-            lineComponent = ShapeComponent(color = shadeColor),
-        )
-    }
-
-    val axisOverrider = remember(state.chartMinY, state.chartMaxY) {
-        AxisValuesOverrider.fixed(
-            minY = state.chartMinY.coerceAtLeast(0f),
-            maxY = state.chartMaxY,
-        )
-    }
-
-    val bottomFormatter = remember(state.rangeStartMillis) {
-        AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
-            val date = Instant.ofEpochMilli(state.rangeStartMillis)
-                .atZone(ZoneId.systemDefault())
-                .toLocalDate()
-                .plusDays(value.toLong())
-            Formatters.shortDate(date)
-        }
-    }
-
-    val bottomItemPlacer = remember(state.range) {
-        AxisItemPlacer.Horizontal.default(
-            spacing = (state.range.days / 6).coerceAtLeast(1),
-        )
-    }
-
-    Chart(
-        chart = lineChart(
-            lines = listOf(lineSpec(lineColor = accent)),
-            decorations = listOf(thresholdLine),
-            axisValuesOverrider = axisOverrider,
-        ),
-        chartModelProducer = viewModel.chartModelProducer,
-        startAxis = rememberStartAxis(
-            itemPlacer = remember { AxisItemPlacer.Vertical.default(maxItemCount = 5) },
-        ),
-        bottomAxis = rememberBottomAxis(
-            valueFormatter = bottomFormatter,
-            itemPlacer = bottomItemPlacer,
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(220.dp),
-    )
-
-    Spacer(Modifier.height(8.dp))
-    Text(
-        "Shaded band = your target range",
-        style = MaterialTheme.typography.labelMedium,
-        color = labelColor,
-    )
 }
 
 @Composable

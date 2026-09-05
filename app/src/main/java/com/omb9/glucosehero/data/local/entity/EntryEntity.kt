@@ -8,6 +8,7 @@ import com.omb9.glucosehero.domain.model.ActivityIntensity
 import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.LogEvent
 import com.omb9.glucosehero.domain.model.MealContext
+import java.util.UUID
 
 /**
  * Flat, multi-metric table: a single row can carry glucose, insulin, carbs
@@ -24,6 +25,7 @@ import com.omb9.glucosehero.domain.model.MealContext
         Index("timestamp"),
         Index("glucose_mgdl"),
         Index(value = ["glucose_mgdl", "timestamp"]),
+        Index(value = ["uuid"], unique = true),
     ],
 )
 data class EntryEntity(
@@ -42,6 +44,8 @@ data class EntryEntity(
     @ColumnInfo(name = "note") val note: String? = null,
     @ColumnInfo(name = "source", defaultValue = "MANUAL") val source: EntrySource = EntrySource.MANUAL,
     @ColumnInfo(name = "hc_record_id") val hcRecordId: String? = null,
+    @ColumnInfo(name = "food_id") val foodId: Long? = null,
+    @ColumnInfo(name = "uuid", defaultValue = "") val uuid: String = UUID.randomUUID().toString(),
 )
 
 fun EntryEntity.toDomain() = LogEvent(

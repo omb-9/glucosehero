@@ -158,6 +158,10 @@ class LogViewModel @Inject constructor(
     /** One-shot save failures surfaced to the UI. */
     val saveErrors: SharedFlow<Throwable> = _saveErrors.asSharedFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    /** True while the pull-to-refresh indicator is animating. */
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     val uiState: StateFlow<LogUiState> =
         combine(
             entryRepository.observeEntries(Formatters.daysAgoMillis(WINDOW_DAYS)),
@@ -175,6 +179,26 @@ class LogViewModel @Inject constructor(
     val canSave: StateFlow<Boolean> = combine(_draft, settings) { draft, settings ->
         draft.toLogEvent(settings, 0L) != null
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /**
+     * Pull-to-refresh entry point. The log list is already reactive via Room's
+     * [Flow], so there is no re-fetch to perform — this only enforces a minimum
+     * duration so the indicator animation always plays fully.
+     */
+    fun refresh() {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                // TODO(health-connect): once HealthConnectSyncWorker exists, trigger a
+                // one-shot expedited sync run here. Out of scope for this lane - the
+                // worker does not exist yet.
+                delay(REFRESH_MIN_MILLIS)
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
 
     // ---- Draft setters: each is a pure copy/update — no clearing, no side-effects ----
 
@@ -396,6 +420,7 @@ class LogViewModel @Inject constructor(
 
     private companion object {
         const val WINDOW_DAYS = 90
+        const val REFRESH_MIN_MILLIS = 600L
 
         /** Bolus lookback window — generous enough for any realistic DIA. */
         const val ACTIVE_INSULIN_WINDOW_MILLIS = 6 * IobCalculator.MILLIS_PER_HOUR
