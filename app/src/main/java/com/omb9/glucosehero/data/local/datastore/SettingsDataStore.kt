@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.omb9.glucosehero.domain.model.AccentColor
@@ -59,6 +60,14 @@ class SettingsDataStore @Inject constructor(
         val CIR_RATIO = floatPreferencesKey("cir_ratio")
         val ISF_MGDL = floatPreferencesKey("isf_mgdl")
         val TARGET_GLUCOSE_MGDL = floatPreferencesKey("target_glucose_mgdl")
+        val HEALTH_CONNECT_SYNC_ENABLED = booleanPreferencesKey("health_connect_sync_enabled")
+        val HEALTH_CONNECT_CHANGES_TOKEN = stringPreferencesKey("health_connect_changes_token")
+        val HEALTH_CONNECT_LAST_SYNC = longPreferencesKey("health_connect_last_sync")
+        val GLUCOSE_IMPORT_ENABLED = booleanPreferencesKey("glucose_import_enabled")
+        val NUTRITION_IMPORT_ENABLED = booleanPreferencesKey("nutrition_import_enabled")
+        val EXERCISE_IMPORT_ENABLED = booleanPreferencesKey("exercise_import_enabled")
+        val HEALTH_CONNECT_INITIAL_IMPORT_RANGE = stringPreferencesKey("health_connect_initial_import_range")
+        val BARCODE_LOOKUP_ENABLED = booleanPreferencesKey("barcode_lookup_enabled")
     }
 
     /**
@@ -104,11 +113,44 @@ class SettingsDataStore @Inject constructor(
         )
     }
 
+    val barcodeLookupEnabled: Flow<Boolean> = safeData.map { p ->
+        runCatching { p[Keys.BARCODE_LOOKUP_ENABLED] }.getOrNull() ?: true
+    }
+
     val aiConfig: Flow<AiConfig> = safeData.map { p -> p.toAiConfig() }
 
     val profile: Flow<UserProfile> = safeData.map { p -> p.toUserProfile() }
 
     val bolusSettings: Flow<BolusSettings> = safeData.map { p -> p.toBolusSettings() }
+
+    val healthConnectSyncEnabled: Flow<Boolean> = safeData.map { p ->
+        runCatching { p[Keys.HEALTH_CONNECT_SYNC_ENABLED] }.getOrNull() ?: false
+    }
+
+    val healthConnectChangesToken: Flow<String?> = safeData.map { p ->
+        runCatching { p[Keys.HEALTH_CONNECT_CHANGES_TOKEN] }.getOrNull()
+    }
+
+    val healthConnectLastSync: Flow<Long?> = safeData.map { p ->
+        runCatching { p[Keys.HEALTH_CONNECT_LAST_SYNC] }.getOrNull()
+    }
+
+    val glucoseImportEnabled: Flow<Boolean> = safeData.map { p ->
+        runCatching { p[Keys.GLUCOSE_IMPORT_ENABLED] }.getOrNull() ?: true
+    }
+
+    val nutritionImportEnabled: Flow<Boolean> = safeData.map { p ->
+        runCatching { p[Keys.NUTRITION_IMPORT_ENABLED] }.getOrNull() ?: false
+    }
+
+    val exerciseImportEnabled: Flow<Boolean> = safeData.map { p ->
+        runCatching { p[Keys.EXERCISE_IMPORT_ENABLED] }.getOrNull() ?: false
+    }
+
+    val healthConnectInitialImportRange: Flow<InitialImportRange> = safeData.map { p ->
+        runCatching { p[Keys.HEALTH_CONNECT_INITIAL_IMPORT_RANGE] }
+            .getOrNull().toEnum(InitialImportRange.DAYS_90)
+    }
 
     /** Single fresh snapshot used by the export utility when assembling a report. */
     suspend fun profileSnapshot(): UserProfile = safeData.first().toUserProfile()
@@ -162,6 +204,32 @@ class SettingsDataStore @Inject constructor(
     suspend fun setShowAdvancedMacros(enabled: Boolean) = edit { it[Keys.SHOW_ADVANCED_MACROS] = enabled }
     suspend fun setPostMealRemindersEnabled(enabled: Boolean) =
         edit { it[Keys.POST_MEAL_REMINDERS_ENABLED] = enabled }
+
+    suspend fun setBarcodeLookupEnabled(enabled: Boolean) =
+        edit { it[Keys.BARCODE_LOOKUP_ENABLED] = enabled }
+
+    suspend fun setHealthConnectSyncEnabled(enabled: Boolean) =
+        edit { it[Keys.HEALTH_CONNECT_SYNC_ENABLED] = enabled }
+
+    suspend fun setHealthConnectChangesToken(token: String?) = edit {
+        if (token == null) it.remove(Keys.HEALTH_CONNECT_CHANGES_TOKEN)
+        else it[Keys.HEALTH_CONNECT_CHANGES_TOKEN] = token
+    }
+
+    suspend fun setHealthConnectLastSync(timestamp: Long) =
+        edit { it[Keys.HEALTH_CONNECT_LAST_SYNC] = timestamp }
+
+    suspend fun setGlucoseImportEnabled(enabled: Boolean) =
+        edit { it[Keys.GLUCOSE_IMPORT_ENABLED] = enabled }
+
+    suspend fun setNutritionImportEnabled(enabled: Boolean) =
+        edit { it[Keys.NUTRITION_IMPORT_ENABLED] = enabled }
+
+    suspend fun setExerciseImportEnabled(enabled: Boolean) =
+        edit { it[Keys.EXERCISE_IMPORT_ENABLED] = enabled }
+
+    suspend fun setHealthConnectInitialImportRange(range: InitialImportRange) =
+        edit { it[Keys.HEALTH_CONNECT_INITIAL_IMPORT_RANGE] = range.name }
 
     suspend fun setProfileTarget(target: ProfileTarget) =
         edit { it[Keys.PROFILE_TARGET] = target.name }
@@ -220,4 +288,11 @@ class SettingsDataStore @Inject constructor(
 
     private inline fun <reified T : Enum<T>> String?.toEnum(default: T): T =
         this?.let { runCatching { enumValueOf<T>(it) }.getOrNull() } ?: default
+}
+
+/** Bounds for the first Health Connect import after the user connects. */
+enum class InitialImportRange(val label: String) {
+    DAYS_30("30 days"),
+    DAYS_90("90 days"),
+    ALL("All"),
 }

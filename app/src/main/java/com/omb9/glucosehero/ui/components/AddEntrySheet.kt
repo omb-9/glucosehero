@@ -75,24 +75,13 @@ import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.domain.model.Metric
 import com.omb9.glucosehero.ui.log.DraftEventState
+import com.omb9.glucosehero.ui.log.FoodLookupState
+import com.omb9.glucosehero.ui.log.LogViewModel
 import com.omb9.glucosehero.ui.log.StreakReward
 import com.omb9.glucosehero.ui.log.filledMetrics
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
-import coil3.compose.AsyncImage
-import com.omb9.glucosehero.data.vision.MealBarcodeScanner
-import java.io.File
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.omb9.glucosehero.domain.model.FoodSource
 
 private data class Category(
     val type: EntryType,
@@ -153,57 +142,20 @@ fun AddEntrySheet(
     val haptic = LocalHapticFeedback.current
     var showStreakConfirmation by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
-    val barcodeScanner = remember { MealBarcodeScanner() }
-    var mealPhotoUri by remember { mutableStateOf<Uri?>(null) }
-    var pendingMealPhotoUri by remember { mutableStateOf<Uri?>(null) }
-    var scannedBarcodeValues by remember { mutableStateOf<List<String>>(emptyList()) }
-    var isScanningBarcode by remember { mutableStateOf(false) }
-    var cameraPermissionDenied by remember { mutableStateOf(false) }
+    val viewModel = hiltViewModel<LogViewModel>()
+    val recentFoods by viewModel.recentFoods.collectAsStateWithLifecycle()
+    val foodSearchQuery by viewModel.foodSearchQuery.collectAsStateWithLifecycle()
+    val foodSearchResults by viewModel.foodSearchResults.collectAsStateWithLifecycle()
+    val selectedFood by viewModel.selectedFood.collectAsStateWithLifecycle()
+    val foodLookupState by viewModel.foodLookupState.collectAsStateWithLifecycle()
 
-    val takePictureLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture(),
-    ) { photoTaken ->
-        if (photoTaken) {
-            mealPhotoUri = pendingMealPhotoUri
-        }
-        pendingMealPhotoUri = null
+    val isLookingUp = foodLookupState is FoodLookupState.Loading
+    val lookupMessage = when (val state = foodLookupState) {
+        is FoodLookupState.ManualEntry -> "Barcode not found. Enter the meal details below."
+        is FoodLookupState.Error -> state.message
+        else -> null
     }
-
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) {
-            createMealPhotoUri(context)?.let { uri ->
-                pendingMealPhotoUri = uri
-                takePictureLauncher.launch(uri)
-            }
-        } else {
-            cameraPermissionDenied = true
-        }
-    }
-
-    val captureMealPhoto: () -> Unit = {
-        val hasCameraPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.CAMERA,
-        ) == PackageManager.PERMISSION_GRANTED
-        if (hasCameraPermission) {
-            createMealPhotoUri(context)?.let { uri ->
-                pendingMealPhotoUri = uri
-                takePictureLauncher.launch(uri)
-            }
-        } else {
-            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        }
-    }
-
-    LaunchedEffect(mealPhotoUri) {
-        val uri = mealPhotoUri ?: return@LaunchedEffect
-        isScanningBarcode = true
-        scannedBarcodeValues = barcodeScanner.scanBarcodes(context, uri)
-        isScanningBarcode = false
-    }
+    val lookupIsError = foodLookupState is FoodLookupState.Error
 
     LaunchedEffect(streakReward) {
         streakReward ?: return@LaunchedEffect
@@ -357,6 +309,18 @@ fun AddEntrySheet(
                 }
 
                 EntryType.MEAL -> {
+                    FoodPickerSection(
+                        recentFoods = recentFoods,
+                        searchQuery = foodSearchQuery,
+                        onSearchQueryChange = viewModel::onFoodSearchQueryChange,
+                        searchResults = foodSearchResults,
+                        onFoodSelected = viewModel::onFoodSelected,
+                        onBarcodeScanned = viewModel::onBarcodeScanned,
+                        isLookingUp = isLookingUp,
+                        lookupMessage = lookupMessage,
+                        lookupIsError = lookupIsError,
+                    )
+                    Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = draft.carbsGrams,
                         onValueChange = onCarbsChange,
@@ -414,19 +378,18 @@ fun AddEntrySheet(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     )
-                    Spacer(Modifier.height(12.dp))
-                    MealPhotoCaptureSection(
-                        photoUri = mealPhotoUri,
-                        scannedBarcodeValues = scannedBarcodeValues,
-                        isScanning = isScanningBarcode,
-                        cameraPermissionDenied = cameraPermissionDenied,
-                        onCapture = captureMealPhoto,
-                        onClear = {
-                            mealPhotoUri = null
-                            pendingMealPhotoUri = null
-                            scannedBarcodeValues = emptyList()
-                        },
-                    )
+                    Spacer(Modifier.height(8.dp))
+                    if (selectedFood == null &&
+                        draft.carbsGrams.isNotBlank() &&
+                        draft.mealDescription.isNotBlank()
+                    ) {
+                        TextButton(onClick = viewModel::saveAsFood) {
+                            Text("Save this as a food")
+                        }
+                    }
+                    if (selectedFood?.source == FoodSource.OPEN_FOOD_FACTS) {
+                        OffAttribution(Modifier.padding(top = 4.dp))
+                    }
                 }
 
                 EntryType.ACTIVITY -> {
@@ -526,6 +489,14 @@ fun AddEntrySheet(
         }
     }
 
+    (foodLookupState as? FoodLookupState.ConfirmOff)?.let { confirm ->
+        FoodConfirmationDialog(
+            initial = confirm.draft,
+            onConfirm = viewModel::confirmOffFood,
+            onDismiss = viewModel::dismissFoodLookup,
+        )
+    }
+
     LaunchedEffect(draft.activeCategory, streakReward) {
         if (streakReward != null) return@LaunchedEffect
         focusRequester.requestFocus()
@@ -533,124 +504,7 @@ fun AddEntrySheet(
     }
 }
 
-private fun createMealPhotoUri(context: Context): Uri? {
-    val photoDir = File(context.cacheDir, "meal_photos").apply { mkdirs() }
-    val photoFile = File(photoDir, "meal_${System.currentTimeMillis()}.jpg")
-    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
-}
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MealPhotoCaptureSection(
-    photoUri: Uri?,
-    scannedBarcodeValues: List<String>,
-    isScanning: Boolean,
-    cameraPermissionDenied: Boolean,
-    onCapture: () -> Unit,
-    onClear: () -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Surface(
-                onClick = onCapture,
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.PhotoCamera,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = "Capture meal photo",
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-            }
-
-            if (photoUri != null) {
-                Box {
-                    AsyncImage(
-                        model = photoUri,
-                        contentDescription = "Captured meal photo",
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                        contentScale = ContentScale.Crop,
-                    )
-                    IconButton(
-                        onClick = onClear,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .size(24.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = "Remove meal photo",
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                }
-            }
-        }
-
-        when {
-            cameraPermissionDenied && photoUri == null -> {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "Camera permission is needed to capture a meal photo.",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-
-            isScanning -> {
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Text(
-                        text = "Scanning barcode…",
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                }
-            }
-
-            photoUri != null && scannedBarcodeValues.isNotEmpty() -> {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "Barcode: ${scannedBarcodeValues.joinToString()}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            photoUri != null -> {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "No barcode detected in this photo.",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun StreakExtendedConfirmation(

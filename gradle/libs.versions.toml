@@ -21,7 +21,6 @@ immutableCollections = "0.5.1"
 vico = "3.3.1"
 work = "2.11.2"
 coil = "3.6.0"
-mlkitBarcodeScanning = "17.3.0"
 billing = "9.1.0"
 glance = "1.2.0"
 healthConnect = "1.1.0"
@@ -91,7 +90,8 @@ androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", ve
 # Glance app widgets
 glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 
-mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcodeScanning" }
+# Google Play services code scanner (out-of-process barcode scanning)
+play-services-code-scanner = { module = "com.google.android.gms:play-services-code-scanner", version = "16.1.0" }
 
 # Play Billing
 billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }

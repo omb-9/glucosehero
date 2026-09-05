@@ -10,6 +10,7 @@ import com.omb9.glucosehero.data.local.entity.GlucoseSampleEntity
 import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
 import com.omb9.glucosehero.data.local.entity.SupplyEntity
+import com.omb9.glucosehero.data.local.entity.TagAnalyticEntity
 
 @Database(
     entities = [
@@ -20,9 +21,10 @@ import com.omb9.glucosehero.data.local.entity.SupplyEntity
         SupplyEntity::class,
         InsightCardEntity::class,
         GlucoseSampleEntity::class,
+        TagAnalyticEntity::class,
     ],
     views = [GlucoseReadingView::class],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class GlucoseHeroDatabase : RoomDatabase() {
@@ -33,4 +35,5 @@ abstract class GlucoseHeroDatabase : RoomDatabase() {
     abstract fun supplyDao(): SupplyDao
     abstract fun insightDao(): InsightDao
     abstract fun glucoseSampleDao(): GlucoseSampleDao
+    abstract fun tagAnalyticDao(): TagAnalyticDao
 }

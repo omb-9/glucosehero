@@ -122,8 +122,8 @@ dependencies {
     // Coil (image loading)
     implementation(libs.coil.compose)
 
-    // ML Kit (barcode scanning)
-    implementation(libs.mlkit.barcode.scanning)
+    // Google Play services code scanner (out-of-process barcode scanning)
+    implementation(libs.play.services.code.scanner)
 
     // Charts
     implementation(libs.vico.compose)

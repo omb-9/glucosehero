@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.omb9.glucosehero.domain.model.ActivityIntensity
+import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.domain.model.LogEvent
 import com.omb9.glucosehero.domain.model.MealContext
@@ -138,7 +139,9 @@ class EntryDetailViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val canSave: StateFlow<Boolean> = combine(_form, entry, settings) { form, current, settings ->
-        current != null && form.isSeeded &&
+        current != null &&
+            current.source != EntrySource.HEALTH_CONNECT &&
+            form.isSeeded &&
             form.toDraft().toLogEvent(settings, form.timestamp) != null
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -180,6 +183,7 @@ class EntryDetailViewModel @Inject constructor(
     }
 
     fun onEditToggle() {
+        if (entry.value?.source == EntrySource.HEALTH_CONNECT) return
         _form.update { it.copy(isEditing = !it.isEditing) }
     }
 
@@ -220,6 +224,7 @@ class EntryDetailViewModel @Inject constructor(
 
     /** Populates the bolus field with the current smart-bolus suggestion. */
     fun useSuggestedBolus() {
+        if (entry.value?.source == EntrySource.HEALTH_CONNECT) return
         val suggestion = suggestedBolus.value ?: return
         onInsulinBolusChange(trimDouble(suggestion))
     }
@@ -250,6 +255,7 @@ class EntryDetailViewModel @Inject constructor(
     fun save(onDone: () -> Unit) {
         val current = entry.value ?: return
         val formState = _form.value
+        if (current.source == EntrySource.HEALTH_CONNECT) return
         if (formState.isSaving || !formState.isSeeded) return
 
         val updated = formState.toDraft()

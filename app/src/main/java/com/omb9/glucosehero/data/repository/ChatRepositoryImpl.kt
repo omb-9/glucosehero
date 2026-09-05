@@ -162,6 +162,12 @@ class ChatRepositoryImpl @Inject constructor(
                 entryDao.dailySummaries(Formatters.daysAgoMillis(14), limit = 14)
             }
             val recentDeferred = async { entryDao.recentEntries(limit = 30) }
+            val cgmCountDeferred = async {
+                entryDao.cgmReadingCountSince(Formatters.daysAgoMillis(14))
+            }
+            val manualCountDeferred = async {
+                entryDao.manualReadingCountSince(Formatters.daysAgoMillis(14))
+            }
 
             val settings = settingsDeferred.await()
             val unit = settings.unit
@@ -172,6 +178,8 @@ class ChatRepositoryImpl @Inject constructor(
             val tir14 = tir14Deferred.await()
             val daily = dailyDeferred.await()
             val recent = recentDeferred.await()
+            val cgmCount = cgmCountDeferred.await()
+            val manualCount = manualCountDeferred.await()
 
             fun fmt(mgdl: Double?): String =
                 mgdl?.let { Formatters.glucose(it, unit) } ?: "n/a"
@@ -203,6 +211,8 @@ class ChatRepositoryImpl @Inject constructor(
             val targetLow = Formatters.glucose(settings.targetLowMgdl.toDouble(), unit)
             val targetHigh = Formatters.glucose(settings.targetHighMgdl.toDouble(), unit)
             val tirPct = tir14?.let { "%.0f%%".format(it * 100) } ?: "n/a"
+            val glucoseSource =
+                "Glucose source: CGM ($cgmCount samples, 14d) · Manual entries: $manualCount"
 
             val persona = buildPersonaSection(profile)
 
@@ -221,6 +231,7 @@ class ChatRepositoryImpl @Inject constructor(
                 |Target range: $targetLow – $targetHigh ${unit.label}
                 |Rolling averages: 7d ${fmt(avg7)} · 14d ${fmt(avg14)} · 30d ${fmt(avg30)}
                 |Time in range (14d): $tirPct
+                |$glucoseSource
                 |
                 |--- Daily summaries, last 14 days ---
                 |$dailyBlock

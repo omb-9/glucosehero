@@ -1,6 +1,7 @@
 package com.omb9.glucosehero.data.repository
 
 import com.omb9.glucosehero.data.local.db.EntryDao
+import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.toDomain
 import com.omb9.glucosehero.data.local.entity.toEntity
 import com.omb9.glucosehero.domain.model.DailyGlucoseSummary
@@ -21,10 +22,10 @@ class EntryRepositoryImpl @Inject constructor(
 ) : EntryRepository {
 
     override fun observeEntries(sinceMillis: Long): Flow<List<LogEvent>> =
-        entryDao.observeEventsSince(sinceMillis).map { list -> list.map { it.toDomain() } }
+        entryDao.observeEventsSince(sinceMillis).map { list -> list.map { it.toLogEvent() } }
 
     override fun observeGlucose(sinceMillis: Long): Flow<List<LogEvent>> =
-        entryDao.observeGlucoseEventsSince(sinceMillis).map { list -> list.map { it.toDomain() } }
+        entryDao.observeGlucoseEventsSince(sinceMillis).map { list -> list.map { it.toLogEvent() } }
 
     override fun observeGlucosePoints(sinceMillis: Long): Flow<List<GlucosePointRow>> =
         entryDao.observeGlucosePoints(sinceMillis)
@@ -48,7 +49,7 @@ class EntryRepositoryImpl @Inject constructor(
         }
 
     override fun observeEntry(id: Long): Flow<LogEvent?> =
-        entryDao.observeById(id).map { it?.toDomain() }
+        entryDao.observeById(id).map { it?.toLogEvent() }
 
     override suspend fun add(event: LogEvent): Long = entryDao.insert(event.toEntity())
 
@@ -81,12 +82,14 @@ class EntryRepositoryImpl @Inject constructor(
         entryDao.dailySummaries(sinceMillis, limit)
 
     override suspend fun recentEntries(limit: Int): List<LogEvent> =
-        entryDao.recentEntries(limit).map { it.toDomain() }
+        entryDao.recentEntries(limit).map { it.toLogEvent() }
 
     override suspend fun entriesSince(sinceMillis: Long): List<LogEvent> =
-        entryDao.entriesSince(sinceMillis).map { it.toDomain() }
+        entryDao.entriesSince(sinceMillis).map { it.toLogEvent() }
 
     private companion object {
         const val STREAK_SINCE_MILLIS = 0L
     }
 }
+
+private fun EntryEntity.toLogEvent(): LogEvent = toDomain().copy(source = source)

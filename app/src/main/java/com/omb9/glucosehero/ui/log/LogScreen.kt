@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.R
+import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.ui.components.AddEntrySheet
 import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
@@ -279,6 +280,21 @@ private fun formatInsulinUnits(value: Double): String =
     if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
 
 @Composable
+private fun HealthConnectBadge() {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
+        Text(
+            "Health Connect",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
+}
+
+@Composable
 private fun EntryRow(
     item: LogEntryItem,
     unitLabel: String,
@@ -311,7 +327,13 @@ private fun EntryRow(
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(item.title, style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(item.title, style = MaterialTheme.typography.titleMedium)
+                    if (item.source == EntrySource.HEALTH_CONNECT) {
+                        Spacer(Modifier.width(6.dp))
+                        HealthConnectBadge()
+                    }
+                }
                 val subtitle = item.subtitle
                 if (subtitle != null) {
                     Text(

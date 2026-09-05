@@ -25,6 +25,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
 import com.omb9.glucosehero.ui.chat.ChatScreen
 import com.omb9.glucosehero.ui.entrydetail.EntryDetailScreen
+import com.omb9.glucosehero.ui.foods.FoodLibraryScreen
 import com.omb9.glucosehero.ui.log.LogScreen
 import com.omb9.glucosehero.ui.settings.SettingsScreen
 import com.omb9.glucosehero.ui.stats.StatsScreen
@@ -40,6 +41,7 @@ object Routes {
     const val HERO = "hero"
     const val SETTINGS = "settings"
     const val ENTRY_DETAIL = "entry/{entryId}"
+    const val FOOD_LIBRARY = "food_library"
 
     fun entryDetail(entryId: Long) = "entry/$entryId"
 }
@@ -130,7 +132,14 @@ fun GlucoseHeroNavHost(
                     },
                 )
             }
-            composable(Routes.SETTINGS) { SettingsScreen() }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(
+                    onManageFoods = { navController.navigate(Routes.FOOD_LIBRARY) },
+                )
+            }
+            composable(Routes.FOOD_LIBRARY) {
+                FoodLibraryScreen(onBack = { navController.popBackStack() })
+            }
             composable(
                 route = Routes.ENTRY_DETAIL,
                 arguments = listOf(navArgument("entryId") { type = NavType.LongType }),

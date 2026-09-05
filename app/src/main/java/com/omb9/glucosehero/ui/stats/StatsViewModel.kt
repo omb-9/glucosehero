@@ -1,9 +1,16 @@
 package com.omb9.glucosehero.ui.stats
 
+import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.WorkManager
 import com.omb9.glucosehero.data.export.ExportManager
+import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.db.InsightDao
 import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.domain.model.Ea1cConfidence
@@ -20,11 +27,17 @@ import com.omb9.glucosehero.domain.model.TimeRange
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.domain.repository.SupplyRepository
+import com.omb9.glucosehero.util.Ea1cFormula
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.GlucoseRangeColor
 import com.omb9.glucosehero.util.RangeCategory
 import com.omb9.glucosehero.util.SupplyCalculator
+import com.omb9.glucosehero.util.adagPercentage
+import com.omb9.glucosehero.util.gmiPercentage
+import com.omb9.glucosehero.util.shouldUseGmi
+import com.omb9.glucosehero.work.HealthConnectSyncWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import kotlin.math.abs
 import kotlinx.collections.immutable.ImmutableList
@@ -44,6 +57,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
@@ -122,6 +136,8 @@ data class StatsUiState(
     val readingCount: Int = 0,
     /** Estimated A1c value (percentage only; the UI appends "%"). */
     val ea1cValue: String = "–",
+    /** Which clinical formula produced [ea1cValue]; the UI labels the card with this. */
+    val ea1cFormula: Ea1cFormula = Ea1cFormula.ADAG,
     val ea1cConfidence: Ea1cConfidence = Ea1cConfidence.INSUFFICIENT_DATA,
     val ea1cNeededDays: Int = 14,
     val ea1cNeededReadings: Int = 20,
@@ -154,10 +170,13 @@ sealed interface ExportEvent {
 @HiltViewModel
 class StatsViewModel @Inject constructor(
     private val entryRepository: EntryRepository,
+    private val entryDao: EntryDao,
     settingsRepository: SettingsRepository,
     private val supplyRepository: SupplyRepository,
     private val insightDao: InsightDao,
     private val exportManager: ExportManager,
+    @ApplicationContext private val context: Context,
+    private val settingsDataStore: SettingsDataStore,
 ) : ViewModel() {
 
     /** Continuous daily-logging streak, emitted reactively from Room. */
@@ -345,8 +364,8 @@ class StatsViewModel @Inject constructor(
             combine(
                 entryRepository.observeGlucoseStats(since),
                 settingsRepository.settings,
-            ) { stats, settings -> stats to settings }
-                .collectLatest { (stats, settings) ->
+            ) { stats, _ -> stats }
+                .collectLatest { stats ->
                     val avg = stats.avgMgdl?.takeIf { it.isFinite() }
                     val confidence = when {
                         stats.loggedDays < MIN_CONFIDENT_DAYS ||
@@ -356,11 +375,23 @@ class StatsViewModel @Inject constructor(
                             Ea1cConfidence.FULL_90_DAY_WINDOW
                         else -> Ea1cConfidence.BUILDING_ESTIMATE
                     }
+
+                    val cgmCount = entryDao.cgmReadingCountSince(since)
+                    val manualCount = entryDao.manualReadingCountSince(since)
+                    val formula = if (shouldUseGmi(cgmCount, manualCount)) {
+                        Ea1cFormula.GMI
+                    } else {
+                        Ea1cFormula.ADAG
+                    }
+                    val ea1c = avg?.let { meanMgdl ->
+                        if (formula == Ea1cFormula.GMI) gmiPercentage(meanMgdl)
+                        else adagPercentage(meanMgdl)
+                    }
+
                     _uiState.update { current ->
                         current.copy(
-                            ea1cValue = avg
-                                ?.let { "%.1f".format(estimatedA1c(it, settings.unit)) }
-                                ?: "–",
+                            ea1cValue = ea1c?.let { "%.1f".format(it) } ?: "–",
+                            ea1cFormula = formula,
                             ea1cConfidence = confidence,
                             ea1cNeededDays =
                                 (MIN_CONFIDENT_DAYS - stats.loggedDays).coerceAtLeast(0),
@@ -392,9 +423,16 @@ class StatsViewModel @Inject constructor(
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                // TODO(health-connect): once HealthConnectSyncWorker exists, trigger a
-                // one-shot expedited sync run here. Out of scope for this lane - the
-                // worker does not exist yet.
+                if (settingsDataStore.healthConnectSyncEnabled.first()) {
+                    val request = OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
+                        .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                        .build()
+                    WorkManager.getInstance(context).enqueueUniqueWork(
+                        HealthConnectSyncWorker.EXPEDITED_UNIQUE_NAME,
+                        ExistingWorkPolicy.REPLACE,
+                        request,
+                    )
+                }
                 delay(REFRESH_MIN_MILLIS)
             } finally {
                 _isRefreshing.value = false
@@ -484,24 +522,6 @@ class StatsViewModel @Inject constructor(
             progressPercentage = status.progressPercentage,
             isExpired = status.isExpired,
         )
-    }
-
-    /**
-     * ADAG formula in the user's display unit. In practice this yields the
-     * same percentage for both units because the stored value is canonical
-     * mg/dL and the mmol/L path converts there and back, but keeping the
-     * branch explicit makes the unit handling self-documenting.
-     */
-    private fun estimatedA1c(avgMgdl: Double, unit: GlucoseUnit): Double {
-        val averageInDisplayUnit = when (unit) {
-            GlucoseUnit.MGDL -> avgMgdl
-            GlucoseUnit.MMOL -> avgMgdl / GlucoseUnit.MGDL_PER_MMOL
-        }
-        return when (unit) {
-            GlucoseUnit.MGDL -> (averageInDisplayUnit + 46.7) / 28.7
-            GlucoseUnit.MMOL ->
-                ((averageInDisplayUnit * GlucoseUnit.MGDL_PER_MMOL) + 46.7) / 28.7
-        }
     }
 
     private fun trim(value: Float): String =

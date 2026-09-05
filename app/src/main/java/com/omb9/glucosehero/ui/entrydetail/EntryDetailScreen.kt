@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.domain.model.ActivityIntensity
+import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.util.Formatters
@@ -89,6 +90,7 @@ fun EntryDetailScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val canSave by viewModel.canSave.collectAsStateWithLifecycle()
     val suggestedBolus by viewModel.suggestedBolus.collectAsStateWithLifecycle()
+    val isHealthConnect = entry?.source == EntrySource.HEALTH_CONNECT
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {
         viewModel.saveErrors.collect { error ->
@@ -119,7 +121,7 @@ fun EntryDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = viewModel::onEditToggle) {
+                    IconButton(onClick = viewModel::onEditToggle, enabled = !isHealthConnect) {
                         Icon(
                             Icons.Filled.Edit,
                             contentDescription = if (form.isEditing) "Done editing" else "Edit entry",
@@ -192,7 +194,7 @@ fun EntryDetailScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = { showDatePicker = true }) {
+                    TextButton(onClick = { showDatePicker = true }, enabled = !isHealthConnect) {
                         Text("Change date & time")
                     }
                 }
@@ -239,6 +241,7 @@ fun EntryDetailScreen(
                     OutlinedTextField(
                         value = form.glucose,
                         onValueChange = viewModel::onGlucoseChange,
+                        enabled = !isHealthConnect,
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("0", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         suffix = { Text(settings.unit.label) },
@@ -258,6 +261,7 @@ fun EntryDetailScreen(
                         ).forEach { (context, label) ->
                             FilterChip(
                                 selected = form.mealContext == context,
+                                enabled = !isHealthConnect,
                                 onClick = {
                                     val next = if (form.mealContext == context) {
                                         MealContext.NONE
@@ -282,6 +286,7 @@ fun EntryDetailScreen(
                     OutlinedTextField(
                         value = form.insulinBasal,
                         onValueChange = viewModel::onInsulinBasalChange,
+                        enabled = !isHealthConnect,
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Basal (Long)") },
                         suffix = { Text("u") },
@@ -292,6 +297,7 @@ fun EntryDetailScreen(
                     OutlinedTextField(
                         value = form.insulinBolus,
                         onValueChange = viewModel::onInsulinBolusChange,
+                        enabled = !isHealthConnect,
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Bolus (Rapid)") },
                         suffix = { Text("u") },
@@ -316,6 +322,7 @@ fun EntryDetailScreen(
                     OutlinedTextField(
                         value = form.carbs,
                         onValueChange = viewModel::onCarbsChange,
+                        enabled = !isHealthConnect,
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Carbs") },
                         suffix = { Text("g") },
@@ -327,6 +334,7 @@ fun EntryDetailScreen(
                         OutlinedTextField(
                             value = form.protein,
                             onValueChange = viewModel::onProteinChange,
+                        enabled = !isHealthConnect,
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("Protein") },
                             suffix = { Text("g") },
@@ -337,6 +345,7 @@ fun EntryDetailScreen(
                         OutlinedTextField(
                             value = form.fat,
                             onValueChange = viewModel::onFatChange,
+                        enabled = !isHealthConnect,
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("Fat") },
                             suffix = { Text("g") },
@@ -348,6 +357,7 @@ fun EntryDetailScreen(
                     OutlinedTextField(
                         value = form.mealDescription,
                         onValueChange = viewModel::onMealDescriptionChange,
+                        enabled = !isHealthConnect,
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Meal") },
                         singleLine = true,
@@ -364,6 +374,7 @@ fun EntryDetailScreen(
                     OutlinedTextField(
                         value = form.exerciseMinutes,
                         onValueChange = viewModel::onExerciseMinutesChange,
+                        enabled = !isHealthConnect,
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Minutes") },
                         suffix = { Text("min") },
@@ -376,6 +387,7 @@ fun EntryDetailScreen(
                             SegmentedButton(
                                 selected = form.exerciseIntensity == level,
                                 onClick = { viewModel.onExerciseIntensityChange(level) },
+                                enabled = !isHealthConnect,
                                 shape = SegmentedButtonDefaults.itemShape(
                                     index = index,
                                     count = ActivityIntensity.entries.size,
@@ -393,6 +405,7 @@ fun EntryDetailScreen(
                 OutlinedTextField(
                     value = form.note,
                     onValueChange = viewModel::onNoteChange,
+                    enabled = !isHealthConnect,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Note") },
                     minLines = 3,

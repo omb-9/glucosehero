@@ -33,6 +33,7 @@ data class LogEvent(
     val exerciseMinutes: Int? = null,
     val exerciseIntensity: ActivityIntensity? = null,
     val note: String? = null,
+    val source: EntrySource = EntrySource.MANUAL,
 ) {
     val isEmpty: Boolean
         get() = glucoseMgdl == null && insulinBasalUnits == null && insulinBolusUnits == null &&

@@ -1,9 +1,26 @@
 package com.omb9.glucosehero.ui.log
 
+import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.WorkManager
+import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
+import com.omb9.glucosehero.data.local.entity.FoodEntity
+import com.omb9.glucosehero.data.remote.off.OffProduct
+import com.omb9.glucosehero.data.remote.off.OpenFoodFactsApi
+import com.omb9.glucosehero.domain.model.FoodSource
+import com.omb9.glucosehero.util.PortionCalculator
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.mapLatest
 import com.omb9.glucosehero.domain.model.ActivityIntensity
+import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.HeroAiPrefill
@@ -17,8 +34,10 @@ import com.omb9.glucosehero.util.BolusCalculator
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.IobCalculator
 import com.omb9.glucosehero.util.StreakCalculator
+import com.omb9.glucosehero.work.HealthConnectSyncWorker
 import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -35,6 +54,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
@@ -59,6 +79,7 @@ data class LogEntryItem(
     val subtitle: String?,
     val glucoseDisplay: String?,
     val glucoseStatus: GlucoseStatus?,
+    val source: EntrySource = EntrySource.MANUAL,
 )
 
 @Immutable
@@ -82,6 +103,7 @@ data class StreakReward(
     val currentStreak: Int,
 )
 
+@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class LogViewModel @Inject constructor(
     private val entryRepository: EntryRepository,
@@ -89,6 +111,10 @@ class LogViewModel @Inject constructor(
     private val heroAiPrefillCoordinator: HeroAiPrefillCoordinator,
     private val reminderScheduler: ReminderScheduler,
     private val widgetRefresher: WidgetRefresher,
+    @ApplicationContext private val context: Context,
+    private val settingsDataStore: SettingsDataStore,
+    private val database: GlucoseHeroDatabase,
+    private val openFoodFactsApi: OpenFoodFactsApi,
 ) : ViewModel() {
 
     val settings: StateFlow<UserSettings> = settingsRepository.settings
@@ -120,6 +146,30 @@ class LogViewModel @Inject constructor(
 
     private val _draft = MutableStateFlow(DraftEventState())
     val draft: StateFlow<DraftEventState> = _draft.asStateFlow()
+
+    /** Food currently backing the draft, or null when the meal was typed by hand. */
+    private val _selectedFood = MutableStateFlow<FoodEntity?>(null)
+    val selectedFood: StateFlow<FoodEntity?> = _selectedFood.asStateFlow()
+
+    /** Recently used foods for the one-tap chips in the Add Entry sheet. */
+    val recentFoods: StateFlow<List<FoodEntity>> = flow {
+        emit(database.foodDao().recent())
+    }.flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _foodSearchQuery = MutableStateFlow("")
+    val foodSearchQuery: StateFlow<String> = _foodSearchQuery.asStateFlow()
+
+    val foodSearchResults: StateFlow<List<FoodEntity>> = _foodSearchQuery
+        .debounce(300)
+        .mapLatest { query ->
+            if (query.isBlank()) emptyList() else database.foodDao().search(query.trim())
+        }
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _foodLookupState = MutableStateFlow<FoodLookupState>(FoodLookupState.Idle)
+    val foodLookupState: StateFlow<FoodLookupState> = _foodLookupState.asStateFlow()
 
     /**
      * Recommended bolus for the in-progress draft, or null until the user has
@@ -190,9 +240,16 @@ class LogViewModel @Inject constructor(
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                // TODO(health-connect): once HealthConnectSyncWorker exists, trigger a
-                // one-shot expedited sync run here. Out of scope for this lane - the
-                // worker does not exist yet.
+                if (settingsDataStore.healthConnectSyncEnabled.first()) {
+                    val request = OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
+                        .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                        .build()
+                    WorkManager.getInstance(context).enqueueUniqueWork(
+                        HealthConnectSyncWorker.EXPEDITED_UNIQUE_NAME,
+                        ExistingWorkPolicy.REPLACE,
+                        request,
+                    )
+                }
                 delay(REFRESH_MIN_MILLIS)
             } finally {
                 _isRefreshing.value = false
@@ -230,9 +287,154 @@ class LogViewModel @Inject constructor(
         _draft.update { it.copy(postMealReminderEnabled = enabled) }
     }
 
+    fun onFoodSelected(food: FoodEntity) = applyFood(food)
+
+    fun onFoodSearchQueryChange(query: String) {
+        _foodSearchQuery.value = query
+    }
+
+    fun onBarcodeScanned(barcode: String?) {
+        val code = barcode?.trim()?.takeIf { it.isNotBlank() } ?: return
+        viewModelScope.launch {
+            _foodLookupState.value = FoodLookupState.Loading
+            try {
+                // Cache first: a known barcode resolves fully offline.
+                val cached = database.foodDao().getByBarcode(code)
+                if (cached != null) {
+                    applyFood(cached)
+                    _foodLookupState.value = FoodLookupState.Idle
+                    return@launch
+                }
+
+                // Cache miss: respect the privacy toggle before any network call.
+                if (!settingsDataStore.barcodeLookupEnabled.first()) {
+                    _foodLookupState.value = FoodLookupState.ManualEntry(code)
+                    return@launch
+                }
+
+                val response = openFoodFactsApi.product(code)
+                if (response.code() == 404) {
+                    _foodLookupState.value = FoodLookupState.ManualEntry(code)
+                    return@launch
+                }
+
+                val body = response.body()
+                val product = body?.product
+                when {
+                    response.isSuccessful && body != null && body.status == 1 && product != null ->
+                        _foodLookupState.value = FoodLookupState.ConfirmOff(product.toOffFoodDraft(code))
+
+                    response.isSuccessful && (body == null || body.status == 0 || product == null) ->
+                        _foodLookupState.value = FoodLookupState.ManualEntry(code)
+
+                    else ->
+                        _foodLookupState.value = FoodLookupState.Error("Couldn't look up that barcode.")
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _foodLookupState.value = FoodLookupState.Error("Couldn't reach Open Food Facts.")
+            }
+        }
+    }
+
+    fun dismissFoodLookup() {
+        _foodLookupState.value = FoodLookupState.Idle
+    }
+
+    fun confirmOffFood(draft: OffFoodDraft) {
+        val carbs = Formatters.parseDecimal(draft.carbs)?.takeIf { it > 0 } ?: return
+        val name = draft.name.trim().ifBlank { return }
+        val food = FoodEntity(
+            name = name,
+            brand = draft.brand.trim().ifBlank { null },
+            barcode = draft.barcode.trim().ifBlank { null },
+            carbsGrams = carbs,
+            proteinGrams = Formatters.parseDecimal(draft.protein)?.takeIf { it > 0 },
+            fatGrams = Formatters.parseDecimal(draft.fat)?.takeIf { it > 0 },
+            kcal = draft.kcal,
+            servingGrams = draft.servingGrams,
+            servingLabel = draft.servingLabel.trim().ifBlank { null },
+            source = FoodSource.OPEN_FOOD_FACTS,
+            offFetchedAt = System.currentTimeMillis(),
+            userCorrected = true,
+            createdAt = System.currentTimeMillis(),
+        )
+        viewModelScope.launch {
+            val id = database.foodDao().insert(food)
+            applyFood(food.copy(id = id))
+            _foodLookupState.value = FoodLookupState.Idle
+        }
+    }
+
+    fun saveAsFood() {
+        val current = _draft.value
+        val carbs = current.carbsGrams.trim().toIntOrNull()?.takeIf { it > 0 } ?: return
+        val name = current.mealDescription.trim().ifBlank { return }
+        val food = FoodEntity(
+            name = name,
+            brand = null,
+            barcode = null,
+            carbsGrams = carbs.toDouble(),
+            proteinGrams = current.proteinGrams.trim().toIntOrNull()?.takeIf { it > 0 }?.toDouble(),
+            fatGrams = current.fatGrams.trim().toIntOrNull()?.takeIf { it > 0 }?.toDouble(),
+            kcal = null,
+            servingGrams = null,
+            servingLabel = null,
+            source = FoodSource.FROM_ENTRY,
+            userCorrected = false,
+            createdAt = System.currentTimeMillis(),
+        )
+        viewModelScope.launch {
+            val id = database.foodDao().insert(food)
+            _selectedFood.value = food.copy(id = id)
+        }
+    }
+
+    private fun applyFood(food: FoodEntity) {
+        _draft.update {
+            it.copy(
+                activeCategory = EntryType.MEAL,
+                carbsGrams = trim(food.carbsGrams),
+                proteinGrams = food.proteinGrams?.let(::trim) ?: "",
+                fatGrams = food.fatGrams?.let(::trim) ?: "",
+                mealDescription = food.name,
+            )
+        }
+        _selectedFood.value = food
+    }
+
+    private fun OffProduct.toOffFoodDraft(barcode: String): OffFoodDraft {
+        val n = nutriments
+        val servingGrams = PortionCalculator.parseServingGrams(servingSize)
+
+        fun scaled(serving: Double?, per100: Double?): Double? =
+            serving
+                ?: if (per100 != null && servingGrams != null) per100 * servingGrams / 100.0
+                else per100
+
+        val servingLabel = servingSize?.trim()?.takeIf { it.isNotBlank() }
+            ?: if (servingGrams != null) "${trim(servingGrams)} g" else "100 g"
+
+        return OffFoodDraft(
+            barcode = barcode.trim(),
+            name = productName?.trim().orEmpty(),
+            brand = brands?.trim().orEmpty(),
+            servingLabel = servingLabel,
+            servingGrams = servingGrams,
+            carbs = scaled(n?.carbsServing, n?.carbs100g)?.let(::trim) ?: "",
+            protein = scaled(n?.proteinServing, n?.protein100g)?.let(::trim) ?: "",
+            fat = scaled(n?.fatServing, n?.fat100g)?.let(::trim) ?: "",
+            kcal = scaled(n?.kcalServing, n?.kcal100g),
+        )
+    }
+
     /** Starts a fresh draft with the user's saved reminder default applied. */
     fun openNewDraft(postMealReminderEnabled: Boolean) {
         _streakReward.value = null
+        _selectedFood.value = null
+        _foodLookupState.value = FoodLookupState.Idle
+        _foodSearchQuery.value = ""
         _draft.value = DraftEventState(postMealReminderEnabled = postMealReminderEnabled)
     }
 
@@ -246,6 +448,8 @@ class LogViewModel @Inject constructor(
             prefill.exerciseMinutes != null -> EntryType.ACTIVITY
             else -> _draft.value.activeCategory
         }
+        _selectedFood.value = null
+        _foodLookupState.value = FoodLookupState.Idle
         _draft.value = DraftEventState(
             activeCategory = activeCategory,
             glucose = prefill.glucoseMgdl?.let { Formatters.glucose(it.toDouble(), unit) } ?: "",
@@ -277,6 +481,9 @@ class LogViewModel @Inject constructor(
                 val loggedDays = entryRepository.distinctLoggedDays().toMutableSet()
                 val before = StreakCalculator.currentStreak(loggedDays)
                 entryRepository.add(event)
+                _selectedFood.value?.let { food ->
+                    database.foodDao().recordUse(food.id, event.timestamp)
+                }
                 val newLocalDate = Formatters.localDate(event.timestamp)
                 val after = if (event.qualifiesForStreak()) {
                     loggedDays += newLocalDate
@@ -293,6 +500,8 @@ class LogViewModel @Inject constructor(
                 _draft.value = DraftEventState(
                     postMealReminderEnabled = settings.value.postMealRemindersEnabled,
                 )
+                _selectedFood.value = null
+                _foodLookupState.value = FoodLookupState.Idle
                 if (after > before) {
                     _streakReward.value =
                         StreakReward(previousStreak = before, currentStreak = after)
@@ -317,6 +526,9 @@ class LogViewModel @Inject constructor(
 
     fun discardDraft() {
         _streakReward.value = null
+        _selectedFood.value = null
+        _foodLookupState.value = FoodLookupState.Idle
+        _foodSearchQuery.value = ""
         _draft.value = DraftEventState(
             postMealReminderEnabled = settings.value.postMealRemindersEnabled,
         )
@@ -360,6 +572,7 @@ class LogViewModel @Inject constructor(
             subtitle = subtitle ?: note?.takeIf { it.isNotBlank() },
             glucoseDisplay = glucoseDisplay,
             glucoseStatus = status,
+            source = source,
         )
     }
 
@@ -427,3 +640,25 @@ class LogViewModel @Inject constructor(
         const val IOB_TICK_MILLIS = 60_000L
     }
 }
+
+/** State machine for barcode → food resolution in the Add Entry sheet. */
+sealed interface FoodLookupState {
+    data object Idle : FoodLookupState
+    data object Loading : FoodLookupState
+    data class ConfirmOff(val draft: OffFoodDraft) : FoodLookupState
+    data class ManualEntry(val barcode: String) : FoodLookupState
+    data class Error(val message: String) : FoodLookupState
+}
+
+/** Editable, human-reviewed snapshot of an Open Food Facts product. */
+data class OffFoodDraft(
+    val barcode: String,
+    val name: String,
+    val brand: String,
+    val servingLabel: String,
+    val servingGrams: Double?,
+    val carbs: String,
+    val protein: String,
+    val fat: String,
+    val kcal: Double?,
+)

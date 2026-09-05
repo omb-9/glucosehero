@@ -5,8 +5,11 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.work.HealthConnectSyncWorker
 import com.omb9.glucosehero.work.InsightNotifier
 import com.omb9.glucosehero.work.PatternRecognitionWorker
 import com.omb9.glucosehero.work.PostMealReminderNotifier
@@ -16,6 +19,11 @@ import java.time.LocalTime
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @HiltAndroidApp
 class GlucoseHeroApp : Application(), Configuration.Provider {
@@ -29,11 +37,17 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
     @Inject
     lateinit var postMealReminderNotifier: PostMealReminderNotifier
 
+    @Inject
+    lateinit var settingsDataStore: SettingsDataStore
+
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override fun onCreate() {
         super.onCreate()
         insightNotifier.createChannel()
         postMealReminderNotifier.createChannel()
         schedulePatternRecognition()
+        scheduleHealthConnectSync()
     }
 
     /**
@@ -57,6 +71,32 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )
+    }
+
+    /**
+     * Schedules a Health Connect sync every three hours. Health Connect is a
+     * local platform component, so the request never requires a network. The
+     * periodic work is only registered once sync has been enabled; the worker
+     * re-checks the flag on every run in case it flips after scheduling.
+     */
+    private fun scheduleHealthConnectSync() {
+        applicationScope.launch {
+            if (!settingsDataStore.healthConnectSyncEnabled.first()) return@launch
+
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                .build()
+
+            val request = PeriodicWorkRequestBuilder<HealthConnectSyncWorker>(3, TimeUnit.HOURS)
+                .setConstraints(constraints)
+                .build()
+
+            WorkManager.getInstance(this@GlucoseHeroApp).enqueueUniquePeriodicWork(
+                HealthConnectSyncWorker.UNIQUE_NAME,
+                ExistingPeriodicWorkPolicy.KEEP,
+                request,
+            )
+        }
     }
 
     private fun initialDelayToNextNightlyRun(): Long {

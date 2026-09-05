@@ -1,7 +1,9 @@
 package com.omb9.glucosehero.ui.settings
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,7 +25,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,6 +35,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Slider
@@ -41,6 +46,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -54,8 +60,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.omb9.glucosehero.data.health.HealthConnectStatus
+import com.omb9.glucosehero.data.local.datastore.InitialImportRange
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiProvider
 import com.omb9.glucosehero.domain.model.GlucoseUnit
@@ -63,20 +72,57 @@ import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.domain.model.UnitSystem
 import com.omb9.glucosehero.util.Formatters
+import androidx.compose.runtime.rememberCoroutineScope
+import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.launch
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface SettingsScreenDataStoreEntryPoint {
+    fun settingsDataStore(): SettingsDataStore
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    onManageFoods: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val aiConfig by viewModel.aiConfig.collectAsStateWithLifecycle()
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     val bolus by viewModel.bolusSettings.collectAsStateWithLifecycle()
+    val healthConnectStatus = viewModel.healthConnectAvailabilityStatus
+    val isHealthConnectConnected by viewModel.isHealthConnectConnected.collectAsStateWithLifecycle()
+    val glucoseImportEnabled by viewModel.glucoseImportEnabled.collectAsStateWithLifecycle()
+    val nutritionImportEnabled by viewModel.nutritionImportEnabled.collectAsStateWithLifecycle()
+    val exerciseImportEnabled by viewModel.exerciseImportEnabled.collectAsStateWithLifecycle()
+    val healthConnectInitialImportRange by viewModel.healthConnectInitialImportRange.collectAsStateWithLifecycle()
+    val healthConnectLastSync by viewModel.healthConnectLastSync.collectAsStateWithLifecycle()
+    val healthConnectSampleCount by viewModel.healthConnectSampleCount.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val settingsDataStore = remember(context) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            SettingsScreenDataStoreEntryPoint::class.java,
+        ).settingsDataStore()
+    }
+    val barcodeLookupEnabled by settingsDataStore.barcodeLookupEnabled
+        .collectAsStateWithLifecycle(initialValue = true)
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) viewModel.setPostMealRemindersEnabled(true)
     }
+    val healthConnectPermissionLauncher = rememberLauncherForActivityResult(
+        PermissionController.createRequestPermissionResultContract(),
+    ) { granted -> viewModel.onPermissionsResult(granted) }
+    var showClearHealthConnectDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Settings") }) },
@@ -423,6 +469,13 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             // ============ Meal Logging ============
             SectionHeader("Meal Logging")
 
+            NavigationRow(
+                title = "Manage foods",
+                onClick = onManageFoods,
+            )
+
+            Spacer(Modifier.height(12.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -465,6 +518,140 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     checked = settings.showAdvancedMacros,
                     onCheckedChange = viewModel::setShowAdvancedMacros,
                 )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "Barcode lookup (Open Food Facts)",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Switch(
+                        checked = barcodeLookupEnabled,
+                        onCheckedChange = { enabled ->
+                            scope.launch { settingsDataStore.setBarcodeLookupEnabled(enabled) }
+                        },
+                    )
+                }
+                Text(
+                    "When you scan a barcode, only the barcode number is sent to Open Food Facts. " +
+                        "No log data ever leaves the device.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // ============ Health Connect ============
+            SectionHeader("Health Connect")
+
+            when (healthConnectStatus) {
+                HealthConnectStatus.AVAILABLE -> {
+                    if (isHealthConnectConnected) {
+                        Text(
+                            "Connected",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(12.dp))
+
+                        HealthConnectToggleRow(
+                            label = "Import glucose",
+                            checked = glucoseImportEnabled,
+                            onCheckedChange = viewModel::setGlucoseImportEnabled,
+                        )
+                        HealthConnectToggleRow(
+                            label = "Import nutrition",
+                            checked = nutritionImportEnabled,
+                            onCheckedChange = viewModel::setNutritionImportEnabled,
+                        )
+                        HealthConnectToggleRow(
+                            label = "Import exercise",
+                            checked = exerciseImportEnabled,
+                            onCheckedChange = viewModel::setExerciseImportEnabled,
+                        )
+
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            "Initial import range",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            InitialImportRange.entries.forEachIndexed { index, range ->
+                                SegmentedButton(
+                                    selected = healthConnectInitialImportRange == range,
+                                    onClick = { viewModel.setHealthConnectInitialImportRange(range) },
+                                    shape = SegmentedButtonDefaults.itemShape(
+                                        index = index,
+                                        count = InitialImportRange.entries.size,
+                                    ),
+                                ) {
+                                    Text(range.label)
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            "Last sync: " + (healthConnectLastSync?.let {
+                                Formatters.dayHeader(Formatters.localDate(it)) +
+                                    " · " +
+                                    Formatters.time(it, settings.use24HourTime)
+                            } ?: "Never"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Imported samples: $healthConnectSampleCount",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = { showClearHealthConnectDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                "Remove imported data",
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                healthConnectPermissionLauncher.launch(viewModel.readPermissions)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Connect Health Connect")
+                        }
+                    }
+                }
+
+                else -> {
+                    Text(
+                        "Health Connect isn't installed on this device.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { context.startActivity(healthConnectInstallIntent()) },
+                        ) {
+                            Text("Install Health Connect")
+                        }
+                    }
+                }
             }
 
             // ============ Hero AI ============
@@ -609,6 +796,34 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             Spacer(Modifier.height(24.dp))
         }
     }
+
+    if (showClearHealthConnectDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearHealthConnectDialog = false },
+            title = { Text("Remove imported data?") },
+            text = {
+                Text(
+                    "This deletes all imported Health Connect glucose samples. " +
+                        "Your manual log entries are not affected."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearHealthConnectDialog = false
+                        viewModel.clearImportedGlucoseData()
+                    },
+                ) {
+                    Text("Remove", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearHealthConnectDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -621,6 +836,55 @@ private fun SectionHeader(title: String) {
     )
     Spacer(Modifier.height(12.dp))
 }
+
+@Composable
+private fun NavigationRow(
+    title: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HealthConnectToggleRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+private fun healthConnectInstallIntent(): Intent =
+    Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata"),
+    )
 
 @Composable
 private fun SmartBolusSlider(

@@ -113,6 +113,25 @@ interface EntryDao {
     fun observeGlucoseStatsSince(since: Long): Flow<GlucoseStats>
 
     /**
+     * Counts high-frequency device samples (CGM) in the window. Together with
+     * [manualReadingCountSince] this powers the 70%-CGM threshold for the
+     * estimated-A1c card and Hero's glucose-source summary line.
+     */
+    @Query("SELECT COUNT(*) FROM glucose_samples WHERE timestamp >= :since")
+    suspend fun cgmReadingCountSince(since: Long): Int
+
+    /**
+     * Counts user-authored glucose readings in the window. The
+     * `hc_record_id IS NULL` predicate matches the `entries` side of the
+     * `glucose_readings` view so a reading imported from Health Connect is
+     * never counted twice.
+     */
+    @Query(
+        "SELECT COUNT(*) FROM entries WHERE glucose_mgdl IS NOT NULL AND hc_record_id IS NULL AND timestamp >= :since"
+    )
+    suspend fun manualReadingCountSince(since: Long): Int
+
+    /**
      * Distinct local calendar days (yyyy-MM-dd) that have at least one
      * streak-qualifying entry: glucose, insulin, or meal. Notes and exercise
      * alone do not count toward a logging streak.
