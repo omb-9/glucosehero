@@ -9,8 +9,11 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
+import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.FoodEntity
+import com.omb9.glucosehero.data.local.entity.toDomain
 import com.omb9.glucosehero.data.remote.off.OffProduct
 import com.omb9.glucosehero.data.remote.off.OpenFoodFactsApi
 import com.omb9.glucosehero.domain.model.FoodSource
@@ -40,6 +43,7 @@ import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
+import java.time.LocalDate
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -108,6 +112,7 @@ data class StreakReward(
 @HiltViewModel
 class LogViewModel @Inject constructor(
     private val entryRepository: EntryRepository,
+    private val entryDao: EntryDao,
     settingsRepository: SettingsRepository,
     private val heroAiPrefillCoordinator: HeroAiPrefillCoordinator,
     private val reminderScheduler: ReminderScheduler,
@@ -151,6 +156,29 @@ class LogViewModel @Inject constructor(
     /** Food currently backing the draft, or null when the meal was typed by hand. */
     private val _selectedFood = MutableStateFlow<FoodEntity?>(null)
     val selectedFood: StateFlow<FoodEntity?> = _selectedFood.asStateFlow()
+
+    /** Free-text query for the Log list; debounced before hitting the DAO. */
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    /** Single-day filter, or null to show the rolling list. */
+    private val _selectedDate = MutableStateFlow<LocalDate?>(null)
+    val selectedDate: StateFlow<LocalDate?> = _selectedDate.asStateFlow()
+
+    /**
+     * Debounced log search results. Kept separate from the rolling list so a
+     * keystroke never triggers a query per character and the unbounded entries
+     * table is never streamed through Kotlin.
+     */
+    private val searchResults: StateFlow<List<LogEvent>> = _searchQuery
+        .debounce(SEARCH_DEBOUNCE_MILLIS)
+        .mapLatest { query ->
+            val trimmed = query.trim()
+            if (trimmed.isBlank()) emptyList()
+            else entryDao.searchEntries(trimmed).map { it.toLogEvent() }
+        }
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Recently used foods for the one-tap chips in the Add Entry sheet. */
     val recentFoods: StateFlow<List<FoodEntity>> = flow {
@@ -225,10 +253,17 @@ class LogViewModel @Inject constructor(
         combine(
             entryRepository.observeEntries(Formatters.daysAgoMillis(WINDOW_DAYS)),
             settingsRepository.settings,
-        ) { entries, settings ->
+            _searchQuery,
+            searchResults,
+            _selectedDate,
+        ) { entries, settings, query, search, selectedDate ->
+            val source = if (query.isBlank()) entries else search
+            val filtered = selectedDate?.let { date ->
+                source.filter { Formatters.localDate(it.timestamp) == date }
+            } ?: source
             LogUiState(
                 isLoading = false,
-                days = groupByDay(entries, settings),
+                days = groupByDay(filtered, settings),
                 unit = settings.unit,
             )
         }
@@ -264,6 +299,22 @@ class LogViewModel @Inject constructor(
                 _isRefreshing.value = false
             }
         }
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun clearSearch() {
+        _searchQuery.value = ""
+    }
+
+    fun onDateSelected(date: LocalDate) {
+        _selectedDate.value = date
+    }
+
+    fun clearDateFilter() {
+        _selectedDate.value = null
     }
 
     // ---- Draft setters: each is a pure copy/update — no clearing, no side-effects ----
@@ -604,6 +655,8 @@ class LogViewModel @Inject constructor(
         )
     }
 
+    private fun EntryEntity.toLogEvent(): LogEvent = toDomain().copy(source = source)
+
     private fun primaryType(event: LogEvent): EntryType = when {
         event.glucoseMgdl != null -> EntryType.GLUCOSE
         event.insulinBasalUnits != null || event.insulinBolusUnits != null -> EntryType.INSULIN
@@ -666,6 +719,9 @@ class LogViewModel @Inject constructor(
     private companion object {
         const val WINDOW_DAYS = 90
         const val REFRESH_MIN_MILLIS = 600L
+
+        /** Debounce window for log search input. */
+        const val SEARCH_DEBOUNCE_MILLIS = 300L
 
         /** Bolus lookback window — generous enough for any realistic DIA. */
         const val ACTIVE_INSULIN_WINDOW_MILLIS = 6 * IobCalculator.MILLIS_PER_HOUR

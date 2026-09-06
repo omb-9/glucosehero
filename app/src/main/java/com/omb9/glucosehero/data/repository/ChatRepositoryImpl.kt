@@ -23,6 +23,7 @@ import com.omb9.glucosehero.domain.model.ChatRole
 import com.omb9.glucosehero.domain.model.ChatTurn
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.StreamEvent
+import com.omb9.glucosehero.domain.model.TagKind
 import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
@@ -177,7 +178,8 @@ class ChatRepositoryImpl @Inject constructor(
                 val dismissed = settingsDataStore.dismissedFoodTags.first()
                 database.tagAnalyticDao().observeAll().first()
                     .filter {
-                        it.occurrences >= FOOD_PATTERN_MIN_OCCURRENCES && it.tag !in dismissed
+                        it.kind != TagKind.MOOD &&
+                            it.occurrences >= FOOD_PATTERN_MIN_OCCURRENCES && it.tag !in dismissed
                     }
                     .take(FOOD_PATTERN_LIMIT)
             }

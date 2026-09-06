@@ -33,4 +33,18 @@ class SupplyRepositoryImpl @Inject constructor(
             replacedAt = null,
         ),
     )
+
+    override suspend fun updateSupply(
+        id: Long,
+        type: SupplyType,
+        startedAt: Long,
+        expectedLifespanDays: Int,
+    ) = supplyDao.update(
+        id = id,
+        type = type,
+        startedAt = startedAt,
+        expectedLifespanDays = expectedLifespanDays,
+    )
+
+    override suspend fun deleteSupply(id: Long) = supplyDao.delete(id)
 }

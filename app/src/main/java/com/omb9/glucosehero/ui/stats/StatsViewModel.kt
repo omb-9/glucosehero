@@ -22,6 +22,7 @@ import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.LogEvent
 import com.omb9.glucosehero.domain.model.Supply
 import com.omb9.glucosehero.domain.model.SupplyType
+import com.omb9.glucosehero.domain.model.TagKind
 import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.model.TimeRange
@@ -89,6 +90,7 @@ data class ActiveSupplyUi(
     val id: Long,
     val type: SupplyType,
     val startedAt: Long,
+    val expectedLifespanDays: Int,
     val daysRemaining: Double,
     val hoursRemaining: Double,
     val progressPercentage: Float,
@@ -204,7 +206,10 @@ class StatsViewModel @Inject constructor(
         settingsDataStore.settings,
         settingsDataStore.dismissedFoodTags,
     ) { entities, settings, dismissed ->
-        entities.toDisplayableTags(dismissed, settings.unit).take(FOOD_IMPACT_PREVIEW_LIMIT)
+        entities
+            .filter { it.kind != TagKind.MOOD }
+            .toDisplayableTags(dismissed, settings.unit)
+            .take(FOOD_IMPACT_PREVIEW_LIMIT)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Active supply cards, with lifecycle math evaluated on each emission and
@@ -506,6 +511,23 @@ class StatsViewModel @Inject constructor(
         }
     }
 
+    fun updateSupply(id: Long, type: SupplyType, startedAt: Long, expectedLifespanDays: Int) {
+        viewModelScope.launch {
+            supplyRepository.updateSupply(
+                id = id,
+                type = type,
+                startedAt = startedAt,
+                expectedLifespanDays = expectedLifespanDays,
+            )
+        }
+    }
+
+    fun deleteSupply(id: Long) {
+        viewModelScope.launch {
+            supplyRepository.deleteSupply(id)
+        }
+    }
+
     fun export(format: ExportFormat) {
         if (_isExporting.value) return
         viewModelScope.launch {
@@ -564,6 +586,7 @@ class StatsViewModel @Inject constructor(
             id = id,
             type = type,
             startedAt = startedAt,
+            expectedLifespanDays = expectedLifespanDays,
             daysRemaining = status.daysRemaining,
             hoursRemaining = status.hoursRemaining,
             progressPercentage = status.progressPercentage,

@@ -3,6 +3,7 @@ package com.omb9.glucosehero.data.repository
 import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.entity.TagAnalyticEntity
 import com.omb9.glucosehero.domain.model.TagKind
+import com.omb9.glucosehero.util.CrisisDetector
 import com.omb9.glucosehero.util.Percentiles
 import com.omb9.glucosehero.util.TagExtractor
 import javax.inject.Inject
@@ -33,6 +34,9 @@ class AnalyticsRepository @Inject constructor(
      * caller's notion of "the current run" so a nightly refresh is internally
      * consistent.
      *
+     * Entries whose note matches [CrisisDetector] are dropped before tag
+     * extraction, so a crisis entry contributes no tags of any kind.
+     *
      * Entries whose follow-up reading is missing are dropped before delta
      * grouping, so a tag only appears once at least one of its entries yields
      * a computable delta. Every such tag is emitted regardless of how many
@@ -50,6 +54,8 @@ class AnalyticsRepository @Inject constructor(
             val accumulators = LinkedHashMap<String, Accumulator>()
 
             for (row in rows) {
+                if (CrisisDetector.isCrisis(row.note)) continue
+
                 val baseline = row.baselineMgdl ?: continue
                 val followUp = row.followUpMgdl ?: continue
                 val delta = followUp - baseline
@@ -59,6 +65,7 @@ class AnalyticsRepository @Inject constructor(
                     mealDescription = row.mealDescription,
                     foodId = row.foodId,
                     foodName = row.foodName,
+                    mood = row.moodLabel,
                 )
 
                 for (tag in tags) {

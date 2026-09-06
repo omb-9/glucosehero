@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import com.omb9.glucosehero.data.local.entity.SupplyEntity
+import com.omb9.glucosehero.domain.model.SupplyType
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -16,7 +17,7 @@ interface SupplyDao {
         SELECT * FROM supplies
         WHERE replaced_at IS NULL
         ORDER BY started_at ASC
-        """
+        """,
     )
     fun observeActive(): Flow<List<SupplyEntity>>
 
@@ -47,6 +48,28 @@ interface SupplyDao {
         deactivateSuppliesOfType(type, replacedAt)
         return insert(entity)
     }
+
+    /**
+     * Corrects an existing supply's type, start time, or expected lifespan in
+     * place. Only the three editable columns are touched, so `replaced_at` and
+     * `uuid` are preserved: an edit never retires the row (unlike
+     * [deactivateAndInsert]) and never changes its backup/export identity.
+     */
+    @Query(
+        """
+        UPDATE supplies
+        SET type = :type, started_at = :startedAt, expected_lifespan_days = :expectedLifespanDays
+        WHERE id = :id
+        """
+    )
+    suspend fun update(id: Long, type: SupplyType, startedAt: Long, expectedLifespanDays: Int)
+
+    /**
+     * Removes a supply that was logged by mistake. Distinct from replacement:
+     * this deletes the row outright and starts nothing new.
+     */
+    @Query("DELETE FROM supplies WHERE id = :id")
+    suspend fun delete(id: Long)
 
     // ---------- Backup/export paged reads (additive) ----------
 

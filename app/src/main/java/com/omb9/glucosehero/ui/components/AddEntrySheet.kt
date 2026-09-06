@@ -429,7 +429,17 @@ fun AddEntrySheet(
                     }
                 }
 
-                EntryType.NOTE -> Unit // The mood + journal section below is the input.
+                EntryType.NOTE -> {
+                    MoodJournalSection(
+                        moodScore = draft.moodScore,
+                        moodLabel = draft.moodLabel,
+                        journalText = draft.note,
+                        onMoodScoreChange = onMoodScoreChange,
+                        onMoodLabelChange = onMoodLabelChange,
+                        onJournalChange = onNoteChange,
+                        journalFocusRequester = focusRequester,
+                    )
+                }
             }
 
             val showReminderToggle = draft.activeCategory == EntryType.MEAL ||
@@ -443,19 +453,6 @@ fun AddEntrySheet(
                     label = { Text("+2hr Reminder") },
                 )
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            // --- Mood + journal (replaces the old Notes section) ---
-            MoodJournalSection(
-                moodScore = draft.moodScore,
-                moodLabel = draft.moodLabel,
-                journalText = draft.note,
-                onMoodScoreChange = onMoodScoreChange,
-                onMoodLabelChange = onMoodLabelChange,
-                onJournalChange = onNoteChange,
-                journalFocusRequester = if (draft.activeCategory == EntryType.NOTE) focusRequester else null,
-            )
 
             Spacer(Modifier.height(16.dp))
 

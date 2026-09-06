@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -28,14 +26,11 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -75,8 +70,6 @@ import com.omb9.glucosehero.ui.stats.components.TimeInRangeBar
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
 import com.omb9.glucosehero.util.Formatters
 import kotlin.math.abs
-import kotlin.math.ceil
-import kotlinx.collections.immutable.ImmutableList
 
 private val InsightCardBackground = Color(0xFF000000)
 private val InsightCardTitle = Color(0xFFFFFFFF)
@@ -102,6 +95,7 @@ fun StatsScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     var showExportSheet by remember { mutableStateOf(false) }
     var showSupplySheet by remember { mutableStateOf(false) }
+    var editingSupply by remember { mutableStateOf<ActiveSupplyUi?>(null) }
     var preselectedSupplyType by remember { mutableStateOf<SupplyType?>(null) }
     val pullToRefreshState = rememberPullToRefreshState()
     val context = LocalContext.current
@@ -191,6 +185,7 @@ fun StatsScreen(
 
             ActiveSuppliesSection(
                 supplies = supplies,
+                use24HourTime = state.use24HourTime,
                 onAdd = {
                     preselectedSupplyType = null
                     showSupplySheet = true
@@ -199,6 +194,7 @@ fun StatsScreen(
                     preselectedSupplyType = type
                     showSupplySheet = true
                 },
+                onEdit = { supply -> editingSupply = supply },
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -335,6 +331,22 @@ fun StatsScreen(
         )
     }
 
+    editingSupply?.let { supply ->
+        EditSupplySheet(
+            supply = supply,
+            use24HourTime = state.use24HourTime,
+            onDismiss = { editingSupply = null },
+            onSave = { type, startedAt, days ->
+                viewModel.updateSupply(supply.id, type, startedAt, days)
+                editingSupply = null
+            },
+            onDelete = {
+                viewModel.deleteSupply(supply.id)
+                editingSupply = null
+            },
+        )
+    }
+
     if (showExportSheet) {
         ExportFormatSheet(
             isExporting = isExporting,
@@ -378,189 +390,6 @@ private fun RangePresetRow(
             )
         }
     }
-}
-
-@Composable
-private fun ActiveSuppliesSection(
-    supplies: ImmutableList<ActiveSupplyUi>,
-    onAdd: () -> Unit,
-    onReplace: (SupplyType) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "Active Supplies",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(onClick = onAdd) {
-                Text("Add")
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-
-        if (supplies.isEmpty()) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainer,
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "No active supplies",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(onClick = onAdd) {
-                        Text("Log supply")
-                    }
-                }
-            }
-        } else {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(supplies, key = { it.id }) { supply ->
-                    SupplyCard(
-                        supply = supply,
-                        onReplace = { onReplace(supply.type) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SupplyCard(
-    supply: ActiveSupplyUi,
-    onReplace: () -> Unit,
-) {
-    val accent = MaterialTheme.colorScheme.primary
-    Surface(
-        modifier = Modifier.width(168.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = supply.type.label,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = "Started ${Formatters.shortDate(Formatters.localDate(supply.startedAt))}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(10.dp))
-            LinearProgressIndicator(
-                progress = { supply.progressPercentage },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp),
-                color = accent,
-                trackColor = accent.copy(alpha = 0.14f),
-            )
-            Spacer(Modifier.height(8.dp))
-            if (supply.isExpired) {
-                AssistChip(
-                    onClick = onReplace,
-                    label = { Text("Replace") },
-                )
-            } else {
-                Text(
-                    text = remainingLabel(supply),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun LogSupplySheet(
-    preselectedType: SupplyType?,
-    onDismiss: () -> Unit,
-    onSave: (SupplyType, Int) -> Unit,
-) {
-    var selectedType by remember(preselectedType) {
-        mutableStateOf(preselectedType ?: SupplyType.SENSOR)
-    }
-    val lifespanOptions = remember(selectedType) { lifespanOptionsFor(selectedType) }
-    var selectedDays by remember(selectedType) { mutableStateOf(lifespanOptions.first()) }
-
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp),
-        ) {
-            Text(
-                text = "Log New Supply",
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = "Type",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SupplyType.entries.forEach { type ->
-                    FilterChip(
-                        selected = selectedType == type,
-                        onClick = { selectedType = type },
-                        label = { Text(type.label) },
-                    )
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = "Expected lifespan",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                lifespanOptions.forEach { days ->
-                    FilterChip(
-                        selected = selectedDays == days,
-                        onClick = { selectedDays = days },
-                        label = { Text("$days days") },
-                    )
-                }
-            }
-            Spacer(Modifier.height(24.dp))
-            Button(
-                onClick = { onSave(selectedType, selectedDays) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Save")
-            }
-        }
-    }
-}
-
-private fun lifespanOptionsFor(type: SupplyType): List<Int> = when (type) {
-    SupplyType.SENSOR -> listOf(10, 14)
-    SupplyType.INSULIN_VIAL -> listOf(28)
-    SupplyType.PUMP_SITE -> listOf(3)
-}
-
-private fun remainingLabel(supply: ActiveSupplyUi): String = when {
-    supply.daysRemaining >= 1.0 -> "${ceil(supply.daysRemaining).toInt()} days left"
-    supply.hoursRemaining > 0.0 -> "${ceil(supply.hoursRemaining).toInt()} hours left"
-    else -> "Expired"
 }
 
 @Composable

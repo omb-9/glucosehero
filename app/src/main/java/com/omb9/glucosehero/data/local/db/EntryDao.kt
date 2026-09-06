@@ -37,6 +37,7 @@ data class TagAnalyticsRow(
     val timestamp: Long,
     val note: String?,
     val mealDescription: String?,
+    val moodLabel: String?,
     val foodId: Long?,
     val foodName: String?,
     val carbsGrams: Int?,
@@ -93,6 +94,24 @@ interface EntryDao {
 
     @Query("SELECT * FROM entries WHERE id = :id")
     fun observeById(id: Long): Flow<EntryEntity?>
+
+    /**
+     * Free-text search across the note, meal description, and mood label
+     * columns. Bounded to 200 rows newest-first: the entries table grows
+     * without bound, so search must never stream the whole table through
+     * Kotlin. LIKE is case-insensitive for ASCII and matches substrings.
+     */
+    @Query(
+        """
+        SELECT * FROM entries
+        WHERE (note LIKE '%' || :query || '%'
+            OR meal_description LIKE '%' || :query || '%'
+            OR mood_label LIKE '%' || :query || '%')
+        ORDER BY timestamp DESC
+        LIMIT 200
+        """
+    )
+    suspend fun searchEntries(query: String): List<EntryEntity>
 
     // ---------- Writes ----------
 
@@ -318,6 +337,7 @@ interface EntryDao {
             e.timestamp            AS timestamp,
             e.note                 AS note,
             e.meal_description     AS mealDescription,
+            e.mood_label           AS moodLabel,
             e.food_id              AS foodId,
             f.name                 AS foodName,
             e.carbs_grams          AS carbsGrams,
@@ -338,7 +358,7 @@ interface EntryDao {
         LEFT JOIN foods f ON f.id = e.food_id
         WHERE e.glucose_mgdl IS NOT NULL
           AND e.timestamp >= :since
-          AND (e.food_id IS NOT NULL OR e.note LIKE '%#%' OR e.meal_description IS NOT NULL)
+          AND (e.food_id IS NOT NULL OR e.note LIKE '%#%' OR e.meal_description IS NOT NULL OR e.mood_label IS NOT NULL)
         """
     )
     suspend fun tagAnalyticsRows(
@@ -433,4 +453,16 @@ interface EntryDao {
 
     @Insert
     suspend fun insertAll(entities: List<EntryEntity>): List<Long>
+
+    /**
+     * Health Connect record ids already present in the entries table. Used to
+     * dedupe imported nutrition/exercise entries without relying on a unique
+     * index on `hc_record_id` (the entries table deliberately has none).
+     */
+    @Query("SELECT hc_record_id FROM entries WHERE hc_record_id IN (:ids)")
+    suspend fun existingHcRecordIds(ids: List<String>): List<String>
+
+    /** Removes an imported entry by its Health Connect record id. */
+    @Query("DELETE FROM entries WHERE hc_record_id = :hcRecordId")
+    suspend fun deleteByHcRecordId(hcRecordId: String)
 }

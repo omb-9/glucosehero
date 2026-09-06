@@ -1,7 +1,6 @@
 package com.omb9.glucosehero.ui.log
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,21 +21,30 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bloodtype
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -49,12 +57,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.omb9.glucosehero.R
+import com.omb9.glucosehero.util.Formatters
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.ui.components.AddEntrySheet
@@ -79,6 +89,10 @@ fun LogScreen(
     var showSheet by rememberSaveable { mutableStateOf(false) }
     val streakReward by viewModel.streakReward.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val pullToRefreshState = rememberPullToRefreshState()
     LaunchedEffect(viewModel) {
@@ -103,7 +117,27 @@ fun LogScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Log") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Log") },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            searchExpanded = !searchExpanded
+                            if (!searchExpanded) viewModel.clearSearch()
+                        },
+                    ) {
+                        Icon(
+                            Icons.Filled.Search,
+                            contentDescription = if (searchExpanded) "Close search" else "Search entries",
+                        )
+                    }
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Filled.DateRange, contentDescription = "Filter by date")
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
@@ -134,6 +168,34 @@ fun LogScreen(
             },
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
+                if (searchExpanded) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = viewModel::onSearchQueryChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        placeholder = { Text("Search entries") },
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = viewModel::clearSearch) {
+                                    Icon(Icons.Filled.Close, contentDescription = "Clear search")
+                                }
+                            }
+                        },
+                        singleLine = true,
+                    )
+                }
+
+                selectedDate?.let { date ->
+                    DateFilterChip(
+                        date = date,
+                        onClear = viewModel::clearDateFilter,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+
                 ActiveInsulinBar(activeInsulinUnits = activeInsulin)
 
                 when {
@@ -146,18 +208,28 @@ fun LogScreen(
                         CircularProgressIndicator()
                     }
 
-                    state.days.isEmpty() -> Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.ic_logo_display),
-                            contentDescription = null,
-                            modifier = Modifier.size(120.dp),
-                            alpha = 0.15f,
-                        )
+                    state.days.isEmpty() -> {
+                        val hasSearch = searchQuery.isNotBlank()
+                        val hasDate = selectedDate != null
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (hasSearch || hasDate) {
+                                LogFilteredEmptyState(
+                                    searchQuery = searchQuery,
+                                    selectedDate = selectedDate,
+                                    onClear = {
+                                        if (hasSearch) viewModel.clearSearch()
+                                        if (hasDate) viewModel.clearDateFilter()
+                                    },
+                                )
+                            } else {
+                                LogEmptyState()
+                            }
+                        }
                     }
 
                     else -> LazyColumn(
@@ -226,6 +298,39 @@ fun LogScreen(
             },
         )
     }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate
+                ?.atStartOfDay(ZoneOffset.UTC)
+                ?.toInstant()
+                ?.toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            viewModel.onDateSelected(
+                                Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate(),
+                            )
+                        }
+                        showDatePicker = false
+                    },
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel")
+                }
+            },
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }
 
 private fun EntryType.icon(): ImageVector = when (this) {
@@ -280,6 +385,49 @@ private fun ActiveInsulinBar(activeInsulinUnits: Double) {
 
 private fun formatInsulinUnits(value: Double): String =
     if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+
+/**
+ * Compact filter affordance showing the active single-day filter with a
+ * one-tap clear action.
+ */
+@Composable
+private fun DateFilterChip(
+    date: LocalDate,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.DateRange,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                Formatters.dayHeader(date),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            Spacer(Modifier.width(4.dp))
+            IconButton(onClick = onClear) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "Clear date filter",
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun HealthConnectBadge() {

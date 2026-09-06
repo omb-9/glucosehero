@@ -1,5 +1,6 @@
 package com.omb9.glucosehero.ui.entrydetail
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bloodtype
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Restaurant
@@ -91,6 +93,7 @@ fun EntryDetailScreen(
     val form by viewModel.form.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val canSave by viewModel.canSave.collectAsStateWithLifecycle()
+    val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
     val showCrisisSupport by viewModel.showCrisisSupport.collectAsStateWithLifecycle()
     val suggestedBolus by viewModel.suggestedBolus.collectAsStateWithLifecycle()
     val isHealthConnect = entry?.source == EntrySource.HEALTH_CONNECT
@@ -107,16 +110,32 @@ fun EntryDetailScreen(
         ?: EntryType.NOTE.detailTitle()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showUnsavedDialog by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var addCategoryExpanded by remember { mutableStateOf(false) }
+
+    // Intercept the system back gesture so an in-progress edit isn't silently
+    // discarded. The toolbar arrow routes through the same helper. Disabled
+    // while the prompt is open so the dialog's own back handling wins.
+    BackHandler(enabled = isDirty && !showUnsavedDialog) {
+        showUnsavedDialog = true
+    }
+
+    val onBackPressed = {
+        if (isDirty) {
+            showUnsavedDialog = true
+        } else {
+            onDone()
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(entryTitle) },
                 navigationIcon = {
-                    IconButton(onClick = onDone) {
+                    IconButton(onClick = onBackPressed) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
@@ -124,6 +143,20 @@ fun EntryDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = { viewModel.save(onDone) },
+                        enabled = canSave,
+                    ) {
+                        Icon(
+                            Icons.Filled.Check,
+                            contentDescription = "Save",
+                            tint = if (canSave) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
                     IconButton(onClick = viewModel::onEditToggle, enabled = !isHealthConnect) {
                         Icon(
                             Icons.Filled.Edit,
@@ -405,17 +438,19 @@ fun EntryDetailScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
-                MoodJournalSection(
-                    moodScore = form.moodScore,
-                    moodLabel = form.moodLabel,
-                    journalText = form.note,
-                    onMoodScoreChange = viewModel::onMoodScoreChange,
-                    onMoodLabelChange = viewModel::onMoodLabelChange,
-                    onJournalChange = viewModel::onNoteChange,
-                    enabled = !isHealthConnect,
-                )
+                if (form.moodScore != null || form.moodLabel != null || form.note.isNotBlank()) {
+                    MoodJournalSection(
+                        moodScore = form.moodScore,
+                        moodLabel = form.moodLabel,
+                        journalText = form.note,
+                        onMoodScoreChange = viewModel::onMoodScoreChange,
+                        onMoodLabelChange = viewModel::onMoodLabelChange,
+                        onJournalChange = viewModel::onNoteChange,
+                        enabled = !isHealthConnect,
+                    )
 
-                Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(20.dp))
+                }
 
                 if (showCrisisSupport) {
                     CrisisSupportCard(onDismiss = viewModel::dismissCrisisSupport)
@@ -452,6 +487,39 @@ fun EntryDetailScreen(
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
                     Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showUnsavedDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnsavedDialog = false },
+            title = { Text("Unsaved changes") },
+            text = { Text("You have unsaved changes. Save them before leaving?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showUnsavedDialog = false
+                        viewModel.save(onDone)
+                    },
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            showUnsavedDialog = false
+                            onDone()
+                        },
+                    ) {
+                        Text("Discard", color = MaterialTheme.colorScheme.error)
+                    }
+                    TextButton(onClick = { showUnsavedDialog = false }) {
+                        Text("Cancel")
+                    }
                 }
             },
         )

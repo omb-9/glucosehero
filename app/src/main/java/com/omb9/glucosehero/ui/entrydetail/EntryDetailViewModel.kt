@@ -119,6 +119,9 @@ class EntryDetailViewModel @Inject constructor(
     private val _form = MutableStateFlow(EntryDetailFormState())
     val form: StateFlow<EntryDetailFormState> = _form.asStateFlow()
 
+    /** Snapshot of the freshly seeded form, used as the "loaded entry" baseline for dirty tracking. */
+    private var seededForm: EntryDetailFormState = EntryDetailFormState()
+
     /** Smart-bolus recommendation for the current edit, or null until valid. */
     val suggestedBolus: StateFlow<Double?> = combine(
         _form,
@@ -148,6 +151,22 @@ class EntryDetailViewModel @Inject constructor(
             form.toDraft().toLogEvent(settings, form.timestamp) != null
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    /**
+     * True when the current form differs from the loaded entry in any way that
+     * would change the persisted [LogEvent]. This compares the editable fields
+     * (and timestamp) against the freshly seeded snapshot rather than tracking
+     * keystrokes, so typing a character and deleting it is never "dirty".
+     *
+     * Health Connect entries are gated elsewhere ([onEditToggle]) and never
+     * become dirty because their fields are disabled.
+     */
+    val isDirty: StateFlow<Boolean> = combine(_form, entry, settings) { form, current, settings ->
+        current != null &&
+            current.source != EntrySource.HEALTH_CONNECT &&
+            form.isSeeded &&
+            form.changedFrom(seededForm, settings)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     private val _saveErrors = MutableSharedFlow<Throwable>(extraBufferCapacity = 1)
     /** One-shot save failures surfaced to the UI. */
     val saveErrors: SharedFlow<Throwable> = _saveErrors.asSharedFlow()
@@ -175,7 +194,7 @@ class EntryDetailViewModel @Inject constructor(
     }
 
     private fun seed(event: LogEvent, settings: UserSettings) {
-        _form.value = EntryDetailFormState(
+        val seeded = EntryDetailFormState(
             isSeeded = true,
             timestamp = event.timestamp,
             activeCategories = event.presentCategories(),
@@ -193,6 +212,8 @@ class EntryDetailViewModel @Inject constructor(
             moodScore = event.moodScore,
             moodLabel = event.moodLabel,
         )
+        seededForm = seeded
+        _form.value = seeded
     }
 
     fun onEditToggle() {
@@ -350,6 +371,21 @@ class EntryDetailViewModel @Inject constructor(
         moodScore = moodScore,
         moodLabel = moodLabel,
     )
+
+    /**
+     * Compares an editable form against the freshly seeded baseline to decide
+     * whether the user has made a real change. Compares the *parsed* [LogEvent]
+     * the form would persist, so a cosmetic edit like "120" → "0120" (same
+     * glucose) still counts as unchanged.
+     */
+    private fun EntryDetailFormState.changedFrom(
+        baseline: EntryDetailFormState,
+        settings: UserSettings,
+    ): Boolean {
+        val currentEvent = this.toDraft().toLogEvent(settings, this.timestamp)
+        val baselineEvent = baseline.toDraft().toLogEvent(settings, baseline.timestamp)
+        return currentEvent != baselineEvent
+    }
 
     private companion object {
         const val ACTIVE_INSULIN_WINDOW_MILLIS = 6 * IobCalculator.MILLIS_PER_HOUR
