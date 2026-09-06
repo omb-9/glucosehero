@@ -29,7 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bloodtype
 import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.Button
@@ -95,7 +95,7 @@ private val categories = listOf(
     Category(EntryType.INSULIN, Metric.INSULIN, Icons.Filled.Vaccines, "Insulin"),
     Category(EntryType.MEAL, Metric.CARBS, Icons.Filled.Restaurant, "Meal"),
     Category(EntryType.ACTIVITY, Metric.EXERCISE, Icons.Filled.DirectionsRun, "Activity"),
-    Category(EntryType.NOTE, Metric.NOTE, Icons.Filled.Notes, "Note"),
+    Category(EntryType.NOTE, Metric.MOOD, Icons.Filled.Mood, "Mood"),
 )
 
 /**
@@ -129,6 +129,8 @@ fun AddEntrySheet(
     onExerciseMinutesChange: (String) -> Unit,
     onExerciseIntensityChange: (ActivityIntensity) -> Unit,
     onNoteChange: (String) -> Unit,
+    onMoodScoreChange: (Int?) -> Unit,
+    onMoodLabelChange: (String?) -> Unit,
     suggestedBolus: Double? = null,
     onUseSuggestion: () -> Unit = {},
     onSave: () -> Unit,
@@ -148,6 +150,7 @@ fun AddEntrySheet(
     val foodSearchResults by viewModel.foodSearchResults.collectAsStateWithLifecycle()
     val selectedFood by viewModel.selectedFood.collectAsStateWithLifecycle()
     val foodLookupState by viewModel.foodLookupState.collectAsStateWithLifecycle()
+    val showCrisisSupport by viewModel.showCrisisSupport.collectAsStateWithLifecycle()
 
     val isLookingUp = foodLookupState is FoodLookupState.Loading
     val lookupMessage = when (val state = foodLookupState) {
@@ -426,7 +429,7 @@ fun AddEntrySheet(
                     }
                 }
 
-                EntryType.NOTE -> Unit // The quick-note field below is the input.
+                EntryType.NOTE -> Unit // The mood + journal section below is the input.
             }
 
             val showReminderToggle = draft.activeCategory == EntryType.MEAL ||
@@ -443,24 +446,23 @@ fun AddEntrySheet(
 
             Spacer(Modifier.height(12.dp))
 
-            // --- Quick note (always present per spec) ---
-            OutlinedTextField(
-                value = draft.note,
-                onValueChange = onNoteChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (draft.activeCategory == EntryType.NOTE) {
-                            Modifier.focusRequester(focusRequester)
-                        } else {
-                            Modifier
-                        }
-                    ),
-                label = { Text("Quick note") },
-                minLines = if (draft.activeCategory == EntryType.NOTE) 3 else 1,
+            // --- Mood + journal (replaces the old Notes section) ---
+            MoodJournalSection(
+                moodScore = draft.moodScore,
+                moodLabel = draft.moodLabel,
+                journalText = draft.note,
+                onMoodScoreChange = onMoodScoreChange,
+                onMoodLabelChange = onMoodLabelChange,
+                onJournalChange = onNoteChange,
+                journalFocusRequester = if (draft.activeCategory == EntryType.NOTE) focusRequester else null,
             )
 
             Spacer(Modifier.height(16.dp))
+
+            if (showCrisisSupport) {
+                CrisisSupportCard(onDismiss = viewModel::dismissCrisisSupport)
+                Spacer(Modifier.height(16.dp))
+            }
 
             Button(
                 onClick = onSave,

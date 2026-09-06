@@ -152,9 +152,9 @@ class ChatRepositoryImpl @Inject constructor(
         return coroutineScope {
             val settingsDeferred = async { settingsRepository.settings.first() }
             val profileDeferred = async { settingsRepository.profile.first() }
-            val avg7Deferred = async { entryDao.averageGlucoseSince(Formatters.daysAgoMillis(7)) }
-            val avg14Deferred = async { entryDao.averageGlucoseSince(Formatters.daysAgoMillis(14)) }
-            val avg30Deferred = async { entryDao.averageGlucoseSince(Formatters.daysAgoMillis(30)) }
+            val avg7Deferred = async { entryDao.averageGlucoseReadingsSince(Formatters.daysAgoMillis(7)) }
+            val avg14Deferred = async { entryDao.averageGlucoseReadingsSince(Formatters.daysAgoMillis(14)) }
+            val avg30Deferred = async { entryDao.averageGlucoseReadingsSince(Formatters.daysAgoMillis(30)) }
             val tir14Deferred = async {
                 val currentSettings = settingsDeferred.await()
                 entryDao.timeInRangeSince(

@@ -31,6 +31,7 @@ import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.glance.WidgetRefresher
 import com.omb9.glucosehero.util.BolusCalculator
+import com.omb9.glucosehero.util.CrisisDetector
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.IobCalculator
 import com.omb9.glucosehero.util.StreakCalculator
@@ -204,6 +205,14 @@ class LogViewModel @Inject constructor(
     /** Set once after a save that extends the streak; consumed by the UI. */
     val streakReward: StateFlow<StreakReward?> = _streakReward.asStateFlow()
 
+    private val _showCrisisSupport = MutableStateFlow(false)
+    /** True when the last saved journal text matched [CrisisDetector]. */
+    val showCrisisSupport: StateFlow<Boolean> = _showCrisisSupport.asStateFlow()
+
+    fun dismissCrisisSupport() {
+        _showCrisisSupport.value = false
+    }
+
     private val _saveErrors = MutableSharedFlow<Throwable>(extraBufferCapacity = 1)
     /** One-shot save failures surfaced to the UI. */
     val saveErrors: SharedFlow<Throwable> = _saveErrors.asSharedFlow()
@@ -282,6 +291,19 @@ class LogViewModel @Inject constructor(
         _draft.update { it.copy(exerciseIntensity = value) }
     }
     fun onNoteChange(value: String) { _draft.update { it.copy(note = value) } }
+
+    fun onMoodScoreChange(value: Int?) {
+        _draft.update {
+            it.copy(
+                moodScore = value,
+                moodLabel = if (value == null) null else it.moodLabel,
+            )
+        }
+    }
+
+    fun onMoodLabelChange(value: String?) {
+        _draft.update { it.copy(moodLabel = value) }
+    }
 
     fun onPostMealReminderChange(enabled: Boolean) {
         _draft.update { it.copy(postMealReminderEnabled = enabled) }
@@ -432,6 +454,7 @@ class LogViewModel @Inject constructor(
     /** Starts a fresh draft with the user's saved reminder default applied. */
     fun openNewDraft(postMealReminderEnabled: Boolean) {
         _streakReward.value = null
+        _showCrisisSupport.value = false
         _selectedFood.value = null
         _foodLookupState.value = FoodLookupState.Idle
         _foodSearchQuery.value = ""
@@ -468,12 +491,14 @@ class LogViewModel @Inject constructor(
 
     fun saveDraft(onSaved: () -> Unit) {
         if (_draft.value.isSaving) return
+        _showCrisisSupport.value = false
         _draft.update { it.copy(isSaving = true) }
         val event = _draft.value.toLogEvent(settings.value, System.currentTimeMillis())
         if (event == null) {
             _draft.update { it.copy(isSaving = false) }
             return
         }
+        val isCrisis = CrisisDetector.isCrisis(event.note)
         val reminderEnabled = _draft.value.postMealReminderEnabled
         viewModelScope.launch {
             var saved = false
@@ -502,7 +527,9 @@ class LogViewModel @Inject constructor(
                 )
                 _selectedFood.value = null
                 _foodLookupState.value = FoodLookupState.Idle
-                if (after > before) {
+                if (isCrisis) {
+                    _showCrisisSupport.value = true
+                } else if (after > before) {
                     _streakReward.value =
                         StreakReward(previousStreak = before, currentStreak = after)
                 } else {
@@ -526,6 +553,7 @@ class LogViewModel @Inject constructor(
 
     fun discardDraft() {
         _streakReward.value = null
+        _showCrisisSupport.value = false
         _selectedFood.value = null
         _foodLookupState.value = FoodLookupState.Idle
         _foodSearchQuery.value = ""
@@ -601,10 +629,11 @@ class LogViewModel @Inject constructor(
         event.fatGrams?.let { tokens += "$it g fat" }
         event.mealDescription?.takeIf { it.isNotBlank() }?.let { tokens += it }
         event.exerciseMinutes?.let { tokens += "$it min" }
+        event.moodLabel?.takeIf { it.isNotBlank() }?.let { tokens += it }
 
         // If only a note, the title serves as the label and the subtitle
         // stays null so the row falls back to `note` in `toItem`.
-        if (tokens.isEmpty()) return "Note" to null
+        if (tokens.isEmpty()) return if (event.moodScore != null) "Mood" to null else "Note" to null
 
         // Derive a compact title from which metrics are present.
         val titleParts = mutableListOf<String>()
@@ -614,7 +643,10 @@ class LogViewModel @Inject constructor(
             !event.mealDescription.isNullOrBlank()
         ) titleParts += "Meal"
         if (event.exerciseMinutes != null) titleParts += "Activity"
-        val title = titleParts.joinToString(" · ").ifBlank { "Note" }
+        if (event.moodScore != null) titleParts += "Mood"
+        val title = titleParts.joinToString(" · ").ifBlank {
+            if (event.moodScore != null) "Mood" else "Note"
+        }
 
         return title to tokens.joinToString(" · ")
     }

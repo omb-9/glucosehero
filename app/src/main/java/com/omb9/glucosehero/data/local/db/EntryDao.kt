@@ -78,23 +78,8 @@ interface EntryDao {
     fun observeGlucoseEventsSince(since: Long): Flow<List<EntryEntity>>
 
     /**
-     * Chart-only projection: timestamps and glucose values without dragging
-     * every nullable column into memory for the trend path.
-     */
-    @Query(
-        """
-        SELECT timestamp, glucose_mgdl AS glucoseMgdl
-        FROM entries
-        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
-        ORDER BY timestamp ASC
-        """
-    )
-    fun observeGlucosePoints(since: Long): Flow<List<GlucosePointRow>>
-
-    /**
      * Chart projection sourced from the `glucose_readings` view (CGM samples plus user-authored
-     * readings), so the trend line includes sensor data. This is an additive alternative to
-     * [observeGlucosePoints], which reads `entries` only.
+     * readings), so the trend line includes sensor data.
      */
     @Query(
         """
@@ -125,13 +110,18 @@ interface EntryDao {
 
     // ---------- SQL-level aggregates (offloaded AI context + stats) ----------
 
+    /**
+     * Rolling average over the `glucose_readings` view (CGM samples plus
+     * user-authored readings), so AI-context averages match the time-in-range
+     * and daily summaries sourced from the same view.
+     */
     @Query(
         """
-        SELECT AVG(glucose_mgdl) FROM entries
+        SELECT AVG(glucose_mgdl) FROM glucose_readings
         WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
         """
     )
-    suspend fun averageGlucoseSince(since: Long): Double?
+    suspend fun averageGlucoseReadingsSince(since: Long): Double?
 
     /**
      * Reactive 90-day aggregate for the estimated A1c card. The three values
@@ -246,18 +236,9 @@ interface EntryDao {
     )
     suspend fun timeInRangeCountsSince(since: Long, low: Double, high: Double): TimeInRangeCounts
 
-    @Query(
-        """
-        SELECT AVG(glucose_mgdl) FROM entries
-        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :startMillis AND timestamp < :endMillis
-        """
-    )
-    suspend fun averageGlucoseBetween(startMillis: Long, endMillis: Long): Double?
-
     /**
      * View-based previous-window average for trend deltas, matching the current-window average
-     * (which is computed over `glucose_readings`). Additive alternative to
-     * [averageGlucoseBetween], which reads `entries` only.
+     * (which is computed over `glucose_readings`).
      */
     @Query(
         """
@@ -266,21 +247,6 @@ interface EntryDao {
         """
     )
     suspend fun averageGlucoseReadingsBetween(startMillis: Long, endMillis: Long): Double?
-
-    @Query(
-        """
-        SELECT CAST(SUM(CASE WHEN glucose_mgdl BETWEEN :low AND :high THEN 1 ELSE 0 END) AS REAL)
-               / COUNT(*)
-        FROM entries
-        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :startMillis AND timestamp < :endMillis
-        """
-    )
-    suspend fun timeInRangeBetween(
-        startMillis: Long,
-        endMillis: Long,
-        low: Double,
-        high: Double,
-    ): Double?
 
     /**
      * Daily averages computed entirely inside SQLite: native GROUP BY day,
@@ -310,9 +276,20 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE timestamp >= :since ORDER BY timestamp ASC")
     suspend fun entriesSince(since: Long): List<EntryEntity>
 
-    /** The single newest entry that carries a glucose reading (home-screen widget). */
-    @Query("SELECT * FROM entries WHERE glucose_mgdl IS NOT NULL ORDER BY timestamp DESC LIMIT 1")
-    suspend fun latestGlucoseEntry(): EntryEntity?
+    /**
+     * The single newest glucose reading from the `glucose_readings` view
+     * (home-screen widget). The view has no `id`, so this is a projection.
+     */
+    @Query(
+        """
+        SELECT timestamp, glucose_mgdl AS glucoseMgdl
+        FROM glucose_readings
+        WHERE glucose_mgdl IS NOT NULL
+        ORDER BY timestamp DESC
+        LIMIT 1
+        """
+    )
+    suspend fun latestGlucoseReading(): GlucosePointRow?
 
     // ---------- Hashtag analytics ----------
 
@@ -326,34 +303,13 @@ interface EntryDao {
     suspend fun taggedEntries(): List<EntryEntity>
 
     /**
-     * The glucose reading nearest to [targetMillis] within the closed window
-     * [startMillis, endMillis]. Used to find the ~2-hour post-event reading
-     * when computing per-hashtag glucose deltas.
-     */
-    @Query(
-        """
-        SELECT * FROM entries
-        WHERE glucose_mgdl IS NOT NULL
-          AND timestamp BETWEEN :startMillis AND :endMillis
-        ORDER BY ABS(timestamp - :targetMillis) ASC
-        LIMIT 1
-        """
-    )
-    suspend fun glucoseReadingNearestTo(
-        startMillis: Long,
-        endMillis: Long,
-        targetMillis: Long,
-    ): EntryEntity?
-
-    /**
      * One-shot payload for per-tag glucose deltas.
      *
      * The correlated subquery resolves each entry's ~2-hour follow-up glucose
-     * reading in a single query, instead of calling [glucoseReadingNearestTo]
-     * once per entry. Reading follow-ups from the `glucose_readings` view (not
-     * `entries`) picks up CGM samples automatically — a manual follow-up
-     * landing inside the ±30-minute window around the two-hour mark is rare,
-     * while a sensor sample there is nearly guaranteed.
+     * reading in a single query. Reading follow-ups from the `glucose_readings`
+     * view (not `entries`) picks up CGM samples automatically — a manual
+     * follow-up landing inside the ±30-minute window around the two-hour mark
+     * is rare, while a sensor sample there is nearly guaranteed.
      */
     @Query(
         """
@@ -394,16 +350,20 @@ interface EntryDao {
 
     // ---------- Nightly pattern-recognition aggregates ----------
 
-    /** One-shot version of [observeGlucosePoints] for background analysis. */
+    /**
+     * One-shot version of [observeGlucoseReadingsPoints] for background
+     * analysis. Sourced from the `glucose_readings` view so overnight-low
+     * detection sees CGM samples as well as manual readings.
+     */
     @Query(
         """
         SELECT timestamp, glucose_mgdl AS glucoseMgdl
-        FROM entries
+        FROM glucose_readings
         WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
         ORDER BY timestamp ASC
         """
     )
-    suspend fun glucosePointsSince(since: Long): List<GlucosePointRow>
+    suspend fun glucoseReadingPointsSince(since: Long): List<GlucosePointRow>
 
     /**
      * Average glucose grouped by hour of the day. The WHERE clause on

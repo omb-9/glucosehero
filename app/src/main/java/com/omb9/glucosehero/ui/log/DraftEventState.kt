@@ -23,6 +23,8 @@ data class DraftEventState(
     val exerciseMinutes: String = "",
     val exerciseIntensity: ActivityIntensity = ActivityIntensity.MODERATE,
     val note: String = "",
+    val moodScore: Int? = null,
+    val moodLabel: String? = null,
     val postMealReminderEnabled: Boolean = true,
     val isSaving: Boolean = false,
 )
@@ -42,6 +44,7 @@ val DraftEventState.filledMetrics: Set<Metric>
         ) add(Metric.CARBS)
         if (exerciseMinutes.isNotBlank()) add(Metric.EXERCISE)
         if (note.isNotBlank()) add(Metric.NOTE)
+        if (moodScore != null) add(Metric.MOOD)
     }
 
 /**
@@ -95,12 +98,15 @@ fun DraftEventState.toLogEvent(settings: UserSettings, now: Long): LogEvent? {
 
     val mealDescriptionClean = mealDescription.trim().ifBlank { null }
     val noteClean = note.trim().ifBlank { null }
+    val moodScoreValue = moodScore?.takeIf { it in 1..5 }
+    val moodLabelClean = moodLabel?.trim()?.ifBlank { null }
 
     // Attach qualifiers only when their metric is actually present — a
     // mealContext without glucose or an insulinType without an insulin dose
     // would be contradiction-prone denormalised state otherwise.
     val resolvedMealContext = if (glucoseMgdl != null) mealContext else null
     val resolvedExerciseIntensity = if (exerciseValue != null) exerciseIntensity else null
+    val resolvedMoodLabel = if (moodScoreValue != null) moodLabelClean else null
 
     // Meal is the odd one out: it is the only metric where a pure string
     // (`mealDescription`) counts as "present" on its own (free-form meals
@@ -120,6 +126,8 @@ fun DraftEventState.toLogEvent(settings: UserSettings, now: Long): LogEvent? {
         exerciseMinutes = exerciseValue,
         exerciseIntensity = resolvedExerciseIntensity,
         note = noteClean,
+        moodScore = moodScoreValue,
+        moodLabel = resolvedMoodLabel,
     )
 
     return if (event.isEmpty) null else event

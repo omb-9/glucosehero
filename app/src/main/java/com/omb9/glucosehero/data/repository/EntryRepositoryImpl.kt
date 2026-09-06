@@ -5,7 +5,6 @@ import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.toDomain
 import com.omb9.glucosehero.data.local.entity.toEntity
 import com.omb9.glucosehero.domain.model.DailyGlucoseSummary
-import com.omb9.glucosehero.domain.model.GlucosePointRow
 import com.omb9.glucosehero.domain.model.GlucoseStats
 import com.omb9.glucosehero.domain.model.LogEvent
 import com.omb9.glucosehero.domain.repository.EntryRepository
@@ -26,9 +25,6 @@ class EntryRepositoryImpl @Inject constructor(
 
     override fun observeGlucose(sinceMillis: Long): Flow<List<LogEvent>> =
         entryDao.observeGlucoseEventsSince(sinceMillis).map { list -> list.map { it.toLogEvent() } }
-
-    override fun observeGlucosePoints(sinceMillis: Long): Flow<List<GlucosePointRow>> =
-        entryDao.observeGlucosePoints(sinceMillis)
 
     override fun observeGlucoseStats(sinceMillis: Long): Flow<GlucoseStats> =
         entryDao.observeGlucoseStatsSince(sinceMillis)
@@ -57,26 +53,11 @@ class EntryRepositoryImpl @Inject constructor(
 
     override suspend fun delete(id: Long) = entryDao.deleteById(id)
 
-    override suspend fun averageGlucoseSince(sinceMillis: Long): Double? =
-        entryDao.averageGlucoseSince(sinceMillis)
-
     override suspend fun timeInRangeSince(
         sinceMillis: Long,
         lowMgdl: Double,
         highMgdl: Double,
     ): Double? = entryDao.timeInRangeSince(sinceMillis, lowMgdl, highMgdl)
-
-    override suspend fun averageGlucoseBetween(
-        startMillis: Long,
-        endMillis: Long,
-    ): Double? = entryDao.averageGlucoseBetween(startMillis, endMillis)
-
-    override suspend fun timeInRangeBetween(
-        startMillis: Long,
-        endMillis: Long,
-        lowMgdl: Double,
-        highMgdl: Double,
-    ): Double? = entryDao.timeInRangeBetween(startMillis, endMillis, lowMgdl, highMgdl)
 
     override suspend fun dailySummaries(sinceMillis: Long, limit: Int): List<DailyGlucoseSummary> =
         entryDao.dailySummaries(sinceMillis, limit)

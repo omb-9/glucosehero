@@ -16,6 +16,7 @@ import com.omb9.glucosehero.ui.glance.WidgetRefresher
 import com.omb9.glucosehero.ui.log.DraftEventState
 import com.omb9.glucosehero.ui.log.toLogEvent
 import com.omb9.glucosehero.util.BolusCalculator
+import com.omb9.glucosehero.util.CrisisDetector
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.IobCalculator
 import com.omb9.glucosehero.work.ReminderScheduler
@@ -69,6 +70,8 @@ data class EntryDetailFormState(
     val exerciseMinutes: String = "",
     val exerciseIntensity: ActivityIntensity = ActivityIntensity.MODERATE,
     val note: String = "",
+    val moodScore: Int? = null,
+    val moodLabel: String? = null,
     val isSaving: Boolean = false,
 )
 
@@ -149,6 +152,14 @@ class EntryDetailViewModel @Inject constructor(
     /** One-shot save failures surfaced to the UI. */
     val saveErrors: SharedFlow<Throwable> = _saveErrors.asSharedFlow()
 
+    private val _showCrisisSupport = MutableStateFlow(false)
+    /** True when the last saved journal text matched [CrisisDetector]. */
+    val showCrisisSupport: StateFlow<Boolean> = _showCrisisSupport.asStateFlow()
+
+    fun dismissCrisisSupport() {
+        _showCrisisSupport.value = false
+    }
+
     init {
         // Seed the editable form exactly once from the Room StateFlow. The VM
         // survives recomposition/rotation, so the user never loses in-progress
@@ -179,6 +190,8 @@ class EntryDetailViewModel @Inject constructor(
             exerciseMinutes = event.exerciseMinutes?.toString() ?: "",
             exerciseIntensity = event.exerciseIntensity ?: ActivityIntensity.MODERATE,
             note = event.note.orEmpty(),
+            moodScore = event.moodScore,
+            moodLabel = event.moodLabel,
         )
     }
 
@@ -238,6 +251,19 @@ class EntryDetailViewModel @Inject constructor(
     }
     fun onNoteChange(value: String) { _form.update { it.copy(note = value) } }
 
+    fun onMoodScoreChange(value: Int?) {
+        _form.update {
+            it.copy(
+                moodScore = value,
+                moodLabel = if (value == null) null else it.moodLabel,
+            )
+        }
+    }
+
+    fun onMoodLabelChange(value: String?) {
+        _form.update { it.copy(moodLabel = value) }
+    }
+
     /**
      * Builds the domain event this form would persist, or null when the form
      * is not seed yet, the underlying entity is missing, or a typed value is
@@ -263,6 +289,7 @@ class EntryDetailViewModel @Inject constructor(
             ?.copy(id = current.id)
             ?: return
 
+        val isCrisis = CrisisDetector.isCrisis(updated.note)
         _form.update { it.copy(isSaving = true) }
         viewModelScope.launch {
             var saved = false
@@ -282,7 +309,11 @@ class EntryDetailViewModel @Inject constructor(
             }
             if (saved) {
                 widgetRefresher.refresh()
-                onDone()
+                if (isCrisis) {
+                    _showCrisisSupport.value = true
+                } else {
+                    onDone()
+                }
             }
         }
     }
@@ -316,6 +347,8 @@ class EntryDetailViewModel @Inject constructor(
         exerciseMinutes = if (EntryType.ACTIVITY in activeCategories) exerciseMinutes else "",
         exerciseIntensity = exerciseIntensity,
         note = note,
+        moodScore = moodScore,
+        moodLabel = moodLabel,
     )
 
     private companion object {

@@ -67,6 +67,8 @@ import com.omb9.glucosehero.domain.model.ActivityIntensity
 import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.domain.model.MealContext
+import com.omb9.glucosehero.ui.components.CrisisSupportCard
+import com.omb9.glucosehero.ui.components.MoodJournalSection
 import com.omb9.glucosehero.util.Formatters
 import java.time.Instant
 import java.time.ZoneId
@@ -89,6 +91,7 @@ fun EntryDetailScreen(
     val form by viewModel.form.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val canSave by viewModel.canSave.collectAsStateWithLifecycle()
+    val showCrisisSupport by viewModel.showCrisisSupport.collectAsStateWithLifecycle()
     val suggestedBolus by viewModel.suggestedBolus.collectAsStateWithLifecycle()
     val isHealthConnect = entry?.source == EntrySource.HEALTH_CONNECT
     val snackbarHostState = remember { SnackbarHostState() }
@@ -402,16 +405,22 @@ fun EntryDetailScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
-                OutlinedTextField(
-                    value = form.note,
-                    onValueChange = viewModel::onNoteChange,
+                MoodJournalSection(
+                    moodScore = form.moodScore,
+                    moodLabel = form.moodLabel,
+                    journalText = form.note,
+                    onMoodScoreChange = viewModel::onMoodScoreChange,
+                    onMoodLabelChange = viewModel::onMoodLabelChange,
+                    onJournalChange = viewModel::onNoteChange,
                     enabled = !isHealthConnect,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Note") },
-                    minLines = 3,
                 )
 
                 Spacer(Modifier.height(20.dp))
+
+                if (showCrisisSupport) {
+                    CrisisSupportCard(onDismiss = viewModel::dismissCrisisSupport)
+                    Spacer(Modifier.height(20.dp))
+                }
 
                 Button(
                     onClick = { viewModel.save(onDone) },

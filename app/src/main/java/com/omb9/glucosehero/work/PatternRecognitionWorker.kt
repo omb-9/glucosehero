@@ -10,6 +10,7 @@ import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
 import com.omb9.glucosehero.data.local.db.InsightDao
 import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.data.repository.AnalyticsRepository
+import com.omb9.glucosehero.domain.model.GlucosePointRow
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.time.Instant
@@ -78,14 +79,10 @@ class PatternRecognitionWorker @AssistedInject constructor(
     private suspend fun detectPatterns(since: Long, now: Long): List<InsightCardEntity> {
         val insights = mutableListOf<InsightCardEntity>()
 
-        // 1) Raw overnight drops below the low threshold. Hourly averages alone
+        // 1) Overnight low episodes below the threshold. Hourly averages alone
         // can hide a dangerous 2-4 AM pattern if other readings pull the mean up.
-        val points = entryDao.glucosePointsSince(since)
-        val overnightLowCount = points.count { point ->
-            val hour = point.timestamp.localHour()
-            hour in OVERNIGHT_LOW_START_HOUR..OVERNIGHT_LOW_END_HOUR &&
-                point.glucoseMgdl < LOW_THRESHOLD_MGDL
-        }
+        val points = entryDao.glucoseReadingPointsSince(since)
+        val overnightLowCount = countOvernightLowEpisodes(points)
         val hasOvernightLowInsight = overnightLowCount >= MIN_OVERNIGHT_LOW_EVENTS
         if (hasOvernightLowInsight) {
             insights += InsightCardEntity(
@@ -160,6 +157,31 @@ class PatternRecognitionWorker @AssistedInject constructor(
         return insights
     }
 
+    /**
+     * Collapses below-threshold points into overnight-low episodes. CGM samples
+     * arrive every few minutes, so a single sustained low would otherwise be
+     * counted as three or four separate events. Points separated by more than
+     * [LOW_EPISODE_GAP_MS] are treated as distinct episodes.
+     */
+    private fun countOvernightLowEpisodes(points: List<GlucosePointRow>): Int {
+        val overnightLows = points.filter { point ->
+            val hour = point.timestamp.localHour()
+            hour in OVERNIGHT_LOW_START_HOUR..OVERNIGHT_LOW_END_HOUR &&
+                point.glucoseMgdl < LOW_THRESHOLD_MGDL
+        }
+        if (overnightLows.isEmpty()) return 0
+
+        var episodes = 1
+        var previousTimestamp = overnightLows.first().timestamp
+        for (point in overnightLows.drop(1)) {
+            if (point.timestamp - previousTimestamp > LOW_EPISODE_GAP_MS) {
+                episodes++
+            }
+            previousTimestamp = point.timestamp
+        }
+        return episodes
+    }
+
     private fun Long.localHour(): Int =
         Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).hour
 
@@ -187,6 +209,7 @@ class PatternRecognitionWorker @AssistedInject constructor(
         private const val HIGH_VARIANCE_SD_MGDL = 60.0
         private const val MIN_READINGS_PER_HOUR = 3
         private const val MIN_OVERNIGHT_LOW_EVENTS = 3
+        private const val LOW_EPISODE_GAP_MS = 15L * 60L * 1000L
         private const val OVERNIGHT_LOW_START_HOUR = 2
         private const val OVERNIGHT_LOW_END_HOUR = 4
     }

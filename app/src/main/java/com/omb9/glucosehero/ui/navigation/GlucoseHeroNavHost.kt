@@ -57,7 +57,7 @@ private data class TopLevelDestination(
 private val topLevelDestinations = listOf(
     TopLevelDestination(Routes.LOG, Icons.AutoMirrored.Filled.List, "Log"),
     TopLevelDestination(Routes.STATS, Icons.AutoMirrored.Filled.ShowChart, "Stats"),
-    TopLevelDestination(Routes.HERO, Icons.Filled.AutoAwesome, "Hero"),
+    TopLevelDestination(Routes.HERO, Icons.Filled.AutoAwesome, "Coach"),
     TopLevelDestination(Routes.SETTINGS, Icons.Filled.Settings, "Settings"),
 )
 

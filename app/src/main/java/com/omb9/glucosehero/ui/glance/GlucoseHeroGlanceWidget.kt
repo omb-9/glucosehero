@@ -162,10 +162,10 @@ private suspend fun loadSnapshot(context: Context): GlucoseWidgetSnapshot {
         GlucoseHeroWidgetEntryPoint::class.java,
     )
     val settings = entryPoint.settingsRepository().settings.first()
-    val entry = entryPoint.entryDao().latestGlucoseEntry()
+    val reading = entryPoint.entryDao().latestGlucoseReading()
 
-    val valueText = entry?.glucoseMgdl?.let { Formatters.glucose(it, settings.unit) }
-    val timeText = entry?.let {
+    val valueText = reading?.glucoseMgdl?.let { Formatters.glucose(it, settings.unit) }
+    val timeText = reading?.let {
         val day = Formatters.dayHeader(Formatters.localDate(it.timestamp))
         val time = Formatters.time(it.timestamp, settings.use24HourTime)
         "$day · $time"

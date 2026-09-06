@@ -24,7 +24,7 @@ import com.omb9.glucosehero.data.local.entity.TagAnalyticEntity
         TagAnalyticEntity::class,
     ],
     views = [GlucoseReadingView::class],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 abstract class GlucoseHeroDatabase : RoomDatabase() {

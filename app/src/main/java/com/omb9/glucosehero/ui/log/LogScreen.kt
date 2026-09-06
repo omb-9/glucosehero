@@ -209,6 +209,8 @@ fun LogScreen(
             onExerciseMinutesChange = viewModel::onExerciseMinutesChange,
             onExerciseIntensityChange = viewModel::onExerciseIntensityChange,
             onNoteChange = viewModel::onNoteChange,
+            onMoodScoreChange = viewModel::onMoodScoreChange,
+            onMoodLabelChange = viewModel::onMoodLabelChange,
             suggestedBolus = suggestedBolus,
             onUseSuggestion = viewModel::useSuggestedBolus,
             onSave = { viewModel.saveDraft { showSheet = false } },

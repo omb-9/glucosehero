@@ -7,7 +7,7 @@ package com.omb9.glucosehero.domain.model
  * columns are non-null, never by a denormalised label that could contradict
  * them.
  */
-enum class Metric { GLUCOSE, INSULIN, CARBS, EXERCISE, NOTE }
+enum class Metric { GLUCOSE, INSULIN, CARBS, EXERCISE, NOTE, MOOD }
 
 /**
  * A single logged moment that can carry any combination of glucose, insulin,
@@ -33,12 +33,15 @@ data class LogEvent(
     val exerciseMinutes: Int? = null,
     val exerciseIntensity: ActivityIntensity? = null,
     val note: String? = null,
+    val moodScore: Int? = null,
+    val moodLabel: String? = null,
     val source: EntrySource = EntrySource.MANUAL,
 ) {
     val isEmpty: Boolean
         get() = glucoseMgdl == null && insulinBasalUnits == null && insulinBolusUnits == null &&
             carbsGrams == null && proteinGrams == null && fatGrams == null &&
-            exerciseMinutes == null && mealDescription.isNullOrBlank() && note.isNullOrBlank()
+            exerciseMinutes == null && mealDescription.isNullOrBlank() && note.isNullOrBlank() &&
+            moodScore == null
 
     /** Which metric slots this event actually carries data for. */
     val presentMetrics: Set<Metric>
@@ -50,5 +53,6 @@ data class LogEvent(
             ) add(Metric.CARBS)
             if (exerciseMinutes != null) add(Metric.EXERCISE)
             if (!note.isNullOrBlank()) add(Metric.NOTE)
+            if (moodScore != null) add(Metric.MOOD)
         }
 }
