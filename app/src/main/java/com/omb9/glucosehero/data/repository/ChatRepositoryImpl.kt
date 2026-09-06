@@ -6,8 +6,10 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.ChatMessageDao
 import com.omb9.glucosehero.data.local.db.EntryDao
+import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
 import com.omb9.glucosehero.data.local.db.PendingAiQueryDao
 import com.omb9.glucosehero.data.local.entity.ChatMessageEntity
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
@@ -27,6 +29,7 @@ import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.work.PendingQueryWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
@@ -50,6 +53,8 @@ class ChatRepositoryImpl @Inject constructor(
     private val chatMessageDao: ChatMessageDao,
     private val pendingAiQueryDao: PendingAiQueryDao,
     private val entryDao: EntryDao,
+    private val database: GlucoseHeroDatabase,
+    private val settingsDataStore: SettingsDataStore,
     private val settingsRepository: SettingsRepository,
     private val sseChatClient: SseChatClient,
     private val aiApi: AiApi,
@@ -168,6 +173,14 @@ class ChatRepositoryImpl @Inject constructor(
             val manualCountDeferred = async {
                 entryDao.manualReadingCountSince(Formatters.daysAgoMillis(14))
             }
+            val foodDeferred = async {
+                val dismissed = settingsDataStore.dismissedFoodTags.first()
+                database.tagAnalyticDao().observeAll().first()
+                    .filter {
+                        it.occurrences >= FOOD_PATTERN_MIN_OCCURRENCES && it.tag !in dismissed
+                    }
+                    .take(FOOD_PATTERN_LIMIT)
+            }
 
             val settings = settingsDeferred.await()
             val unit = settings.unit
@@ -180,6 +193,7 @@ class ChatRepositoryImpl @Inject constructor(
             val recent = recentDeferred.await()
             val cgmCount = cgmCountDeferred.await()
             val manualCount = manualCountDeferred.await()
+            val foodTags = foodDeferred.await()
 
             fun fmt(mgdl: Double?): String =
                 mgdl?.let { Formatters.glucose(it, unit) } ?: "n/a"
@@ -216,6 +230,27 @@ class ChatRepositoryImpl @Inject constructor(
 
             val persona = buildPersonaSection(profile)
 
+            val foodBlock = buildString {
+                append("--- Food patterns (median 2h glucose change, from the user's log) ---")
+                if (foodTags.isEmpty()) {
+                    append("\nNone meet the ${FOOD_PATTERN_MIN_OCCURRENCES}-occurrence threshold yet.")
+                } else {
+                    foodTags.forEach { tag ->
+                        append('\n')
+                        append(tag.tag)
+                        append(": ")
+                        append(Formatters.signedGlucoseWithUnit(tag.medianDeltaMgdl, unit))
+                        append(" over ")
+                        append(tag.occurrences)
+                        append(" occurrences (avg ")
+                        append(tag.avgCarbsGrams?.roundToInt()?.toString() ?: "n/a")
+                        append("g carbs, ")
+                        append(tag.avgBolusUnits?.let { "%.1f".format(it) } ?: "n/a")
+                        append("u bolus)")
+                    }
+                }
+            }
+
             persona + "\n\n" + """
                 |You are Hero, the in-app assistant of GlucoseHero, a personal glucose logging app.
                 |Be concise, warm, and concrete. Ground every answer in the user's data below.
@@ -238,7 +273,7 @@ class ChatRepositoryImpl @Inject constructor(
                 |
                 |--- Most recent 30 entries ---
                 |$recentBlock
-            """.trimMargin()
+            """.trimMargin() + "\n\n" + foodBlock
         }
     }
 
@@ -366,5 +401,7 @@ class ChatRepositoryImpl @Inject constructor(
 
     private companion object {
         const val MAX_HISTORY_TURNS = 20
+        const val FOOD_PATTERN_MIN_OCCURRENCES = 3
+        const val FOOD_PATTERN_LIMIT = 3
     }
 }

@@ -1,6 +1,8 @@
 package com.omb9.glucosehero.ui.settings
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.ExistingWorkPolicy
@@ -8,6 +10,10 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import com.omb9.glucosehero.data.billing.BillingRepository
+import com.omb9.glucosehero.data.export.BackupManager
+import com.omb9.glucosehero.data.export.BackupPreview
+import com.omb9.glucosehero.data.export.ImportMode
+import com.omb9.glucosehero.data.export.MarkdownExporter
 import com.omb9.glucosehero.data.health.HealthConnectAvailability
 import com.omb9.glucosehero.data.health.HealthConnectRepository
 import com.omb9.glucosehero.data.health.HealthConnectStatus
@@ -42,6 +48,17 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** UI state for the Back up & restore section. */
+data class BackupUiState(
+    val isWorking: Boolean = false,
+    val progress: Float = 0f,
+    val lastBackup: Long? = null,
+    val backupEnabled: Boolean = false,
+    val backupDirUri: String? = null,
+    val preview: BackupPreview? = null,
+    val message: String? = null,
+)
+
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -51,6 +68,8 @@ class SettingsViewModel @Inject constructor(
     private val healthConnectRepository: HealthConnectRepository,
     private val settingsDataStore: SettingsDataStore,
     private val glucoseSampleDao: GlucoseSampleDao,
+    private val backupManager: BackupManager,
+    private val markdownExporter: MarkdownExporter,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -108,6 +127,32 @@ class SettingsViewModel @Inject constructor(
 
     val healthConnectLastSync: StateFlow<Long?> = settingsDataStore.healthConnectLastSync
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private val _backupPreview = MutableStateFlow<BackupPreview?>(null)
+    private val _backupMessage = MutableStateFlow<String?>(null)
+
+    private val backupCore = combine(
+        backupManager.isWorking,
+        backupManager.progress,
+        settingsDataStore.backupLastRun,
+        settingsDataStore.backupEnabled,
+        settingsDataStore.backupDirUri,
+    ) { working, progress, lastRun, enabled, dirUri ->
+        BackupUiState(
+            isWorking = working,
+            progress = progress,
+            lastBackup = lastRun,
+            backupEnabled = enabled,
+            backupDirUri = dirUri,
+        )
+    }
+
+    val backupState: StateFlow<BackupUiState> = combine(
+        backupCore,
+        _backupPreview,
+        _backupMessage,
+    ) { core, preview, message -> core.copy(preview = preview, message = message) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BackupUiState())
 
     /**
      * Debounced text inputs. Each keystroke updates a conflated [MutableStateFlow];
@@ -311,6 +356,76 @@ class SettingsViewModel @Inject constructor(
             ExistingWorkPolicy.REPLACE,
             request,
         )
+    }
+
+    fun exportBackup(uri: Uri) {
+        viewModelScope.launch {
+            _backupMessage.value = null
+            runCatching { backupManager.exportTo(uri) }
+                .onSuccess { _backupMessage.value = "Backup saved." }
+                .onFailure { _backupMessage.value = it.message ?: "Backup failed." }
+        }
+    }
+
+    fun exportMarkdown(uri: Uri) {
+        viewModelScope.launch {
+            _backupMessage.value = null
+            runCatching { markdownExporter.exportToTree(uri) }
+                .onSuccess { _backupMessage.value = "Markdown export saved." }
+                .onFailure { _backupMessage.value = it.message ?: "Markdown export failed." }
+        }
+    }
+
+    fun previewImport(uri: Uri) {
+        viewModelScope.launch {
+            _backupMessage.value = null
+            runCatching { backupManager.previewFrom(uri) }
+                .onSuccess { _backupPreview.value = it }
+                .onFailure { _backupMessage.value = it.message ?: "Couldn't read backup." }
+        }
+    }
+
+    fun dismissImportPreview() {
+        _backupPreview.value = null
+    }
+
+    fun importBackup(uri: Uri, mode: ImportMode) {
+        viewModelScope.launch {
+            _backupPreview.value = null
+            _backupMessage.value = null
+            runCatching { backupManager.importFrom(uri, mode) }
+                .onSuccess {
+                    _backupMessage.value = when (mode) {
+                        ImportMode.MERGE -> "Backup merged."
+                        ImportMode.REPLACE -> "Backup restored."
+                    }
+                }
+                .onFailure { _backupMessage.value = it.message ?: "Import failed." }
+        }
+    }
+
+    fun setAutoBackupEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsDataStore.setBackupEnabled(enabled) }
+    }
+
+    fun setBackupFolder(uri: Uri?) {
+        viewModelScope.launch {
+            if (uri != null) {
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    )
+                }
+                settingsDataStore.setBackupDirUri(uri.toString())
+                settingsDataStore.setBackupEnabled(true)
+                _backupMessage.value = "Automatic backups enabled."
+            } else {
+                settingsDataStore.setBackupDirUri(null)
+                settingsDataStore.setBackupEnabled(false)
+                _backupMessage.value = "Automatic backups disabled."
+            }
+        }
     }
 
     private companion object {

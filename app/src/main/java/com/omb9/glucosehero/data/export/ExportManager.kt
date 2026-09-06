@@ -7,6 +7,8 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import androidx.core.graphics.withClip
+import com.omb9.glucosehero.data.local.db.EntryDao
+import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.domain.model.ExportFormat
 import com.omb9.glucosehero.domain.model.ExportedFile
 import com.omb9.glucosehero.domain.model.LogEvent
@@ -19,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.Writer
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -39,6 +42,7 @@ class ExportManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val entryRepository: EntryRepository,
     private val settingsRepository: SettingsRepository,
+    private val entryDao: EntryDao,
 ) {
 
     suspend fun generate(format: ExportFormat): ExportedFile = when (format) {
@@ -47,10 +51,22 @@ class ExportManager @Inject constructor(
     }
 
     suspend fun generateCsv(): ExportedFile = withContext(Dispatchers.IO) {
-        val entries = entryRepository.entriesSince(exportWindowStart())
-        val csv = buildCsv(entries)
         val file = File(context.cacheDir, CSV_FILE_NAME)
-        file.writeText(csv, Charsets.UTF_8)
+        FileOutputStream(file).bufferedWriter(Charsets.UTF_8).use { writer ->
+            writeCsvHeader(writer)
+            var offset = 0
+            while (true) {
+                val page = entryDao.pageSinceByTimestampForExport(
+                    exportWindowStart(),
+                    CSV_PAGE_SIZE,
+                    offset,
+                )
+                if (page.isEmpty()) break
+                page.forEach { writeCsvRow(writer, it) }
+                offset += page.size
+                if (page.size < CSV_PAGE_SIZE) break
+            }
+        }
         ExportedFile(file = file, mimeType = ExportFormat.CSV.mimeType)
     }
 
@@ -64,17 +80,28 @@ class ExportManager @Inject constructor(
 
     // ------------------------------------------------------------------ CSV
 
-    private fun buildCsv(entries: List<LogEvent>): String = buildString {
-        append("Timestamp,Glucose,Basal,Bolus,Carbs,Notes\n")
-        entries.forEach { entry ->
-            append(formatTimestamp(entry.timestamp)).append(',')
-            append(formatDecimal(entry.glucoseMgdl)).append(',')
-            append(formatDecimal(entry.insulinBasalUnits)).append(',')
-            append(formatDecimal(entry.insulinBolusUnits)).append(',')
-            append(entry.carbsGrams?.toString() ?: "").append(',')
-            append(entry.note?.takeIf { it.isNotBlank() }?.let { escapeCsv(it) } ?: "")
-            append('\n')
-        }
+    private fun writeCsvHeader(writer: Writer) {
+        writer.write(
+            "Id,Timestamp,Glucose,Basal,Bolus,Carbs,Protein,Fat,MealDescription," +
+                "MealContext,ExerciseMinutes,ExerciseIntensity,Notes\n"
+        )
+    }
+
+    private fun writeCsvRow(writer: Writer, entry: EntryEntity) {
+        writer.append(entry.id.toString()).append(',')
+        writer.append(formatTimestamp(entry.timestamp)).append(',')
+        writer.append(formatDecimal(entry.glucoseMgdl)).append(',')
+        writer.append(formatDecimal(entry.insulinBasalUnits)).append(',')
+        writer.append(formatDecimal(entry.insulinBolusUnits)).append(',')
+        writer.append(entry.carbsGrams?.toString() ?: "").append(',')
+        writer.append(entry.proteinGrams?.toString() ?: "").append(',')
+        writer.append(entry.fatGrams?.toString() ?: "").append(',')
+        writer.append(entry.mealDescription?.let { escapeCsv(it) } ?: "").append(',')
+        writer.append(entry.mealContext?.name ?: "").append(',')
+        writer.append(entry.exerciseMinutes?.toString() ?: "").append(',')
+        writer.append(entry.exerciseIntensity?.name ?: "").append(',')
+        writer.append(entry.note?.takeIf { it.isNotBlank() }?.let { escapeCsv(it) } ?: "")
+        writer.append('\n')
     }
 
     /** Standard escaping so notes containing commas/quotes/newlines stay one cell. */
@@ -284,6 +311,7 @@ class ExportManager @Inject constructor(
 
     private companion object {
         const val EXPORT_WINDOW_DAYS = 90
+        const val CSV_PAGE_SIZE = 500
         const val CSV_FILE_NAME = "GlucoseHero_Report.csv"
         const val PDF_FILE_NAME = "GlucoseHero_Report.pdf"
 

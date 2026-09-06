@@ -20,4 +20,18 @@ interface PendingAiQueryDao {
 
     @Query("SELECT COUNT(*) FROM pending_ai_queries")
     fun observeCount(): Flow<Int>
+
+    // ---------- Backup/export paged reads (additive) ----------
+
+    @Query("SELECT * FROM pending_ai_queries ORDER BY id LIMIT :limit OFFSET :offset")
+    suspend fun pageForExport(limit: Int, offset: Int): List<PendingAiQueryEntity>
+
+    @Query("SELECT COUNT(*) FROM pending_ai_queries")
+    suspend fun countAll(): Int
+
+    @Query("DELETE FROM pending_ai_queries")
+    suspend fun clear()
+
+    @Insert
+    suspend fun insertAll(queries: List<PendingAiQueryEntity>): List<Long>
 }

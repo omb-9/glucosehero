@@ -1,12 +1,15 @@
 package com.omb9.glucosehero.work
 
 import android.content.Context
+import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.omb9.glucosehero.data.local.db.EntryDao
+import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
 import com.omb9.glucosehero.data.local.db.InsightDao
 import com.omb9.glucosehero.data.local.entity.InsightCardEntity
+import com.omb9.glucosehero.data.repository.AnalyticsRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.time.Instant
@@ -29,6 +32,8 @@ class PatternRecognitionWorker @AssistedInject constructor(
     @Assisted workerParams: WorkerParameters,
     private val entryDao: EntryDao,
     private val insightDao: InsightDao,
+    private val analyticsRepository: AnalyticsRepository,
+    private val database: GlucoseHeroDatabase,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -44,11 +49,29 @@ class PatternRecognitionWorker @AssistedInject constructor(
 
             newInsights.forEach { insightDao.insert(it) }
 
+            refreshTagAnalytics(since, now)
+
             Result.success()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Result.retry()
+        }
+    }
+
+    /**
+     * Rebuilds the `tag_analytics` cache wholesale. A failure here must never
+     * break the insight cards the rest of this worker already produced, so it
+     * is caught, logged, and swallowed rather than converted to a retry.
+     */
+    private suspend fun refreshTagAnalytics(since: Long, now: Long) {
+        try {
+            val analytics = analyticsRepository.computeTagAnalytics(since = since, now = now)
+            database.tagAnalyticDao().replaceAll(analytics)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Tag analytics computation failed", e)
         }
     }
 
@@ -153,6 +176,8 @@ class PatternRecognitionWorker @AssistedInject constructor(
         String.format(Locale.US, "%.0f mg/dL", value)
 
     companion object {
+        private const val TAG = "PatternRecognitionWorker"
+
         const val UNIQUE_NAME = "pattern_recognition_worker"
 
         private const val ANALYSIS_WINDOW_MS = 14L * 24L * 60L * 60L * 1000L

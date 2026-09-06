@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
@@ -68,6 +69,10 @@ class SettingsDataStore @Inject constructor(
         val EXERCISE_IMPORT_ENABLED = booleanPreferencesKey("exercise_import_enabled")
         val HEALTH_CONNECT_INITIAL_IMPORT_RANGE = stringPreferencesKey("health_connect_initial_import_range")
         val BARCODE_LOOKUP_ENABLED = booleanPreferencesKey("barcode_lookup_enabled")
+        val DISMISSED_FOOD_TAGS = stringSetPreferencesKey("dismissed_food_tags")
+        val BACKUP_DIR_URI = stringPreferencesKey("backup_dir_uri")
+        val BACKUP_ENABLED = booleanPreferencesKey("backup_enabled")
+        val BACKUP_LAST_RUN = longPreferencesKey("backup_last_run")
     }
 
     /**
@@ -117,6 +122,11 @@ class SettingsDataStore @Inject constructor(
         runCatching { p[Keys.BARCODE_LOOKUP_ENABLED] }.getOrNull() ?: true
     }
 
+    /** Tags dismissed on the Food impact screen; persists across nightly recomputation. */
+    val dismissedFoodTags: Flow<Set<String>> = safeData.map { p ->
+        runCatching { p[Keys.DISMISSED_FOOD_TAGS] }.getOrNull() ?: emptySet()
+    }
+
     val aiConfig: Flow<AiConfig> = safeData.map { p -> p.toAiConfig() }
 
     val profile: Flow<UserProfile> = safeData.map { p -> p.toUserProfile() }
@@ -150,6 +160,21 @@ class SettingsDataStore @Inject constructor(
     val healthConnectInitialImportRange: Flow<InitialImportRange> = safeData.map { p ->
         runCatching { p[Keys.HEALTH_CONNECT_INITIAL_IMPORT_RANGE] }
             .getOrNull().toEnum(InitialImportRange.DAYS_90)
+    }
+
+    /** Persisted document-tree URI nominated for scheduled auto-backups. */
+    val backupDirUri: Flow<String?> = safeData.map { p ->
+        runCatching { p[Keys.BACKUP_DIR_URI] }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
+
+    /** Whether the daily auto-backup schedule is enabled. */
+    val backupEnabled: Flow<Boolean> = safeData.map { p ->
+        runCatching { p[Keys.BACKUP_ENABLED] }.getOrNull() ?: false
+    }
+
+    /** Epoch millis of the last successful auto-backup, if any. */
+    val backupLastRun: Flow<Long?> = safeData.map { p ->
+        runCatching { p[Keys.BACKUP_LAST_RUN] }.getOrNull()
     }
 
     /** Single fresh snapshot used by the export utility when assembling a report. */
@@ -208,6 +233,16 @@ class SettingsDataStore @Inject constructor(
     suspend fun setBarcodeLookupEnabled(enabled: Boolean) =
         edit { it[Keys.BARCODE_LOOKUP_ENABLED] = enabled }
 
+    suspend fun dismissFoodTag(tag: String) = edit {
+        val current = it[Keys.DISMISSED_FOOD_TAGS] ?: emptySet()
+        it[Keys.DISMISSED_FOOD_TAGS] = current + tag
+    }
+
+    suspend fun restoreFoodTag(tag: String) = edit {
+        val current = it[Keys.DISMISSED_FOOD_TAGS] ?: emptySet()
+        it[Keys.DISMISSED_FOOD_TAGS] = current - tag
+    }
+
     suspend fun setHealthConnectSyncEnabled(enabled: Boolean) =
         edit { it[Keys.HEALTH_CONNECT_SYNC_ENABLED] = enabled }
 
@@ -230,6 +265,14 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun setHealthConnectInitialImportRange(range: InitialImportRange) =
         edit { it[Keys.HEALTH_CONNECT_INITIAL_IMPORT_RANGE] = range.name }
+
+    suspend fun setBackupDirUri(uri: String?) = edit {
+        if (uri.isNullOrBlank()) it.remove(Keys.BACKUP_DIR_URI) else it[Keys.BACKUP_DIR_URI] = uri
+    }
+
+    suspend fun setBackupEnabled(enabled: Boolean) = edit { it[Keys.BACKUP_ENABLED] = enabled }
+
+    suspend fun setBackupLastRun(timestamp: Long) = edit { it[Keys.BACKUP_LAST_RUN] = timestamp }
 
     suspend fun setProfileTarget(target: ProfileTarget) =
         edit { it[Keys.PROFILE_TARGET] = target.name }

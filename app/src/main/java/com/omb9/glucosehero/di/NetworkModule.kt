@@ -1,6 +1,8 @@
 package com.omb9.glucosehero.di
 
+import com.omb9.glucosehero.BuildConfig
 import com.omb9.glucosehero.data.remote.AiApi
+import com.omb9.glucosehero.data.remote.CleartextGuardInterceptor
 import com.omb9.glucosehero.data.remote.DynamicApiInterceptor
 import com.omb9.glucosehero.data.remote.off.OffHttpClient
 import com.omb9.glucosehero.data.remote.off.OffRetrofit
@@ -38,8 +40,13 @@ object NetworkModule {
     fun provideOkHttpClient(dynamicApiInterceptor: DynamicApiInterceptor): OkHttpClient =
         OkHttpClient.Builder()
             .addInterceptor(dynamicApiInterceptor)
-            // BASIC = method/URL/status only; auth headers are never logged.
-            .addInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BASIC))
+            .addInterceptor(CleartextGuardInterceptor())
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    // BASIC = method/URL/status only; auth headers are never logged.
+                    addInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BASIC))
+                }
+            }
             .connectTimeout(Duration.ofSeconds(20))
             .readTimeout(Duration.ofSeconds(60))
             .build()
@@ -54,6 +61,7 @@ object NetworkModule {
     @Named("sse")
     fun provideSseOkHttpClient(): OkHttpClient =
         OkHttpClient.Builder()
+            .addInterceptor(CleartextGuardInterceptor())
             .connectTimeout(Duration.ofSeconds(20))
             .readTimeout(Duration.ZERO)
             .build()

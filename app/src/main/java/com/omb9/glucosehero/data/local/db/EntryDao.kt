@@ -31,6 +31,20 @@ data class HourlyGlucoseVarianceRow(
     val readings: Int,
 )
 
+/** One row of the correlated-subquery payload for per-tag delta analytics. */
+data class TagAnalyticsRow(
+    val entryId: Long,
+    val timestamp: Long,
+    val note: String?,
+    val mealDescription: String?,
+    val foodId: Long?,
+    val foodName: String?,
+    val carbsGrams: Int?,
+    val bolusUnits: Double?,
+    val baselineMgdl: Double?,
+    val followUpMgdl: Double?,
+)
+
 @Dao
 interface EntryDao {
 
@@ -276,6 +290,53 @@ interface EntryDao {
         targetMillis: Long,
     ): EntryEntity?
 
+    /**
+     * One-shot payload for per-tag glucose deltas.
+     *
+     * The correlated subquery resolves each entry's ~2-hour follow-up glucose
+     * reading in a single query, instead of calling [glucoseReadingNearestTo]
+     * once per entry. Reading follow-ups from the `glucose_readings` view (not
+     * `entries`) picks up CGM samples automatically — a manual follow-up
+     * landing inside the ±30-minute window around the two-hour mark is rare,
+     * while a sensor sample there is nearly guaranteed.
+     */
+    @Query(
+        """
+        SELECT
+            e.id                   AS entryId,
+            e.timestamp            AS timestamp,
+            e.note                 AS note,
+            e.meal_description     AS mealDescription,
+            e.food_id              AS foodId,
+            f.name                 AS foodName,
+            e.carbs_grams          AS carbsGrams,
+            e.insulin_bolus_units  AS bolusUnits,
+            e.glucose_mgdl         AS baselineMgdl,
+            (
+                SELECT follow.glucose_mgdl
+                FROM (
+                    SELECT r.glucose_mgdl AS glucose_mgdl,
+                           ABS(r.timestamp - (e.timestamp + :target)) AS dist
+                    FROM glucose_readings r
+                    WHERE r.timestamp BETWEEN e.timestamp + :windowStart AND e.timestamp + :windowEnd
+                ) AS follow
+                ORDER BY follow.dist ASC
+                LIMIT 1
+            ) AS followUpMgdl
+        FROM entries e
+        LEFT JOIN foods f ON f.id = e.food_id
+        WHERE e.glucose_mgdl IS NOT NULL
+          AND e.timestamp >= :since
+          AND (e.food_id IS NOT NULL OR e.note LIKE '%#%' OR e.meal_description IS NOT NULL)
+        """
+    )
+    suspend fun tagAnalyticsRows(
+        since: Long,
+        windowStart: Long,
+        windowEnd: Long,
+        target: Long,
+    ): List<TagAnalyticsRow>
+
     // ---------- Nightly pattern-recognition aggregates ----------
 
     /** One-shot version of [observeGlucosePoints] for background analysis. */
@@ -324,4 +385,37 @@ interface EntryDao {
         """
     )
     suspend fun hourlyVarianceSince(since: Long): List<HourlyGlucoseVarianceRow>
+
+    // ---------- Backup/export paged reads (additive) ----------
+
+    @Query("SELECT * FROM entries ORDER BY id LIMIT :limit OFFSET :offset")
+    suspend fun pageForExport(limit: Int, offset: Int): List<EntryEntity>
+
+    @Query("SELECT * FROM entries ORDER BY timestamp ASC, id ASC LIMIT :limit OFFSET :offset")
+    suspend fun pageByTimestampForExport(limit: Int, offset: Int): List<EntryEntity>
+
+    @Query(
+        "SELECT * FROM entries WHERE timestamp >= :since ORDER BY timestamp ASC, id ASC " +
+            "LIMIT :limit OFFSET :offset"
+    )
+    suspend fun pageSinceByTimestampForExport(
+        since: Long,
+        limit: Int,
+        offset: Int,
+    ): List<EntryEntity>
+
+    @Query("SELECT COUNT(*) FROM entries")
+    suspend fun countAll(): Int
+
+    @Query("SELECT * FROM entries ORDER BY id")
+    suspend fun getAll(): List<EntryEntity>
+
+    @Query("SELECT uuid FROM entries")
+    suspend fun allUuids(): List<String>
+
+    @Query("DELETE FROM entries")
+    suspend fun clear()
+
+    @Insert
+    suspend fun insertAll(entities: List<EntryEntity>): List<Long>
 }

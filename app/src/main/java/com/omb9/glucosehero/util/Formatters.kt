@@ -74,6 +74,13 @@ object Formatters {
     fun glucoseWithUnit(mgdl: Double, unit: GlucoseUnit): String =
         "${glucose(mgdl, unit)} ${unit.label}"
 
+    /** Signed, unit-aware glucose string, e.g. "+85 mg/dL" or "-4.7 mmol/L".
+     * Positive deltas carry an explicit "+" so changes read as signed. */
+    fun signedGlucoseWithUnit(mgdl: Double, unit: GlucoseUnit): String {
+        val sign = if (mgdl > 0.0) "+" else ""
+        return "$sign${glucose(mgdl, unit)} ${unit.label}"
+    }
+
     fun toDisplayValue(mgdl: Double, unit: GlucoseUnit): Double = when (unit) {
         GlucoseUnit.MGDL -> mgdl
         GlucoseUnit.MMOL -> mgdl / GlucoseUnit.MGDL_PER_MMOL

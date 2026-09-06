@@ -9,6 +9,7 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.work.AutoBackupWorker
 import com.omb9.glucosehero.work.HealthConnectSyncWorker
 import com.omb9.glucosehero.work.InsightNotifier
 import com.omb9.glucosehero.work.PatternRecognitionWorker
@@ -48,6 +49,7 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
         postMealReminderNotifier.createChannel()
         schedulePatternRecognition()
         scheduleHealthConnectSync()
+        scheduleAutoBackup()
     }
 
     /**
@@ -93,6 +95,34 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
 
             WorkManager.getInstance(this@GlucoseHeroApp).enqueueUniquePeriodicWork(
                 HealthConnectSyncWorker.UNIQUE_NAME,
+                ExistingPeriodicWorkPolicy.KEEP,
+                request,
+            )
+        }
+    }
+
+    /**
+     * Schedules a daily backup into the user-nominated document tree. The
+     * worker re-checks both the enabled flag and the folder URI on every run
+     * so a folder revoked in system settings disables cleanly instead of
+     * retrying forever.
+     */
+    private fun scheduleAutoBackup() {
+        applicationScope.launch {
+            if (!settingsDataStore.backupEnabled.first()) return@launch
+            if (settingsDataStore.backupDirUri.first().isNullOrBlank()) return@launch
+
+            val constraints = Constraints.Builder()
+                .setRequiresCharging(true)
+                .setRequiresDeviceIdle(true)
+                .build()
+
+            val request = PeriodicWorkRequestBuilder<AutoBackupWorker>(24, TimeUnit.HOURS)
+                .setConstraints(constraints)
+                .build()
+
+            WorkManager.getInstance(this@GlucoseHeroApp).enqueueUniquePeriodicWork(
+                AutoBackupWorker.UNIQUE_NAME,
                 ExistingPeriodicWorkPolicy.KEEP,
                 request,
             )

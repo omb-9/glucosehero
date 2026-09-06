@@ -23,4 +23,18 @@ interface InsightDao {
     /** One-shot snapshot used by the worker to avoid inserting duplicates. */
     @Query("SELECT * FROM insight_cards ORDER BY created_at DESC")
     suspend fun getAll(): List<InsightCardEntity>
+
+    // ---------- Backup/export paged reads (additive) ----------
+
+    @Query("SELECT * FROM insight_cards ORDER BY id LIMIT :limit OFFSET :offset")
+    suspend fun pageForExport(limit: Int, offset: Int): List<InsightCardEntity>
+
+    @Query("SELECT COUNT(*) FROM insight_cards")
+    suspend fun countAll(): Int
+
+    @Query("DELETE FROM insight_cards")
+    suspend fun clear()
+
+    @Insert
+    suspend fun insertAll(insights: List<InsightCardEntity>): List<Long>
 }

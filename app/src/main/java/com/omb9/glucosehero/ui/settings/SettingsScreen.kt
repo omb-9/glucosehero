@@ -104,6 +104,7 @@ fun SettingsScreen(
     val healthConnectInitialImportRange by viewModel.healthConnectInitialImportRange.collectAsStateWithLifecycle()
     val healthConnectLastSync by viewModel.healthConnectLastSync.collectAsStateWithLifecycle()
     val healthConnectSampleCount by viewModel.healthConnectSampleCount.collectAsStateWithLifecycle()
+    val backupState by viewModel.backupState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsDataStore = remember(context) {
@@ -777,6 +778,19 @@ fun SettingsScreen(
                     Text("Save API key")
                 }
             }
+
+            // ============ Back up & restore ============
+            SectionHeader("Back up & restore")
+            BackupSection(
+                state = backupState,
+                onBackupNow = viewModel::exportBackup,
+                onExportMarkdown = viewModel::exportMarkdown,
+                onImportPicked = viewModel::previewImport,
+                onChooseFolder = viewModel::setBackupFolder,
+                onDismissPreview = viewModel::dismissImportPreview,
+                onImport = viewModel::importBackup,
+                onAutoBackupToggle = viewModel::setAutoBackupEnabled,
+            )
 
             Spacer(Modifier.height(24.dp))
             Surface(

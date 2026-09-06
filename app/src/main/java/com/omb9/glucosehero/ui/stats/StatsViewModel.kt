@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import com.omb9.glucosehero.data.export.ExportManager
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.EntryDao
+import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
 import com.omb9.glucosehero.data.local.db.InsightDao
 import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.domain.model.Ea1cConfidence
@@ -27,6 +28,8 @@ import com.omb9.glucosehero.domain.model.TimeRange
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.domain.repository.SupplyRepository
+import com.omb9.glucosehero.ui.insights.TagImpactUi
+import com.omb9.glucosehero.ui.insights.toDisplayableTags
 import com.omb9.glucosehero.util.Ea1cFormula
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.GlucoseRangeColor
@@ -174,10 +177,13 @@ class StatsViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
     private val supplyRepository: SupplyRepository,
     private val insightDao: InsightDao,
+    private val database: GlucoseHeroDatabase,
     private val exportManager: ExportManager,
     @ApplicationContext private val context: Context,
     private val settingsDataStore: SettingsDataStore,
 ) : ViewModel() {
+
+    private val tagAnalyticDao = database.tagAnalyticDao()
 
     /** Continuous daily-logging streak, emitted reactively from Room. */
     val currentStreakDays: StateFlow<Int> = entryRepository.observeCurrentStreak()
@@ -186,6 +192,15 @@ class StatsViewModel @Inject constructor(
     /** Latest generated pattern-recognition insights, newest first. */
     val insights: StateFlow<List<InsightCardEntity>> = insightDao.observeLatest(INSIGHT_LIMIT)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Top food-impact tags for the Stats "Food impact" preview (Task 3). */
+    val foodImpactTags: StateFlow<List<TagImpactUi>> = combine(
+        tagAnalyticDao.observeAll(),
+        settingsDataStore.settings,
+        settingsDataStore.dismissedFoodTags,
+    ) { entities, settings, dismissed ->
+        entities.toDisplayableTags(dismissed, settings.unit).take(FOOD_IMPACT_PREVIEW_LIMIT)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Active supply cards, with lifecycle math evaluated on each emission and
      * a 60-second ticker so remaining counts advance without a DB emission. */
@@ -534,5 +549,6 @@ class StatsViewModel @Inject constructor(
         const val MIN_CONFIDENT_DAYS = 14
         const val MIN_CONFIDENT_READINGS = 20
         const val INSIGHT_LIMIT = 5
+        const val FOOD_IMPACT_PREVIEW_LIMIT = 3
     }
 }

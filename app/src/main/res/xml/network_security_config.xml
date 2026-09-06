@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP is intentionally permitted app-wide. The actual guard is
+  CleartextGuardInterceptor at the OkHttp layer, which refuses plain-HTTP
+  requests to any non-private host. Do NOT "tighten" this file to
+  cleartextTrafficPermitted="false" with domain entries: Android's network
+  security config matches literal domains, not CIDR ranges, so it cannot
+  express "allow any 192.168.x.x / 10.x.x.x LAN address" and would break
+  self-hosted Ollama endpoints.
+-->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

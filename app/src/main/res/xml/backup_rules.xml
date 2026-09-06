@@ -3,4 +3,11 @@
     <!-- Never back up DataStore: it holds the KeyStore-encrypted API key blob,
          and the hardware key it was encrypted with does not travel between devices. -->
     <exclude domain="file" path="datastore/" />
+
+    <!-- The Room database is excluded from cloud backup for the same reason the
+         datastore is: GlucoseHero is a no-servers app, and users now have their
+         own explicit backup & restore path (JSON / Markdown) in Settings. Keeping
+         the raw SQLite files out of cloud backup makes the app's behaviour match
+         that positioning instead of silently shipping a second, system-managed copy. -->
+    <exclude domain="database" path="." />
 </full-backup-content>

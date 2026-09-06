@@ -23,4 +23,15 @@ interface ChatMessageDao {
 
     @Query("DELETE FROM chat_messages")
     suspend fun clear()
+
+    // ---------- Backup/export paged reads (additive) ----------
+
+    @Query("SELECT * FROM chat_messages ORDER BY id LIMIT :limit OFFSET :offset")
+    suspend fun pageForExport(limit: Int, offset: Int): List<ChatMessageEntity>
+
+    @Query("SELECT COUNT(*) FROM chat_messages")
+    suspend fun countAll(): Int
+
+    @Insert
+    suspend fun insertAll(messages: List<ChatMessageEntity>): List<Long>
 }

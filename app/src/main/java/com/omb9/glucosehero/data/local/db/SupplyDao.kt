@@ -47,4 +47,21 @@ interface SupplyDao {
         deactivateSuppliesOfType(type, replacedAt)
         return insert(entity)
     }
+
+    // ---------- Backup/export paged reads (additive) ----------
+
+    @Query("SELECT * FROM supplies ORDER BY id LIMIT :limit OFFSET :offset")
+    suspend fun pageForExport(limit: Int, offset: Int): List<SupplyEntity>
+
+    @Query("SELECT COUNT(*) FROM supplies")
+    suspend fun countAll(): Int
+
+    @Query("SELECT * FROM supplies ORDER BY id")
+    suspend fun getAll(): List<SupplyEntity>
+
+    @Query("DELETE FROM supplies")
+    suspend fun clear()
+
+    @Insert
+    suspend fun insertAll(supplies: List<SupplyEntity>): List<Long>
 }

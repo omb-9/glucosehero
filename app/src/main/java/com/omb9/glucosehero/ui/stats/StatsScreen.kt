@@ -70,9 +70,12 @@ import com.omb9.glucosehero.domain.model.ExportFormat
 import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.TimeRange
 import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
+import com.omb9.glucosehero.ui.insights.TagImpactCard
+import com.omb9.glucosehero.ui.insights.TagImpactUi
 import com.omb9.glucosehero.ui.stats.components.GlucoseChart
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
 import com.omb9.glucosehero.util.Formatters
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlinx.collections.immutable.ImmutableList
 
@@ -87,6 +90,7 @@ private val HighSeverityAccent = Color(0xFFFF5252)
 @Composable
 fun StatsScreen(
     onEntryClick: (Long) -> Unit,
+    onSeeAllFoodImpact: () -> Unit,
     viewModel: StatsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -94,6 +98,7 @@ fun StatsScreen(
     val streak by viewModel.currentStreakDays.collectAsStateWithLifecycle()
     val supplies by viewModel.activeSupplies.collectAsStateWithLifecycle()
     val insights by viewModel.insights.collectAsStateWithLifecycle()
+    val foodImpactTags by viewModel.foodImpactTags.collectAsStateWithLifecycle()
     val isExporting by viewModel.isExporting.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     var showExportSheet by remember { mutableStateOf(false) }
@@ -117,7 +122,7 @@ fun StatsScreen(
                         putExtra(Intent.EXTRA_STREAM, uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    context.startActivity(Intent.createChooser(sendIntent, "Share report"))
+                    context.startActivity(Intent.createChooser(sendIntent, "Share clinical report"))
                 }
                 is ExportEvent.Failed -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
@@ -134,7 +139,7 @@ fun StatsScreen(
                     IconButton(onClick = { showExportSheet = true }) {
                         Icon(
                             imageVector = Icons.Filled.Share,
-                            contentDescription = "Export report",
+                            contentDescription = "Share clinical report",
                         )
                     }
                 },
@@ -220,6 +225,14 @@ fun StatsScreen(
 
             InsightsSection(
                 insights = insights,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            FoodImpactSection(
+                tags = foodImpactTags,
+                onSeeAll = onSeeAllFoodImpact,
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -710,6 +723,56 @@ private fun insightIconDescription(insight: InsightCardEntity): String = when {
 }
 
 @Composable
+private fun FoodImpactSection(
+    tags: List<TagImpactUi>,
+    onSeeAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val maxAbsDelta = remember(tags) {
+        tags.maxOfOrNull { abs(it.medianDeltaMgdl) } ?: 0.0
+    }
+    Column(modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Food impact",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onSeeAll) {
+                Text("See all")
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+
+        if (tags.isEmpty()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainer,
+            ) {
+                Text(
+                    text = "Log meals with a glucose reading before and about two hours after to see food patterns.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                tags.forEach { tag ->
+                    TagImpactCard(
+                        item = tag,
+                        maxAbsDelta = maxAbsDelta,
+                        onShare = null,
+                        onDismiss = null,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun EstimatedA1cCard(
     state: StatsUiState,
     modifier: Modifier = Modifier,
@@ -901,7 +964,7 @@ private fun ExportFormatSheet(
                 .padding(bottom = 24.dp),
         ) {
             Text(
-                text = "Export report",
+                text = "Share clinical report",
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
@@ -919,12 +982,12 @@ private fun ExportFormatSheet(
                 }
             }
             ExportOptionRow(
-                title = ExportFormat.PDF.displayName,
+                title = "Clinical report (PDF)",
                 enabled = !isExporting,
                 onClick = { onSelect(ExportFormat.PDF) },
             )
             ExportOptionRow(
-                title = ExportFormat.CSV.displayName,
+                title = "Clinical report (CSV)",
                 enabled = !isExporting,
                 onClick = { onSelect(ExportFormat.CSV) },
             )
