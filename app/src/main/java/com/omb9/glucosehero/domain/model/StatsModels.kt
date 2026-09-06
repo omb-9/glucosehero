@@ -1,10 +1,11 @@
 package com.omb9.glucosehero.domain.model
 
 enum class TimeRange(val days: Int, val label: String) {
-    DAYS_7(7, "7D"),
-    DAYS_14(14, "14D"),
-    DAYS_30(30, "30D"),
-    DAYS_90(90, "90D"),
+    HOURS_24(1, "24h"),
+    DAYS_7(7, "7d"),
+    DAYS_14(14, "14d"),
+    DAYS_30(30, "30d"),
+    DAYS_90(90, "90d"),
 }
 
 /** Lightweight chart projection: only the columns the trend chart actually renders. */

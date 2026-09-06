@@ -30,6 +30,7 @@ import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.domain.repository.SupplyRepository
 import com.omb9.glucosehero.ui.insights.TagImpactUi
 import com.omb9.glucosehero.ui.insights.toDisplayableTags
+import com.omb9.glucosehero.ui.stats.components.TimeInRangeSegment
 import com.omb9.glucosehero.util.Ea1cFormula
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.GlucoseRangeColor
@@ -128,15 +129,14 @@ data class StatsUiState(
     val range: TimeRange = TimeRange.DAYS_14,
     val unit: GlucoseUnit = GlucoseUnit.MGDL,
     val themeMode: ThemeMode = ThemeMode.LIGHT,
+    val use24HourTime: Boolean = false,
     val hasData: Boolean = false,
     val loadFailed: Boolean = false,
     val avgDisplay: String = "–",
-    val tirDisplay: String = "–",
     val avgTrend: TrendDirection = TrendDirection.UNKNOWN,
     val avgDeltaDisplay: String? = null,
-    val tirTrend: TrendDirection = TrendDirection.UNKNOWN,
-    val tirDeltaDisplay: String? = null,
-    val readingCount: Int = 0,
+    val manualReadingCount: Int = 0,
+    val cgmReadingCount: Int = 0,
     /** Estimated A1c value (percentage only; the UI appends "%"). */
     val ea1cValue: String = "–",
     /** Which clinical formula produced [ea1cValue]; the UI labels the card with this. */
@@ -154,6 +154,11 @@ data class StatsUiState(
     /** Target range + y bounds, already converted to the display unit. */
     val targetLowDisplay: Float = 70f,
     val targetHighDisplay: Float = 180f,
+    /** Fixed clinical very-low/very-high thresholds, converted to the display unit. */
+    val veryLowThresholdDisplay: Float = 54f,
+    val veryHighThresholdDisplay: Float = 250f,
+    /** Five time-in-range buckets (very low → very high), each as a percentage. */
+    val tirSegments: List<TimeInRangeSegment> = emptyList(),
     val chartMinY: Float = 40f,
     val chartMaxY: Float = 260f,
 )
@@ -248,7 +253,7 @@ class StatsViewModel @Inject constructor(
                 .flatMapLatest { range ->
                     val since = Formatters.daysAgoMillis(range.days)
                     combine(
-                        entryRepository.observeGlucosePoints(since),
+                        entryDao.observeGlucoseReadingsPoints(since),
                         entryRepository.observeGlucose(since),
                         settingsRepository.settings,
                     ) { points, events, settings -> StatsPipelineInput(range, points, events, settings) }
@@ -293,34 +298,68 @@ class StatsViewModel @Inject constructor(
                                 e.glucoseMgdl.takeIf { it.isFinite() }
                             }
                             val currentAvg = values.takeIf { it.isNotEmpty() }?.average()
-                            val currentTir = if (values.isEmpty()) null else
-                                values.count {
-                                    it in settings.targetLowMgdl.toDouble()..settings.targetHighMgdl.toDouble()
-                                }.toDouble() / values.size
+
+                            // Five-bucket TIR over the `glucose_readings` view (CGM samples plus
+                            // manual entries), not `entries` alone.
+                            val tirCounts = entryDao.timeInRangeCountsSince(
+                                sinceMillis,
+                                settings.targetLowMgdl.toDouble(),
+                                settings.targetHighMgdl.toDouble(),
+                            )
+                            val tirTotal = tirCounts.veryLow + tirCounts.low +
+                                tirCounts.inRange + tirCounts.high + tirCounts.veryHigh
+                            val tirSegments = if (tirTotal == 0) {
+                                emptyList()
+                            } else {
+                                listOf(
+                                    TimeInRangeSegment(
+                                        RangeCategory.VERY_LOW,
+                                        tirCounts.veryLow * 100f / tirTotal,
+                                    ),
+                                    TimeInRangeSegment(
+                                        RangeCategory.LOW,
+                                        tirCounts.low * 100f / tirTotal,
+                                    ),
+                                    TimeInRangeSegment(
+                                        RangeCategory.IN_RANGE,
+                                        tirCounts.inRange * 100f / tirTotal,
+                                    ),
+                                    TimeInRangeSegment(
+                                        RangeCategory.HIGH,
+                                        tirCounts.high * 100f / tirTotal,
+                                    ),
+                                    TimeInRangeSegment(
+                                        RangeCategory.VERY_HIGH,
+                                        tirCounts.veryHigh * 100f / tirTotal,
+                                    ),
+                                )
+                            }
 
                             // Sequential comparison window: the same length as the
                             // selected range, ending exactly where the current
                             // window begins (e.g. days 15–28 for the 14-day view).
                             val previousStartMillis =
                                 sinceMillis - range.days * SupplyCalculator.MILLIS_PER_DAY
-                            val previousAvg = entryRepository.averageGlucoseBetween(
+                            val previousAvg = entryDao.averageGlucoseReadingsBetween(
                                 previousStartMillis,
                                 sinceMillis,
-                            )
-                            val previousTir = entryRepository.timeInRangeBetween(
-                                previousStartMillis,
-                                sinceMillis,
-                                settings.targetLowMgdl.toDouble(),
-                                settings.targetHighMgdl.toDouble(),
                             )
                             val avgDelta = glucoseDelta(currentAvg, previousAvg, unit)
-                            val tirDelta = tirDelta(currentTir, previousTir)
+
+                            val manualReadingCount = entryDao.manualReadingCountSince(sinceMillis)
+                            val cgmReadingCount = entryDao.cgmReadingCountSince(sinceMillis)
 
                             val lowDisplay =
                                 Formatters.toDisplayValue(settings.targetLowMgdl.toDouble(), unit)
                                     .toFloat()
                             val highDisplay =
                                 Formatters.toDisplayValue(settings.targetHighMgdl.toDouble(), unit)
+                                    .toFloat()
+                            val veryLowDisplay =
+                                Formatters.toDisplayValue(GlucoseRangeColor.VERY_LOW_MGDL.toDouble(), unit)
+                                    .toFloat()
+                            val veryHighDisplay =
+                                Formatters.toDisplayValue(GlucoseRangeColor.VERY_HIGH_MGDL.toDouble(), unit)
                                     .toFloat()
                             val dataMin = values.minOrNull()
                                 ?.let { Formatters.toDisplayValue(it, unit).toFloat() }
@@ -344,12 +383,10 @@ class StatsViewModel @Inject constructor(
                                     hasData = points.isNotEmpty(),
                                     loadFailed = false,
                                     avgDisplay = currentAvg?.let { Formatters.glucose(it, unit) } ?: "–",
-                                    tirDisplay = currentTir?.let { "%.0f%%".format(it * 100) } ?: "–",
                                     avgTrend = avgDelta?.direction ?: TrendDirection.UNKNOWN,
                                     avgDeltaDisplay = avgDelta?.text,
-                                    tirTrend = tirDelta?.direction ?: TrendDirection.UNKNOWN,
-                                    tirDeltaDisplay = tirDelta?.text,
-                                    readingCount = values.size,
+                                    manualReadingCount = manualReadingCount,
+                                    cgmReadingCount = cgmReadingCount,
                                     minMaxDisplay = if (dataMin != null && dataMax != null) {
                                         "${trim(dataMin)} / ${trim(dataMax)}"
                                     } else {
@@ -358,9 +395,13 @@ class StatsViewModel @Inject constructor(
                                     chartPoints = points,
                                     markers = markers,
                                     themeMode = settings.themeMode,
+                                    use24HourTime = settings.use24HourTime,
                                     rangeStartMillis = sinceMillis,
                                     targetLowDisplay = lowDisplay,
                                     targetHighDisplay = highDisplay,
+                                    veryLowThresholdDisplay = veryLowDisplay,
+                                    veryHighThresholdDisplay = veryHighDisplay,
+                                    tirSegments = tirSegments,
                                     chartMinY = rawMinY,
                                     chartMaxY = safeMaxY,
                                 )
@@ -508,15 +549,6 @@ class StatsViewModel @Inject constructor(
                 GlucoseUnit.MGDL -> "%.0f".format(magnitude)
                 GlucoseUnit.MMOL -> "%.1f".format(magnitude)
             } + " " + unit.label,
-        )
-    }
-
-    private fun tirDelta(currentTir: Double?, previousTir: Double?): MetricDelta? {
-        if (currentTir == null || previousTir == null) return null
-        val deltaPoints = (currentTir - previousTir) * 100.0
-        return MetricDelta(
-            direction = directionFor(deltaPoints),
-            text = "%.0f%%".format(abs(deltaPoints)),
         )
     }
 

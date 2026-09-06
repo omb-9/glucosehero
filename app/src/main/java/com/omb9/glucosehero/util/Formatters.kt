@@ -51,6 +51,21 @@ object Formatters {
             .format(if (use24Hour) f.time24 else f.time12)
     }
 
+    /**
+     * Compact hour-of-day label for a chart axis tick: "6a"/"12p"/"6p" on a 12-hour clock, or
+     * "6"/"18"/"0" on a 24-hour clock. Minutes are intentionally dropped.
+     */
+    fun hourOfDay(timestamp: Long, use24Hour: Boolean): String {
+        val hour = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).hour
+        return if (use24Hour) {
+            hour.toString()
+        } else {
+            val h12 = ((hour + 11) % 12) + 1
+            val suffix = if (hour < 12) "a" else "p"
+            "$h12$suffix"
+        }
+    }
+
     fun localDate(timestamp: Long): LocalDate =
         Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
 
@@ -64,6 +79,9 @@ object Formatters {
     }
 
     fun shortDate(date: LocalDate): String = date.format(formatters().shortDate)
+
+    /** Locale-independent comma-grouped integer, e.g. 26104 → "26,104". */
+    fun count(value: Int): String = String.format(Locale.US, "%,d", value)
 
     /** Canonical mg/dL → display string in the chosen unit. */
     fun glucose(mgdl: Double, unit: GlucoseUnit): String = when (unit) {

@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,9 +39,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -73,6 +71,7 @@ import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
 import com.omb9.glucosehero.ui.insights.TagImpactCard
 import com.omb9.glucosehero.ui.insights.TagImpactUi
 import com.omb9.glucosehero.ui.stats.components.GlucoseChart
+import com.omb9.glucosehero.ui.stats.components.TimeInRangeBar
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
 import com.omb9.glucosehero.util.Formatters
 import kotlin.math.abs
@@ -167,24 +166,6 @@ fun StatsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         ) {
-            // --- 7/14/30/90-day range selector ---
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                TimeRange.entries.forEachIndexed { index, range ->
-                    SegmentedButton(
-                        selected = state.range == range,
-                        onClick = { viewModel.selectRange(range) },
-                        shape = SegmentedButtonDefaults.itemShape(
-                            index = index,
-                            count = TimeRange.entries.size,
-                        ),
-                    ) {
-                        Text(range.label)
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
             if (state.loadFailed) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -256,23 +237,37 @@ fun StatsScreen(
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Spacer(Modifier.height(12.dp))
+                    RangePresetRow(
+                        selected = state.range,
+                        onSelect = viewModel::selectRange,
+                    )
+                    Spacer(Modifier.height(12.dp))
                     if (state.hasData) {
                         MarkerFilterRow(
                             enabledCategories = enabledCategories,
                             onToggle = viewModel::toggleMarkerCategory,
                         )
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(12.dp))
+                        TimeInRangeBar(
+                            segments = state.tirSegments,
+                            themeMode = state.themeMode,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(12.dp))
                         GlucoseChart(
                             points = state.chartPoints,
                             markers = state.markers,
                             enabledCategories = enabledCategories,
                             targetLow = state.targetLowDisplay,
                             targetHigh = state.targetHighDisplay,
+                            veryLowThreshold = state.veryLowThresholdDisplay,
+                            veryHighThreshold = state.veryHighThresholdDisplay,
                             minY = state.chartMinY,
                             maxY = state.chartMaxY,
                             rangeDays = state.range.days,
                             rangeStartMillis = state.rangeStartMillis,
                             themeMode = state.themeMode,
+                            use24Hour = state.use24HourTime,
                             onMarkerClick = onEntryClick,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -306,29 +301,24 @@ fun StatsScreen(
                     modifier = Modifier.weight(1f),
                 )
                 StatCard(
-                    label = "Time in range",
-                    value = state.tirDisplay,
+                    label = "Readings",
+                    value = Formatters.count(state.manualReadingCount),
                     suffix = null,
-                    trend = state.tirTrend,
-                    delta = state.tirDeltaDisplay,
+                    secondary = if (state.cgmReadingCount > 0) {
+                        "+ ${Formatters.count(state.cgmReadingCount)} CGM samples"
+                    } else {
+                        null
+                    },
                     modifier = Modifier.weight(1f),
                 )
             }
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(
-                    label = "Readings",
-                    value = state.readingCount.toString(),
-                    suffix = null,
-                    modifier = Modifier.weight(1f),
-                )
-                StatCard(
-                    label = "Min / max",
-                    value = state.minMaxDisplay,
-                    suffix = null,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            StatCard(
+                label = "Min / max",
+                value = state.minMaxDisplay,
+                suffix = null,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(24.dp))
         }
         }
@@ -365,6 +355,26 @@ private fun MarkerFilterRow(
                 selected = category in enabledCategories,
                 onClick = { onToggle(category) },
                 label = { Text(category.label) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RangePresetRow(
+    selected: TimeRange,
+    onSelect: (TimeRange) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        TimeRange.entries.forEach { range ->
+            FilterChip(
+                selected = selected == range,
+                onClick = { onSelect(range) },
+                label = { Text(range.label) },
             )
         }
     }
@@ -891,6 +901,7 @@ private fun StatCard(
     modifier: Modifier = Modifier,
     trend: TrendDirection = TrendDirection.UNKNOWN,
     delta: String? = null,
+    secondary: String? = null,
 ) {
     Surface(
         modifier = modifier,
@@ -938,6 +949,14 @@ private fun StatCard(
                         )
                     }
                 }
+            }
+            if (secondary != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = secondary,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

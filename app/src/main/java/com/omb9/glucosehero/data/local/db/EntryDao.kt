@@ -45,6 +45,15 @@ data class TagAnalyticsRow(
     val followUpMgdl: Double?,
 )
 
+/** Five-bucket time-in-range counts over the `glucose_readings` view. */
+data class TimeInRangeCounts(
+    val veryLow: Int,
+    val low: Int,
+    val inRange: Int,
+    val high: Int,
+    val veryHigh: Int,
+)
+
 @Dao
 interface EntryDao {
 
@@ -81,6 +90,21 @@ interface EntryDao {
         """
     )
     fun observeGlucosePoints(since: Long): Flow<List<GlucosePointRow>>
+
+    /**
+     * Chart projection sourced from the `glucose_readings` view (CGM samples plus user-authored
+     * readings), so the trend line includes sensor data. This is an additive alternative to
+     * [observeGlucosePoints], which reads `entries` only.
+     */
+    @Query(
+        """
+        SELECT timestamp, glucose_mgdl AS glucoseMgdl
+        FROM glucose_readings
+        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
+        ORDER BY timestamp ASC
+        """
+    )
+    fun observeGlucoseReadingsPoints(since: Long): Flow<List<GlucosePointRow>>
 
     @Query("SELECT * FROM entries WHERE id = :id")
     fun observeById(id: Long): Flow<EntryEntity?>
@@ -204,6 +228,24 @@ interface EntryDao {
     )
     suspend fun timeInRangeSince(since: Long, low: Double, high: Double): Double?
 
+    /**
+     * Five time-in-range bucket counts over `glucose_readings`. The 54 and 250 thresholds are
+     * fixed clinical constants; only [low] and [high] come from the user's targets.
+     */
+    @Query(
+        """
+        SELECT
+            COALESCE(SUM(CASE WHEN glucose_mgdl < 54 THEN 1 ELSE 0 END), 0) AS veryLow,
+            COALESCE(SUM(CASE WHEN glucose_mgdl >= 54 AND glucose_mgdl < :low THEN 1 ELSE 0 END), 0) AS low,
+            COALESCE(SUM(CASE WHEN glucose_mgdl BETWEEN :low AND :high THEN 1 ELSE 0 END), 0) AS inRange,
+            COALESCE(SUM(CASE WHEN glucose_mgdl > :high AND glucose_mgdl <= 250 THEN 1 ELSE 0 END), 0) AS high,
+            COALESCE(SUM(CASE WHEN glucose_mgdl > 250 THEN 1 ELSE 0 END), 0) AS veryHigh
+        FROM glucose_readings
+        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :since
+        """
+    )
+    suspend fun timeInRangeCountsSince(since: Long, low: Double, high: Double): TimeInRangeCounts
+
     @Query(
         """
         SELECT AVG(glucose_mgdl) FROM entries
@@ -211,6 +253,19 @@ interface EntryDao {
         """
     )
     suspend fun averageGlucoseBetween(startMillis: Long, endMillis: Long): Double?
+
+    /**
+     * View-based previous-window average for trend deltas, matching the current-window average
+     * (which is computed over `glucose_readings`). Additive alternative to
+     * [averageGlucoseBetween], which reads `entries` only.
+     */
+    @Query(
+        """
+        SELECT AVG(glucose_mgdl) FROM glucose_readings
+        WHERE glucose_mgdl IS NOT NULL AND timestamp >= :startMillis AND timestamp < :endMillis
+        """
+    )
+    suspend fun averageGlucoseReadingsBetween(startMillis: Long, endMillis: Long): Double?
 
     @Query(
         """
