@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -63,6 +64,7 @@ import com.omb9.glucosehero.domain.model.ExportFormat
 import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.TimeRange
 import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
+import com.omb9.glucosehero.ui.insights.MoodImpactSection
 import com.omb9.glucosehero.ui.insights.TagImpactCard
 import com.omb9.glucosehero.ui.insights.TagImpactUi
 import com.omb9.glucosehero.ui.stats.components.GlucoseChart
@@ -91,6 +93,7 @@ fun StatsScreen(
     val supplies by viewModel.activeSupplies.collectAsStateWithLifecycle()
     val insights by viewModel.insights.collectAsStateWithLifecycle()
     val foodImpactTags by viewModel.foodImpactTags.collectAsStateWithLifecycle()
+    val moodImpactTags by viewModel.moodImpactTags.collectAsStateWithLifecycle()
     val isExporting by viewModel.isExporting.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     var showExportSheet by remember { mutableStateOf(false) }
@@ -127,7 +130,8 @@ fun StatsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Stats") },
+                title = { Text("Stats", style = MaterialTheme.typography.headlineMedium) },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 actions = {
                     IconButton(onClick = { showExportSheet = true }) {
                         Icon(
@@ -212,6 +216,15 @@ fun StatsScreen(
                 onSeeAll = onSeeAllFoodImpact,
                 modifier = Modifier.fillMaxWidth(),
             )
+
+            if (moodImpactTags.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                MoodImpactSection(
+                    moods = moodImpactTags,
+                    onSeeAll = onSeeAllFoodImpact,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
             Spacer(Modifier.height(16.dp))
 

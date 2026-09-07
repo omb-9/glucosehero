@@ -1,6 +1,7 @@
 package com.omb9.glucosehero.domain.repository
 
 import com.omb9.glucosehero.domain.model.ChatTurn
+import com.omb9.glucosehero.domain.model.MealPhotoAnalysis
 import com.omb9.glucosehero.domain.model.StreamEvent
 import kotlinx.coroutines.flow.Flow
 
@@ -23,6 +24,13 @@ interface ChatRepository {
 
     /** Non-streaming completion used by the offline-queue background worker. */
     suspend fun completeReply(history: List<ChatTurn>): String
+
+    /**
+     * Sends a meal photo (as an in-memory base64 `data:` URI) to the AI for a
+     * one-shot nutrition estimate. The image bytes are never persisted locally
+     * and no chat history is touched.
+     */
+    suspend fun analyzeMealPhoto(imageDataUri: String): MealPhotoAnalysis
 
     /** Queue a query for later dispatch and schedule the connectivity worker. */
     suspend fun queueOffline(userMessageId: Long, prompt: String)

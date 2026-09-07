@@ -4,6 +4,7 @@ import com.omb9.glucosehero.data.remote.dto.ApiChatMessage
 import com.omb9.glucosehero.data.remote.dto.ApiTool
 import com.omb9.glucosehero.data.remote.dto.ChatCompletionChunk
 import com.omb9.glucosehero.data.remote.dto.ChatCompletionRequest
+import com.omb9.glucosehero.data.remote.dto.OpenRouterProviderConfig
 import com.omb9.glucosehero.domain.model.ProviderHttpException
 import com.omb9.glucosehero.domain.model.ResolvedAiConfig
 import com.omb9.glucosehero.domain.model.StreamEvent
@@ -44,6 +45,8 @@ class SseChatClient @Inject constructor(
         config: ResolvedAiConfig,
         messages: List<ApiChatMessage>,
         tools: List<ApiTool> = emptyList(),
+        maxTokens: Int? = null,
+        openRouterDataCollectionDeny: Boolean = false,
     ): Flow<StreamEvent> = callbackFlow {
         val body = AppJson.encodeToString(
             ChatCompletionRequest.serializer(),
@@ -52,15 +55,23 @@ class SseChatClient @Inject constructor(
                 messages = messages,
                 stream = true,
                 tools = tools.takeIf { it.isNotEmpty() },
+                maxTokens = maxTokens,
+                provider = if (openRouterDataCollectionDeny) OpenRouterProviderConfig() else null,
             ),
         ).toRequestBody("application/json".toMediaType())
 
-        val request = Request.Builder()
+        val builder = Request.Builder()
             .url(config.baseUrl.trimEnd('/') + "/chat/completions")
             .header("Authorization", "Bearer ${config.apiKey}")
             .header("Accept", "text/event-stream")
             .post(body)
-            .build()
+
+        if (config.baseUrl.contains("openrouter.ai")) {
+            builder.header("HTTP-Referer", OPENROUTER_REFERER)
+            builder.header("X-Title", OPENROUTER_TITLE)
+        }
+
+        val request = builder.build()
 
         val accumulated = StringBuilder()
         val toolCalls = linkedMapOf<Int, ToolCallAccumulator>()
@@ -160,5 +171,10 @@ class SseChatClient @Inject constructor(
         var id: String? = null
         var name: String? = null
         val arguments = StringBuilder()
+    }
+
+    private companion object {
+        const val OPENROUTER_REFERER = "https://glucosehero.app"
+        const val OPENROUTER_TITLE = "GlucoseHero"
     }
 }

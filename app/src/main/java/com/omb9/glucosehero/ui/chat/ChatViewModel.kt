@@ -3,15 +3,22 @@ package com.omb9.glucosehero.ui.chat
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.omb9.glucosehero.data.billing.BillingRepository
+import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.domain.model.AiConfig
+import com.omb9.glucosehero.domain.model.AiProvider
 import com.omb9.glucosehero.domain.model.ApiKeyMissingException
 import com.omb9.glucosehero.domain.model.ProviderHttpException
 import com.omb9.glucosehero.domain.model.ChatTurn
 import com.omb9.glucosehero.domain.model.HeroAiPrefill
+import com.omb9.glucosehero.domain.model.QuotaExhaustedException
 import com.omb9.glucosehero.domain.model.StreamEvent
 import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.log.HeroAiPrefillCoordinator
+import com.omb9.glucosehero.util.AiQuota
+import com.omb9.glucosehero.util.AiTier
 import com.omb9.glucosehero.util.AppJson
 import com.omb9.glucosehero.work.ConnectivityObserver
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -37,6 +44,7 @@ data class ChatUiState(
     val pendingCount: Int = 0,
     val hasApiKey: Boolean = false,
     val providerLabel: String = "",
+    val remainingCalls: Int? = null,
 )
 
 @HiltViewModel
@@ -44,6 +52,8 @@ class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val connectivityObserver: ConnectivityObserver,
     private val heroAiPrefillCoordinator: HeroAiPrefillCoordinator,
+    private val billingRepository: BillingRepository,
+    private val settingsDataStore: SettingsDataStore,
     settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
@@ -69,12 +79,16 @@ class ChatViewModel @Inject constructor(
             chatRepository.observeHistory(),
             chatRepository.observePendingCount(),
             settingsRepository.aiConfig,
-        ) { history, pending, aiConfig ->
+            billingRepository.isPremium,
+            settingsDataStore.aiQuotaUsedToday,
+        ) { history, pending, aiConfig, premium, used ->
+            val tier = resolveTier(aiConfig, premium)
             ChatUiState(
                 messages = history.toImmutableList(),
                 pendingCount = pending,
                 hasApiKey = aiConfig.hasApiKey,
                 providerLabel = aiConfig.provider.label,
+                remainingCalls = AiQuota.remaining(tier, used),
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState())
 
@@ -164,6 +178,10 @@ class ChatViewModel @Inject constructor(
                     "Settings → Hero AI and ask me again."
             )
 
+            is QuotaExhaustedException -> chatRepository.appendAssistantMessage(
+                error.message ?: "You've reached your daily AI limit."
+            )
+
             is IOException -> queueAndAcknowledge(userMessageId, prompt)
 
             else -> chatRepository.appendAssistantMessage(
@@ -194,6 +212,13 @@ class ChatViewModel @Inject constructor(
         _streamingText.value = null
         return true
     }
+
+    private fun resolveTier(config: AiConfig, premium: Boolean): AiTier =
+        if (config.provider == AiProvider.OPENROUTER && !config.hasApiKey) {
+            if (premium) AiTier.PRO else AiTier.FREE
+        } else {
+            AiTier.BYOK
+        }
 
     private companion object {
         const val PREFILL_TOOL_NAME = "prefill_log_draft"

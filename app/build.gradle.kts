@@ -89,6 +89,8 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.extended)
+    implementation(libs.markdown.core)
+    implementation(libs.markdown.m3)
     implementation(libs.androidx.navigation.compose)
     debugImplementation(libs.compose.ui.tooling)
 

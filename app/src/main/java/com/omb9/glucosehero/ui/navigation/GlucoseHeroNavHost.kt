@@ -28,6 +28,7 @@ import com.omb9.glucosehero.ui.entrydetail.EntryDetailScreen
 import com.omb9.glucosehero.ui.foods.FoodLibraryScreen
 import com.omb9.glucosehero.ui.insights.FoodImpactScreen
 import com.omb9.glucosehero.ui.log.LogScreen
+import com.omb9.glucosehero.ui.settings.AiSettingsScreen
 import com.omb9.glucosehero.ui.settings.SettingsScreen
 import com.omb9.glucosehero.ui.stats.StatsScreen
 
@@ -44,6 +45,7 @@ object Routes {
     const val ENTRY_DETAIL = "entry/{entryId}"
     const val FOOD_LIBRARY = "food_library"
     const val FOOD_IMPACT = "food_impact"
+    const val AI_SETTINGS = "ai_settings"
 
     fun entryDetail(entryId: Long) = "entry/$entryId"
 }
@@ -138,7 +140,11 @@ fun GlucoseHeroNavHost(
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     onManageFoods = { navController.navigate(Routes.FOOD_LIBRARY) },
+                    onHeroAiSettings = { navController.navigate(Routes.AI_SETTINGS) },
                 )
+            }
+            composable(Routes.AI_SETTINGS) {
+                AiSettingsScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.FOOD_LIBRARY) {
                 FoodLibraryScreen(onBack = { navController.popBackStack() })

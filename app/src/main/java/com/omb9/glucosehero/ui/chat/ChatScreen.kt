@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mikepenz.markdown.m3.Markdown
 import com.omb9.glucosehero.R
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.conflate
@@ -81,7 +83,8 @@ fun ChatScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Hero") },
+                title = { Text("Hero", style = MaterialTheme.typography.headlineMedium) },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 actions = {
                     if (state.messages.isNotEmpty()) {
                         IconButton(onClick = viewModel::clearHistory) {
@@ -108,6 +111,16 @@ fun ChatScreen(
                     "${state.pendingCount} question" +
                         (if (state.pendingCount == 1) "" else "s") +
                         " waiting for connectivity — you'll get a notification."
+                )
+            }
+
+            state.remainingCalls?.takeIf { it <= 3 }?.let { remaining ->
+                Banner(
+                    when (remaining) {
+                        0 -> "You've used all your AI calls today — resets at midnight."
+                        1 -> "1 AI call left today."
+                        else -> "$remaining AI calls left today."
+                    }
                 )
             }
 
@@ -229,16 +242,19 @@ private fun MessageBubble(text: String, isUser: Boolean) {
             },
             modifier = Modifier.widthIn(max = 300.dp),
         ) {
-            Text(
-                text,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (isUser) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            )
+            if (isUser) {
+                Text(
+                    text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                )
+            } else {
+                Markdown(
+                    content = text,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                )
+            }
         }
     }
 }

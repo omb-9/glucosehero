@@ -279,7 +279,7 @@ fun EntryDetailScreen(
                         onValueChange = viewModel::onGlucoseChange,
                         enabled = !isHealthConnect,
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("0", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        placeholder = { Text("Glucose", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         suffix = { Text(settings.unit.label) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),

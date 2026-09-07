@@ -19,6 +19,7 @@ import com.omb9.glucosehero.data.local.db.migration.Migration7To8
 import com.omb9.glucosehero.data.local.db.migration.Migration8To9
 import com.omb9.glucosehero.data.local.db.migration.Migration9To10
 import com.omb9.glucosehero.data.local.db.migration.Migration10To11
+import com.omb9.glucosehero.data.local.db.migration.Migration11To12
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -38,7 +39,7 @@ object DatabaseModule {
             GlucoseHeroDatabase::class.java,
             "glucosehero.db",
         )
-            .addMigrations(Migration1To2, Migration2To3, Migration3To4, Migration4To5, Migration5To6, Migration6To7, Migration7To8, Migration8To9, Migration9To10, Migration10To11)
+            .addMigrations(Migration1To2, Migration2To3, Migration3To4, Migration4To5, Migration5To6, Migration6To7, Migration7To8, Migration8To9, Migration9To10, Migration10To11, Migration11To12)
             .build()
 
     @Provides

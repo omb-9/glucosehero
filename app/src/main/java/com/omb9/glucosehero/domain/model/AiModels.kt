@@ -26,7 +26,7 @@ enum class AiProvider(
     OPENROUTER(
         label = "OpenRouter",
         defaultBaseUrl = "https://openrouter.ai/api/v1/",
-        defaultModel = "google/gemini-2.0-flash-001",
+        defaultModel = "minimax/minimax-m3:free",
     ),
     CUSTOM(
         label = "Custom (OpenAI-compatible)",
@@ -35,7 +35,7 @@ enum class AiProvider(
     ),
 }
 
-/** Persisted AI configuration. [encryptedApiKey] is the KeyStore-wrapped blob. */
+/** Persisted AI configuration. [hasApiKey] is true when a KeyStore-wrapped key is stored. */
 @Immutable
 data class AiConfig(
     val provider: AiProvider = AiProvider.GEMINI,
@@ -71,4 +71,12 @@ class ApiKeyMissingException(
 class ProviderHttpException(
     message: String,
 ) : IOException(message)
+
+/**
+ * Raised when a managed-tier request would exceed the local daily allowance.
+ * This is a UX signal only, not a security boundary.
+ */
+class QuotaExhaustedException(
+    message: String,
+) : Exception(message)
 

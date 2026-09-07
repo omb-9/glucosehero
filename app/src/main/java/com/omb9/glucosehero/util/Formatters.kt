@@ -137,19 +137,20 @@ object Formatters {
     private const val CM_PER_INCH = 2.54
     private const val LB_PER_KG = 2.20462
 
-    /** Canonical cm → display string in the chosen unit. Null/blank height → empty string. */
+    /** Canonical cm → display string in the chosen unit. Null/zero height → empty string. */
     fun formatHeight(cm: Float?, system: UnitSystem): String = when (system) {
-        UnitSystem.METRIC -> cm?.let(::formatNumber) ?: ""
-        UnitSystem.IMPERIAL -> cm?.let {
+        UnitSystem.METRIC -> cm?.takeIf { it != 0f }?.let(::formatNumber) ?: ""
+        UnitSystem.IMPERIAL -> cm?.takeIf { it != 0f }?.let {
             val (feet, inches) = cmToFeetInches(it)
             "$feet'$inches\""
         } ?: ""
     }
 
-    /** Canonical kg → display string in the chosen unit. Null/blank weight → empty string. */
+    /** Canonical kg → display string in the chosen unit. Null/zero weight → empty string. */
     fun formatWeight(kg: Float?, system: UnitSystem): String = when (system) {
-        UnitSystem.METRIC -> kg?.let(::formatNumber) ?: ""
-        UnitSystem.IMPERIAL -> kg?.let { formatNumber(roundToOneDecimal(kgToLbs(it))) } ?: ""
+        UnitSystem.METRIC -> kg?.takeIf { it != 0f }?.let(::formatNumber) ?: ""
+        UnitSystem.IMPERIAL -> kg?.takeIf { it != 0f }
+            ?.let { formatNumber(roundToOneDecimal(kgToLbs(it))) } ?: ""
     }
 
     /** feet/inches -> canonical cm. */

@@ -6,6 +6,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.omb9.glucosehero.data.billing.BillingRepository
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.ChatMessageDao
 import com.omb9.glucosehero.data.local.db.EntryDao
@@ -18,15 +19,24 @@ import com.omb9.glucosehero.data.remote.AiApi
 import com.omb9.glucosehero.data.remote.dto.ApiChatMessage
 import com.omb9.glucosehero.data.remote.dto.ApiFunction
 import com.omb9.glucosehero.data.remote.dto.ApiTool
+import com.omb9.glucosehero.data.remote.dto.ChatCompletionRequest
+import com.omb9.glucosehero.data.remote.dto.OpenRouterProviderConfig
 import com.omb9.glucosehero.data.remote.sse.SseChatClient
+import com.omb9.glucosehero.domain.model.AiConfig
+import com.omb9.glucosehero.domain.model.AiProvider
 import com.omb9.glucosehero.domain.model.ChatRole
 import com.omb9.glucosehero.domain.model.ChatTurn
+import com.omb9.glucosehero.domain.model.MealPhotoAnalysis
 import com.omb9.glucosehero.domain.model.ProfileTarget
+import com.omb9.glucosehero.domain.model.QuotaExhaustedException
 import com.omb9.glucosehero.domain.model.StreamEvent
 import com.omb9.glucosehero.domain.model.TagKind
 import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
+import com.omb9.glucosehero.util.AiQuota
+import com.omb9.glucosehero.util.AiTier
+import com.omb9.glucosehero.util.AppJson
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.work.PendingQueryWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -57,6 +67,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val database: GlucoseHeroDatabase,
     private val settingsDataStore: SettingsDataStore,
     private val settingsRepository: SettingsRepository,
+    private val billingRepository: BillingRepository,
     private val sseChatClient: SseChatClient,
     private val aiApi: AiApi,
 ) : ChatRepository {
@@ -90,23 +101,127 @@ class ChatRepositoryImpl @Inject constructor(
         // Resolved fresh per request: provider/key changes apply immediately.
         // KeyStore decrypt + Base64 decode are I/O-bound; message assembly is CPU-bound.
         val config = withContext(Dispatchers.IO) { settingsRepository.resolveAiConfig() }
+        val aiConfig = withContext(Dispatchers.IO) { settingsRepository.aiConfigSnapshot() }
+        val tier = resolveTier(aiConfig)
+
+        if (tier != AiTier.BYOK) {
+            val used = settingsDataStore.aiQuotaUsedTodaySnapshot()
+            if (AiQuota.isExhausted(tier, used)) {
+                emit(StreamEvent.Failure(QuotaExhaustedException(quotaExhaustedMessage(tier))))
+                return@flow
+            }
+        }
+
         val messages = withContext(Dispatchers.Default) { buildApiMessages(history) }
-        sseChatClient.stream(config, messages, buildPrefillTools())
+        var succeeded = false
+        sseChatClient.stream(
+            config = config,
+            messages = messages,
+            tools = buildPrefillTools(),
+            maxTokens = managedMaxTokens(tier),
+            openRouterDataCollectionDeny = aiConfig.provider == AiProvider.OPENROUTER,
+        )
             .buffer(Channel.UNLIMITED)
-            .collect { emit(it) }
+            .collect { event ->
+                if (event is StreamEvent.Done) succeeded = true
+                emit(event)
+            }
+
+        if (succeeded && tier != AiTier.BYOK) {
+            settingsDataStore.incrementAiQuota()
+        }
     }
 
     override suspend fun completeReply(history: List<ChatTurn>): String {
+        val aiConfig = settingsRepository.aiConfigSnapshot()
+        val tier = resolveTier(aiConfig)
+
+        if (tier != AiTier.BYOK) {
+            val used = settingsDataStore.aiQuotaUsedTodaySnapshot()
+            if (AiQuota.isExhausted(tier, used)) {
+                throw QuotaExhaustedException(quotaExhaustedMessage(tier))
+            }
+        }
+
         val messages = buildApiMessages(history)
         val response = aiApi.complete(
-            com.omb9.glucosehero.data.remote.dto.ChatCompletionRequest(
-                model = settingsRepository.aiConfigSnapshot().model,
+            ChatCompletionRequest(
+                model = aiConfig.model,
                 messages = messages,
                 stream = false,
+                maxTokens = managedMaxTokens(tier),
+                provider = if (aiConfig.provider == AiProvider.OPENROUTER) OpenRouterProviderConfig() else null,
             )
         )
-        return response.choices.firstOrNull()?.message?.content
+        val content = response.choices.firstOrNull()?.message?.contentText()
             ?: error("Empty completion response")
+
+        if (tier != AiTier.BYOK) {
+            settingsDataStore.incrementAiQuota()
+        }
+        return content
+    }
+
+    override suspend fun analyzeMealPhoto(imageDataUri: String): MealPhotoAnalysis {
+        val aiConfig = settingsRepository.aiConfigSnapshot()
+        val tier = resolveTier(aiConfig)
+
+        if (tier != AiTier.BYOK) {
+            val used = settingsDataStore.aiQuotaUsedTodaySnapshot()
+            if (AiQuota.isExhausted(tier, used)) {
+                throw QuotaExhaustedException(quotaExhaustedMessage(tier))
+            }
+        }
+
+        val system = ApiChatMessage.text(
+            role = "system",
+            content = MEAL_PHOTO_SYSTEM_PROMPT,
+        )
+        val user = ApiChatMessage.multimodal(
+            role = "user",
+            prompt = "Estimate the nutrition in this meal photo.",
+            imageDataUri = imageDataUri,
+        )
+
+        val response = aiApi.complete(
+            ChatCompletionRequest(
+                model = aiConfig.model,
+                messages = listOf(system, user),
+                stream = false,
+                temperature = 0.0,
+                maxTokens = managedMaxTokens(tier),
+                provider = if (aiConfig.provider == AiProvider.OPENROUTER) OpenRouterProviderConfig() else null,
+            )
+        )
+        val raw = response.choices.firstOrNull()?.message?.contentText()
+            ?: error("Empty meal-photo response")
+
+        if (tier != AiTier.BYOK) {
+            settingsDataStore.incrementAiQuota()
+        }
+
+        return parseMealPhotoAnalysis(raw)
+    }
+
+    /** Parses the model's JSON estimate, tolerating prose around the object. */
+    private fun parseMealPhotoAnalysis(raw: String): MealPhotoAnalysis {
+        val trimmed = raw.trim()
+        // Try the whole body first, then fall back to the first {...} block so
+        // a model that wraps the JSON in an explanation still parses.
+        val candidates = buildList {
+            add(trimmed)
+            val start = trimmed.indexOf('{')
+            val end = trimmed.lastIndexOf('}')
+            if (start >= 0 && end > start) add(trimmed.substring(start, end + 1))
+        }
+        for (candidate in candidates) {
+            val parsed = runCatching {
+                AppJson.decodeFromString(MealPhotoAnalysis.serializer(), candidate)
+            }.getOrNull()
+            if (parsed != null) return parsed
+        }
+        // No valid JSON: still surface whatever free-text description we got.
+        return MealPhotoAnalysis(description = trimmed.takeIf { it.isNotBlank() })
     }
 
     override suspend fun queueOffline(userMessageId: Long, prompt: String) {
@@ -131,12 +246,30 @@ class ChatRepositoryImpl @Inject constructor(
         )
     }
 
+    private suspend fun resolveTier(config: AiConfig): AiTier {
+        if (config.provider == AiProvider.OPENROUTER && !config.hasApiKey) {
+            return if (billingRepository.isPremium.first()) AiTier.PRO else AiTier.FREE
+        }
+        return AiTier.BYOK
+    }
+
+    private fun managedMaxTokens(tier: AiTier): Int? =
+        if (tier == AiTier.BYOK) null else MAX_MANAGED_REPLY_TOKENS
+
+    private fun quotaExhaustedMessage(tier: AiTier): String = when (tier) {
+        AiTier.FREE -> "You've used all 10 free AI calls today. They reset at midnight. " +
+            "Upgrade to Pro for 50 calls a day, or add your own API key for unlimited calls."
+        AiTier.PRO -> "You've used all 50 Pro AI calls today. They reset at midnight. " +
+            "Add your own API key for unlimited calls."
+        AiTier.BYOK -> error("BYOK is never quota-exhausted")
+    }
+
     private suspend fun buildApiMessages(history: List<ChatTurn>): List<ApiChatMessage> {
-        val system = ApiChatMessage(role = "system", content = buildSystemPrompt())
+        val system = ApiChatMessage.text(role = "system", content = buildSystemPrompt())
         val turns = history
             .takeLast(MAX_HISTORY_TURNS)
             .map { turn ->
-                ApiChatMessage(
+                ApiChatMessage.text(
                     role = if (turn.role == ChatRole.USER) "user" else "assistant",
                     content = turn.content,
                 )
@@ -256,6 +389,7 @@ class ChatRepositoryImpl @Inject constructor(
             persona + "\n\n" + """
                 |You are Hero, the in-app assistant of GlucoseHero, a personal glucose logging app.
                 |Be concise, warm, and concrete. Ground every answer in the user's data below.
+                |Keep replies under roughly 100 words.
                 |You are not a medical professional: never give insulin dosing instructions or
                 |diagnoses, and remind the user to confirm treatment decisions with their care
                 |team when the topic calls for it.
@@ -403,7 +537,15 @@ class ChatRepositoryImpl @Inject constructor(
 
     private companion object {
         const val MAX_HISTORY_TURNS = 20
+        const val MAX_MANAGED_REPLY_TOKENS = 200
         const val FOOD_PATTERN_MIN_OCCURRENCES = 3
         const val FOOD_PATTERN_LIMIT = 3
+
+        const val MEAL_PHOTO_SYSTEM_PROMPT =
+            "You are Hero, the nutrition assistant inside GlucoseHero. Estimate the " +
+                "nutritional macros of the meal in the photo. Return ONLY a JSON object " +
+                "with exactly these keys: \"carbs_grams\" (integer), \"protein_grams\" " +
+                "(integer), \"fat_grams\" (integer), and \"description\" (a short phrase " +
+                "naming the meal). Do not add any text outside the JSON object."
     }
 }

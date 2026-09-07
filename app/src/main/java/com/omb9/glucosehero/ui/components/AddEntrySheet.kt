@@ -1,5 +1,9 @@
 package com.omb9.glucosehero.ui.components
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -30,6 +34,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bloodtype
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Mood
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.Button
@@ -62,11 +67,13 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import com.omb9.glucosehero.domain.model.ActivityIntensity
@@ -74,11 +81,14 @@ import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.domain.model.Metric
+import com.omb9.glucosehero.data.vision.MealPhotoCapture
 import com.omb9.glucosehero.ui.log.DraftEventState
 import com.omb9.glucosehero.ui.log.FoodLookupState
 import com.omb9.glucosehero.ui.log.LogViewModel
+import com.omb9.glucosehero.ui.log.MealPhotoState
 import com.omb9.glucosehero.ui.log.StreakReward
 import com.omb9.glucosehero.ui.log.filledMetrics
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.domain.model.FoodSource
@@ -114,6 +124,7 @@ fun AddEntrySheet(
     draft: DraftEventState,
     unit: GlucoseUnit,
     showAdvancedMacros: Boolean,
+    sendMealPhotosToHeroAi: Boolean,
     canSave: Boolean,
     postMealReminderEnabled: Boolean,
     onPostMealReminderChange: (Boolean) -> Unit,
@@ -151,6 +162,49 @@ fun AddEntrySheet(
     val selectedFood by viewModel.selectedFood.collectAsStateWithLifecycle()
     val foodLookupState by viewModel.foodLookupState.collectAsStateWithLifecycle()
     val showCrisisSupport by viewModel.showCrisisSupport.collectAsStateWithLifecycle()
+    val mealPhotoState by viewModel.mealPhotoState.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+
+    var photoDeniedFlag by remember { mutableStateOf(false) }
+
+    // Camera capture: permission is requested only when the button is tapped.
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicturePreview(),
+    ) { bitmap ->
+        if (bitmap != null) {
+            val dataUri = MealPhotoCapture.toDataUri(bitmap)
+            if (dataUri != null) {
+                viewModel.analyzeMealPhoto(dataUri)
+            } else {
+                viewModel.clearMealPhotoState()
+                photoDeniedFlag = true
+            }
+        } else {
+            viewModel.clearMealPhotoState()
+        }
+    }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            takePictureLauncher.launch(null)
+        } else {
+            viewModel.clearMealPhotoState()
+            photoDeniedFlag = true
+        }
+    }
+
+    val onCameraClick = {
+        photoDeniedFlag = false
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            takePictureLauncher.launch(null)
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
 
     val isLookingUp = foodLookupState is FoodLookupState.Loading
     val lookupMessage = when (val state = foodLookupState) {
@@ -242,7 +296,7 @@ fun AddEntrySheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
-                        placeholder = { Text("0", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        placeholder = { Text("Glucose", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         suffix = { Text(unit.label) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
@@ -323,6 +377,14 @@ fun AddEntrySheet(
                         lookupMessage = lookupMessage,
                         lookupIsError = lookupIsError,
                     )
+                    if (sendMealPhotosToHeroAi) {
+                        Spacer(Modifier.height(8.dp))
+                        MealPhotoCaptureRow(
+                            state = mealPhotoState,
+                            denied = photoDeniedFlag,
+                            onCameraClick = onCameraClick,
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = draft.carbsGrams,
@@ -330,7 +392,7 @@ fun AddEntrySheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
-                        placeholder = { Text("0", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        placeholder = { Text("Carbs (g)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         suffix = { Text("g") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
@@ -402,7 +464,7 @@ fun AddEntrySheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
-                        placeholder = { Text("0", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        placeholder = { Text("Minutes", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         suffix = { Text("min") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
@@ -565,3 +627,61 @@ private fun SuggestedBolusRow(
 
 private fun formatInsulinUnits(value: Double): String =
     if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+
+/**
+ * Camera affordance for the Meal path. Shows a tappable row that triggers the
+ * runtime camera permission (only on first tap), then captures a photo and
+ * hands it to Hero AI for a nutrition estimate. Image bytes stay in memory.
+ */
+@Composable
+private fun MealPhotoCaptureRow(
+    state: MealPhotoState,
+    denied: Boolean,
+    onCameraClick: () -> Unit,
+) {
+    Surface(
+        onClick = onCameraClick,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            when (state) {
+                is MealPhotoState.Analyzing -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    Text("Estimating meal…", style = MaterialTheme.typography.labelLarge)
+                }
+
+                else -> {
+                    Icon(
+                        imageVector = Icons.Filled.PhotoCamera,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text("Photo meal", style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
+    }
+
+    val message = when {
+        denied -> "Camera permission needed to photograph your meal."
+        state is MealPhotoState.Failed -> state.message
+        else -> null
+    }
+    if (message != null) {
+        Spacer(Modifier.height(4.dp))
+        Text(
+            message,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+}

@@ -31,14 +31,20 @@ import com.omb9.glucosehero.domain.model.UnitSystem
 import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.SettingsRepository
+import com.omb9.glucosehero.util.AiQuota
+import com.omb9.glucosehero.util.AiTier
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.work.HealthConnectSyncWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
@@ -57,6 +63,12 @@ data class BackupUiState(
     val backupDirUri: String? = null,
     val preview: BackupPreview? = null,
     val message: String? = null,
+)
+
+/** One-shot snackbar feedback for API key save attempts. */
+data class ApiKeySaveMessage(
+    val text: String,
+    val isError: Boolean = false,
 )
 
 @OptIn(FlowPreview::class)
@@ -99,6 +111,25 @@ class SettingsViewModel @Inject constructor(
 
     /** Whether the user owns an active Pro subscription. */
     val isPremium: StateFlow<Boolean> = billingRepository.isPremium
+
+    /** Remaining managed-tier AI calls today, or null when uncounted (BYOK). */
+    val heroAiRemainingCalls: StateFlow<Int?> = combine(
+        settingsRepository.aiConfig,
+        billingRepository.isPremium,
+        settingsDataStore.aiQuotaUsedToday,
+    ) { config, premium, used ->
+        val tier = if (config.provider == AiProvider.OPENROUTER && !config.hasApiKey) {
+            if (premium) AiTier.PRO else AiTier.FREE
+        } else {
+            AiTier.BYOK
+        }
+        AiQuota.remaining(tier, used)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private val _apiKeySaveMessages = MutableSharedFlow<ApiKeySaveMessage>(extraBufferCapacity = 1)
+
+    /** One-shot API key save feedback surfaced to the UI as a snackbar. */
+    val apiKeySaveMessages: SharedFlow<ApiKeySaveMessage> = _apiKeySaveMessages.asSharedFlow()
 
     /** Static availability snapshot — Health Connect's SDK status does not change at runtime. */
     val healthConnectAvailabilityStatus: HealthConnectStatus = healthConnectAvailability.status()
@@ -237,6 +268,9 @@ class SettingsViewModel @Inject constructor(
     fun setPostMealRemindersEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsRepository.setPostMealRemindersEnabled(enabled) }
 
+    fun setSendMealPhotosToHeroAi(enabled: Boolean) =
+        viewModelScope.launch { settingsRepository.setSendMealPhotosToHeroAi(enabled) }
+
     fun setProfileTarget(target: ProfileTarget) =
         viewModelScope.launch { settingsRepository.setProfileTarget(target) }
 
@@ -300,8 +334,33 @@ class SettingsViewModel @Inject constructor(
         modelInput.value = model
     }
 
-    fun saveApiKey(plainKey: String) =
-        viewModelScope.launch { settingsRepository.setApiKey(plainKey) }
+    fun saveApiKey(plainKey: String) {
+        val trimmed = plainKey.trim()
+        if (trimmed.isEmpty()) {
+            viewModelScope.launch {
+                _apiKeySaveMessages.emit(
+                    ApiKeySaveMessage("API key can't be empty.", isError = true),
+                )
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                settingsRepository.setApiKey(trimmed)
+                _apiKeySaveMessages.emit(ApiKeySaveMessage("API Key saved"))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _apiKeySaveMessages.emit(
+                    ApiKeySaveMessage(
+                        "Couldn't save API key: ${e.message ?: "Unknown error"}",
+                        isError = true,
+                    ),
+                )
+            }
+        }
+    }
 
     fun onPermissionsResult(granted: Set<String>) {
         val connected = granted.containsAll(readPermissions)
@@ -362,7 +421,9 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _backupMessage.value = null
             runCatching { backupManager.exportTo(uri) }
-                .onSuccess { _backupMessage.value = "Backup saved." }
+                .onSuccess { summary ->
+                    _backupMessage.value = "Backed up ${summary.counts.entries} entries."
+                }
                 .onFailure { _backupMessage.value = it.message ?: "Backup failed." }
         }
     }

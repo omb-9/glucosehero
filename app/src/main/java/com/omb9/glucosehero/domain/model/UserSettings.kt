@@ -47,4 +47,5 @@ data class UserSettings(
     val isHeroAiEnabled: Boolean = true,
     val showAdvancedMacros: Boolean = false,
     val postMealRemindersEnabled: Boolean = true,
+    val sendMealPhotosToHeroAi: Boolean = false,
 )

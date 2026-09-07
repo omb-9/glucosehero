@@ -29,7 +29,9 @@ import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.HeroAiPrefill
 import com.omb9.glucosehero.domain.model.LogEvent
 import com.omb9.glucosehero.domain.model.MealContext
+import com.omb9.glucosehero.domain.model.MealPhotoAnalysis
 import com.omb9.glucosehero.domain.model.UserSettings
+import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.glance.WidgetRefresher
@@ -108,12 +110,20 @@ data class StreakReward(
     val currentStreak: Int,
 )
 
+/** State of the in-memory meal-photo analysis pipeline (no DB writes). */
+sealed interface MealPhotoState {
+    data object Idle : MealPhotoState
+    data object Analyzing : MealPhotoState
+    data class Failed(val message: String) : MealPhotoState
+}
+
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class LogViewModel @Inject constructor(
     private val entryRepository: EntryRepository,
     private val entryDao: EntryDao,
     settingsRepository: SettingsRepository,
+    private val chatRepository: ChatRepository,
     private val heroAiPrefillCoordinator: HeroAiPrefillCoordinator,
     private val reminderScheduler: ReminderScheduler,
     private val widgetRefresher: WidgetRefresher,
@@ -153,6 +163,10 @@ class LogViewModel @Inject constructor(
     private val _draft = MutableStateFlow(DraftEventState())
     val draft: StateFlow<DraftEventState> = _draft.asStateFlow()
 
+    private val _mealPhotoState = MutableStateFlow<MealPhotoState>(MealPhotoState.Idle)
+    /** Progress of the in-flight meal-photo analysis, surfaced to the sheet. */
+    val mealPhotoState: StateFlow<MealPhotoState> = _mealPhotoState.asStateFlow()
+
     /** Food currently backing the draft, or null when the meal was typed by hand. */
     private val _selectedFood = MutableStateFlow<FoodEntity?>(null)
     val selectedFood: StateFlow<FoodEntity?> = _selectedFood.asStateFlow()
@@ -189,13 +203,68 @@ class LogViewModel @Inject constructor(
     private val _foodSearchQuery = MutableStateFlow("")
     val foodSearchQuery: StateFlow<String> = _foodSearchQuery.asStateFlow()
 
+    /**
+     * Open Food Facts products backing the live text-search results, keyed by
+     * barcode. Selecting a remote result reconstructs its [OffFoodDraft] from
+     * here to show the same review dialog a barcode scan does.
+     */
+    private val offSearchProducts = mutableMapOf<String, OffProduct>()
+
+    /**
+     * Debounced food search. Local matches come first (a food the user has saved
+     * is more likely what they want), then remote Open Food Facts name matches
+     * appended after them. Remote results are gated on the same privacy toggle
+     * as barcode lookup; an offline/error response degrades to local results
+     * with no error surfaced.
+     */
     val foodSearchResults: StateFlow<List<FoodEntity>> = _foodSearchQuery
         .debounce(300)
         .mapLatest { query ->
-            if (query.isBlank()) emptyList() else database.foodDao().search(query.trim())
+            val trimmed = query.trim()
+            offSearchProducts.clear()
+            if (trimmed.isBlank()) {
+                emptyList()
+            } else {
+                val local = database.foodDao().search(trimmed)
+                val localBarcodes = local.mapNotNull { it.barcode }.toSet()
+                val localNames = local.map { it.name.lowercase() }.toSet()
+                val remote = searchOpenFoodFacts(trimmed)
+                    .filter { it.barcode == null || it.barcode !in localBarcodes }
+                    .filter { it.name.lowercase() !in localNames }
+                local + remote
+            }
         }
         .flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Text search against Open Food Facts. Returns transient [FoodEntity] rows
+     * (id = 0, never persisted) for display only; selecting one routes through
+     * the [FoodLookupState.ConfirmOff] review dialog via [onFoodSelected].
+     *
+     * Gated on the same privacy toggle as barcode lookup and tolerant of
+     * failure: any error or offline condition yields an empty list so local
+     * results still surface on their own.
+     */
+    private suspend fun searchOpenFoodFacts(query: String): List<FoodEntity> {
+        if (!settingsDataStore.barcodeLookupEnabled.first()) return emptyList()
+        return try {
+            val response = openFoodFactsApi.search(query)
+            val body = response.body()
+            if (!response.isSuccessful || body == null) return emptyList()
+            body.products.mapNotNull { product ->
+                val name = product.productName?.trim().orEmpty()
+                if (name.isBlank()) return@mapNotNull null
+                val code = product.code?.trim()?.takeIf { it.isNotBlank() }
+                if (code != null) offSearchProducts[code] = product
+                product.toSearchResult()
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
 
     private val _foodLookupState = MutableStateFlow<FoodLookupState>(FoodLookupState.Idle)
     val foodLookupState: StateFlow<FoodLookupState> = _foodLookupState.asStateFlow()
@@ -360,7 +429,21 @@ class LogViewModel @Inject constructor(
         _draft.update { it.copy(postMealReminderEnabled = enabled) }
     }
 
-    fun onFoodSelected(food: FoodEntity) = applyFood(food)
+    fun onFoodSelected(food: FoodEntity) {
+        // Remote search rows are transient (id = 0) and resolve through the same
+        // review dialog as a barcode scan before anything is persisted.
+        val barcode = food.barcode
+        val product = if (food.id == 0L && food.source == FoodSource.OPEN_FOOD_FACTS) {
+            barcode?.let { offSearchProducts[it] }
+        } else {
+            null
+        }
+        if (product != null && barcode != null) {
+            _foodLookupState.value = FoodLookupState.ConfirmOff(product.toOffFoodDraft(barcode))
+            return
+        }
+        applyFood(food)
+    }
 
     fun onFoodSearchQueryChange(query: String) {
         _foodSearchQuery.value = query
@@ -502,6 +585,26 @@ class LogViewModel @Inject constructor(
         )
     }
 
+    /** Transient, display-only [FoodEntity] for a remote search result. */
+    private fun OffProduct.toSearchResult(): FoodEntity {
+        val n = nutriments
+        val carbs = n?.carbs100g ?: n?.carbsServing ?: 0.0
+        val barcode = code?.trim()?.takeIf { it.isNotBlank() }
+        return FoodEntity(
+            id = 0L,
+            name = productName?.trim().orEmpty(),
+            brand = brands?.trim()?.takeIf { it.isNotBlank() },
+            barcode = barcode,
+            carbsGrams = carbs,
+            proteinGrams = n?.protein100g ?: n?.proteinServing,
+            fatGrams = n?.fat100g ?: n?.fatServing,
+            kcal = n?.kcal100g ?: n?.kcalServing,
+            servingLabel = servingSize?.trim()?.takeIf { it.isNotBlank() },
+            source = FoodSource.OPEN_FOOD_FACTS,
+            createdAt = System.currentTimeMillis(),
+        )
+    }
+
     /** Starts a fresh draft with the user's saved reminder default applied. */
     fun openNewDraft(postMealReminderEnabled: Boolean) {
         _streakReward.value = null
@@ -538,6 +641,50 @@ class LogViewModel @Inject constructor(
 
     fun consumeHeroAiPrefill() {
         heroAiPrefillCoordinator.consumePrefill()
+    }
+
+    /**
+     * Sends the captured meal photo (a `data:` URI, in memory only) to Hero AI
+     * and pre-fills the draft with the returned macros + description. Gated on
+     * the privacy toggle upstream in the UI; the image bytes are never persisted.
+     */
+    fun analyzeMealPhoto(imageDataUri: String) {
+        if (_mealPhotoState.value is MealPhotoState.Analyzing) return
+        _mealPhotoState.value = MealPhotoState.Analyzing
+        viewModelScope.launch {
+            try {
+                val analysis = chatRepository.analyzeMealPhoto(imageDataUri)
+                applyMealPhotoAnalysis(analysis)
+                _mealPhotoState.value = MealPhotoState.Idle
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _mealPhotoState.value = MealPhotoState.Failed(
+                    e.message ?: "Couldn't estimate this meal."
+                )
+            }
+        }
+    }
+
+    /** Merges a photo analysis into the draft, switching to the Meal category. */
+    private fun applyMealPhotoAnalysis(analysis: MealPhotoAnalysis) {
+        _selectedFood.value = null
+        _foodLookupState.value = FoodLookupState.Idle
+        _draft.update { current ->
+            current.copy(
+                activeCategory = EntryType.MEAL,
+                carbsGrams = analysis.carbsGrams?.toString() ?: current.carbsGrams,
+                proteinGrams = analysis.proteinGrams?.toString() ?: current.proteinGrams,
+                fatGrams = analysis.fatGrams?.toString() ?: current.fatGrams,
+                mealDescription = analysis.description?.trim()?.takeIf { it.isNotBlank() }
+                    ?: current.mealDescription,
+            )
+        }
+    }
+
+    /** Resets any lingering photo-analysis status (e.g. when the sheet closes). */
+    fun clearMealPhotoState() {
+        _mealPhotoState.value = MealPhotoState.Idle
     }
 
     fun saveDraft(onSaved: () -> Unit) {

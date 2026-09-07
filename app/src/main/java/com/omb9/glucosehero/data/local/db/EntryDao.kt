@@ -3,6 +3,7 @@ package com.omb9.glucosehero.data.local.db
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.omb9.glucosehero.data.local.entity.EntryEntity
@@ -455,12 +456,13 @@ interface EntryDao {
     suspend fun insertAll(entities: List<EntryEntity>): List<Long>
 
     /**
-     * Health Connect record ids already present in the entries table. Used to
-     * dedupe imported nutrition/exercise entries without relying on a unique
-     * index on `hc_record_id` (the entries table deliberately has none).
+     * Conflict-ignore bulk insert keyed on the unique `hc_record_id` index.
+     * Re-importing the same Health Connect nutrition/exercise records silently
+     * skips rows whose `hc_record_id` already exists, so re-imports stay
+     * idempotent without the previous Kotlin-side dedup.
      */
-    @Query("SELECT hc_record_id FROM entries WHERE hc_record_id IN (:ids)")
-    suspend fun existingHcRecordIds(ids: List<String>): List<String>
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun upsertAll(entities: List<EntryEntity>): List<Long>
 
     /** Removes an imported entry by its Health Connect record id. */
     @Query("DELETE FROM entries WHERE hc_record_id = :hcRecordId")

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,10 +41,10 @@ interface SettingsScreenDataStoreEntryPoint {
 @Composable
 fun SettingsScreen(
     onManageFoods: () -> Unit,
+    onHeroAiSettings: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-    val aiConfig by viewModel.aiConfig.collectAsStateWithLifecycle()
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     val bolus by viewModel.bolusSettings.collectAsStateWithLifecycle()
     val healthConnectStatus = viewModel.healthConnectAvailabilityStatus
@@ -67,7 +68,12 @@ fun SettingsScreen(
         .collectAsStateWithLifecycle(initialValue = true)
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Settings") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings", style = MaterialTheme.typography.headlineMedium) },
+                windowInsets = WindowInsets(0, 0, 0, 0),
+            )
+        },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -126,22 +132,20 @@ fun SettingsScreen(
                 postMealRemindersEnabled = settings.postMealRemindersEnabled,
                 showAdvancedMacros = settings.showAdvancedMacros,
                 barcodeLookupEnabled = barcodeLookupEnabled,
+                sendMealPhotosToHeroAi = settings.sendMealPhotosToHeroAi,
                 onPostMealRemindersEnabledChange = viewModel::setPostMealRemindersEnabled,
                 onShowAdvancedMacrosChange = viewModel::setShowAdvancedMacros,
                 onBarcodeLookupChange = { enabled ->
                     scope.launch { settingsDataStore.setBarcodeLookupEnabled(enabled) }
                 },
+                onSendMealPhotosToHeroAiChange = viewModel::setSendMealPhotosToHeroAi,
                 onManageFoods = onManageFoods,
             )
 
-            AiAssistantSection(
-                isEnabled = settings.isHeroAiEnabled,
-                aiConfig = aiConfig,
-                onEnabledChange = viewModel::setIsHeroAiEnabled,
-                onProviderChange = viewModel::setAiProvider,
-                onBaseUrlChange = viewModel::setAiBaseUrl,
-                onModelChange = viewModel::setAiModel,
-                onSaveApiKey = viewModel::saveApiKey,
+            SectionHeader("Hero AI")
+            NavigationRow(
+                title = "Hero AI",
+                onClick = onHeroAiSettings,
             )
 
             SectionHeader("Data & Backup")
@@ -173,7 +177,7 @@ fun SettingsScreen(
             ) {
                 Text(
                     "GlucoseHero is a logging tool, not a medical device. Hero's " +
-                        "answers are informational — always confirm treatment " +
+                        "answers are informational. Always confirm treatment " +
                         "decisions with your care team.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

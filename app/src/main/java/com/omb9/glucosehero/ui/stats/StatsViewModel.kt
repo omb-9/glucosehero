@@ -37,6 +37,7 @@ import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.GlucoseRangeColor
 import com.omb9.glucosehero.util.RangeCategory
 import com.omb9.glucosehero.util.SupplyCalculator
+import com.omb9.glucosehero.util.TagExtractor
 import com.omb9.glucosehero.util.adagPercentage
 import com.omb9.glucosehero.util.gmiPercentage
 import com.omb9.glucosehero.util.shouldUseGmi
@@ -210,6 +211,19 @@ class StatsViewModel @Inject constructor(
             .filter { it.kind != TagKind.MOOD }
             .toDisplayableTags(dismissed, settings.unit)
             .take(FOOD_IMPACT_PREVIEW_LIMIT)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Single strongest mood association for the Stats preview, prefix stripped. */
+    val moodImpactTags: StateFlow<List<TagImpactUi>> = combine(
+        tagAnalyticDao.observeAll(),
+        settingsDataStore.settings,
+        settingsDataStore.dismissedFoodTags,
+    ) { entities, settings, dismissed ->
+        entities
+            .filter { it.kind == TagKind.MOOD }
+            .toDisplayableTags(dismissed, settings.unit)
+            .map { it.copy(tag = it.tag.removePrefix(TagExtractor.MOOD_TAG_PREFIX)) }
+            .take(MOOD_IMPACT_PREVIEW_LIMIT)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Active supply cards, with lifecycle math evaluated on each emission and
@@ -605,5 +619,6 @@ class StatsViewModel @Inject constructor(
         const val MIN_CONFIDENT_READINGS = 20
         const val INSIGHT_LIMIT = 5
         const val FOOD_IMPACT_PREVIEW_LIMIT = 3
+        const val MOOD_IMPACT_PREVIEW_LIMIT = 1
     }
 }

@@ -45,6 +45,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun setPostMealRemindersEnabled(enabled: Boolean) =
         dataStore.setPostMealRemindersEnabled(enabled)
 
+    override suspend fun setSendMealPhotosToHeroAi(enabled: Boolean) =
+        dataStore.setSendMealPhotosToHeroAi(enabled)
+
     override suspend fun setProfileTarget(target: ProfileTarget) =
         dataStore.setProfileTarget(target)
 

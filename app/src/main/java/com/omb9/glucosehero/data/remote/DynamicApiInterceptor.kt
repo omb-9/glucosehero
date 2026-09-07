@@ -44,9 +44,15 @@ class DynamicApiInterceptor @Inject constructor(
             .header("Authorization", "Bearer ${config.apiKey}")
 
         if (base.host.contains("openrouter.ai")) {
-            builder.header("X-Title", "GlucoseHero")
+            builder.header("HTTP-Referer", OPENROUTER_REFERER)
+            builder.header("X-Title", OPENROUTER_TITLE)
         }
 
         return chain.proceed(builder.build())
+    }
+
+    private companion object {
+        const val OPENROUTER_REFERER = "https://glucosehero.app"
+        const val OPENROUTER_TITLE = "GlucoseHero"
     }
 }

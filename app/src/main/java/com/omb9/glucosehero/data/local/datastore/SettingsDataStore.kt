@@ -21,6 +21,7 @@ import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.model.UserSettings
+import com.omb9.glucosehero.util.AiQuota
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -49,8 +50,11 @@ class SettingsDataStore @Inject constructor(
         val AI_BASE_URL = stringPreferencesKey("ai_base_url")
         val AI_MODEL = stringPreferencesKey("ai_model")
         val AI_API_KEY_ENC = stringPreferencesKey("ai_api_key_enc")
+        val AI_QUOTA_COUNT = intPreferencesKey("ai_quota_count")
+        val AI_QUOTA_DAY = stringPreferencesKey("ai_quota_day")
         val SHOW_ADVANCED_MACROS = booleanPreferencesKey("show_advanced_macros")
         val POST_MEAL_REMINDERS_ENABLED = booleanPreferencesKey("post_meal_reminders_enabled")
+        val SEND_MEAL_PHOTOS_TO_HERO_AI = booleanPreferencesKey("send_meal_photos_to_hero_ai")
         val PROFILE_TARGET = stringPreferencesKey("profile_target")
         val PROFILE_NAME = stringPreferencesKey("profile_name")
         val PROFILE_AGE = intPreferencesKey("profile_age")
@@ -113,6 +117,7 @@ class SettingsDataStore @Inject constructor(
             isHeroAiEnabled = runCatching { p[Keys.HERO_AI_ENABLED] }.getOrNull() ?: true,
             showAdvancedMacros = runCatching { p[Keys.SHOW_ADVANCED_MACROS] }.getOrNull() ?: false,
             postMealRemindersEnabled = runCatching { p[Keys.POST_MEAL_REMINDERS_ENABLED] }.getOrNull() ?: true,
+            sendMealPhotosToHeroAi = runCatching { p[Keys.SEND_MEAL_PHOTOS_TO_HERO_AI] }.getOrNull() ?: false,
             targetLowMgdl = runCatching { p[Keys.TARGET_LOW] }.getOrNull() ?: 70f,
             targetHighMgdl = runCatching { p[Keys.TARGET_HIGH] }.getOrNull() ?: 180f,
         )
@@ -128,6 +133,9 @@ class SettingsDataStore @Inject constructor(
     }
 
     val aiConfig: Flow<AiConfig> = safeData.map { p -> p.toAiConfig() }
+
+    /** Effective "used today" count after applying the local-day reset rule. */
+    val aiQuotaUsedToday: Flow<Int> = safeData.map { p -> p.aiQuotaUsedToday() }
 
     val profile: Flow<UserProfile> = safeData.map { p -> p.toUserProfile() }
 
@@ -190,6 +198,18 @@ class SettingsDataStore @Inject constructor(
         runCatching { safeData.first()[Keys.AI_API_KEY_ENC] }
             .getOrNull()?.takeIf { it.isNotBlank() }
 
+    suspend fun aiQuotaUsedTodaySnapshot(): Int = safeData.first().aiQuotaUsedToday()
+
+    private fun Preferences.aiQuotaUsedToday(): Int {
+        val storedDay = runCatching { this[Keys.AI_QUOTA_DAY] }.getOrNull()
+        val today = AiQuota.todayDay()
+        return if (AiQuota.shouldReset(storedDay, today)) {
+            0
+        } else {
+            runCatching { this[Keys.AI_QUOTA_COUNT] }.getOrNull() ?: 0
+        }
+    }
+
     private fun Preferences.toAiConfig(): AiConfig {
         val provider = runCatching { this[Keys.AI_PROVIDER] }
             .getOrNull().toEnum(AiProvider.GEMINI)
@@ -229,6 +249,9 @@ class SettingsDataStore @Inject constructor(
     suspend fun setShowAdvancedMacros(enabled: Boolean) = edit { it[Keys.SHOW_ADVANCED_MACROS] = enabled }
     suspend fun setPostMealRemindersEnabled(enabled: Boolean) =
         edit { it[Keys.POST_MEAL_REMINDERS_ENABLED] = enabled }
+
+    suspend fun setSendMealPhotosToHeroAi(enabled: Boolean) =
+        edit { it[Keys.SEND_MEAL_PHOTOS_TO_HERO_AI] = enabled }
 
     suspend fun setBarcodeLookupEnabled(enabled: Boolean) =
         edit { it[Keys.BARCODE_LOOKUP_ENABLED] = enabled }
@@ -323,6 +346,16 @@ class SettingsDataStore @Inject constructor(
     suspend fun setEncryptedApiKey(encrypted: String?) = edit {
         if (encrypted.isNullOrBlank()) it.remove(Keys.AI_API_KEY_ENC)
         else it[Keys.AI_API_KEY_ENC] = encrypted
+    }
+
+    /**
+     * Increments the managed-tier AI call counter and stamps the local day it
+     * now belongs to. Callers must only invoke this after a successful response.
+     */
+    suspend fun incrementAiQuota() = edit { prefs ->
+        val effective = prefs.aiQuotaUsedToday()
+        prefs[Keys.AI_QUOTA_DAY] = AiQuota.todayDay()
+        prefs[Keys.AI_QUOTA_COUNT] = effective + 1
     }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {

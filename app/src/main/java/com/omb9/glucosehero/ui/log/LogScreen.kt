@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -119,7 +120,8 @@ fun LogScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Log") },
+                title = { Text("Log", style = MaterialTheme.typography.headlineMedium) },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 actions = {
                     IconButton(
                         onClick = {
@@ -266,6 +268,7 @@ fun LogScreen(
             draft = draft,
             unit = settings.unit,
             showAdvancedMacros = settings.showAdvancedMacros,
+            sendMealPhotosToHeroAi = settings.sendMealPhotosToHeroAi,
             canSave = canSave,
             postMealReminderEnabled = draft.postMealReminderEnabled,
             onPostMealReminderChange = viewModel::onPostMealReminderChange,

@@ -33,6 +33,7 @@ interface SettingsRepository {
     suspend fun setIsHeroAiEnabled(enabled: Boolean)
     suspend fun setShowAdvancedMacros(enabled: Boolean)
     suspend fun setPostMealRemindersEnabled(enabled: Boolean)
+    suspend fun setSendMealPhotosToHeroAi(enabled: Boolean)
 
     suspend fun setProfileTarget(target: ProfileTarget)
     suspend fun setProfileName(name: String)

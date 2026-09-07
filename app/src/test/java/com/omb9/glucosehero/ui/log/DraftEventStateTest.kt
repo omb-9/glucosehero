@@ -59,7 +59,9 @@ class DraftEventStateTest {
         assertNull(DraftEventState(glucose = "0").toLogEvent(mgdl, now))
         assertNull(DraftEventState(insulinBasal = "0").toLogEvent(mgdl, now))
         assertNull(DraftEventState(insulinBolus = "0").toLogEvent(mgdl, now))
-        assertNull(DraftEventState(carbsGrams = "0").toLogEvent(mgdl, now))
+        // An explicit "0" carbs is a real statement (0 carbs eaten) and must save as 0,
+        // not be discarded like an empty field.
+        assertEquals(0, DraftEventState(carbsGrams = "0").toLogEvent(mgdl, now)?.carbsGrams)
     }
 
     @Test

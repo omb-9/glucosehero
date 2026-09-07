@@ -78,7 +78,9 @@ fun DraftEventState.toLogEvent(settings: UserSettings, now: Long): LogEvent? {
 
     val carbsValue: Int? = when {
         carbsGrams.isBlank() -> null
-        else -> carbsGrams.trim().toIntOrNull()?.takeIf { it > 0 } ?: return null
+        // Zero is an explicit, meaningful statement ("I ate 0 carbs") and must
+        // survive as 0 — distinct from the empty/blank case above, which is null.
+        else -> carbsGrams.trim().toIntOrNull()?.takeIf { it >= 0 } ?: return null
     }
 
     val proteinValue: Int? = when {
