@@ -607,7 +607,7 @@ class LogViewModel @Inject constructor(
         _draft.update {
             it.copy(
                 activeCategory = EntryType.MEAL,
-                carbsGrams = trim(food.carbsGrams),
+                carbsGrams = if (food.hasMissingCarbs) "" else trim(food.carbsGrams),
                 proteinGrams = food.proteinGrams?.let(::trim) ?: "",
                 fatGrams = food.fatGrams?.let(::trim) ?: "",
                 mealDescription = food.name,
@@ -757,7 +757,9 @@ class LogViewModel @Inject constructor(
         if (_draft.value.isSaving) return
         _showCrisisSupport.value = false
         _draft.update { it.copy(isSaving = true) }
+        val foodId = _selectedFood.value?.id?.takeIf { it > 0L }
         val event = _draft.value.toLogEvent(settings.value, System.currentTimeMillis())
+            ?.copy(foodId = foodId)
         if (event == null) {
             _draft.update { it.copy(isSaving = false) }
             return

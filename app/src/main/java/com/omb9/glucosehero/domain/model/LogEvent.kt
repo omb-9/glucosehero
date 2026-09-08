@@ -35,6 +35,8 @@ data class LogEvent(
     val note: String? = null,
     val moodScore: Int? = null,
     val moodLabel: String? = null,
+    /** Saved-food library row this meal was picked from, if any. */
+    val foodId: Long? = null,
     val source: EntrySource = EntrySource.MANUAL,
 ) {
     val isEmpty: Boolean

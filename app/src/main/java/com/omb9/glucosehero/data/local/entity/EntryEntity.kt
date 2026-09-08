@@ -69,6 +69,7 @@ fun EntryEntity.toDomain() = LogEvent(
     note = note,
     moodScore = moodScore,
     moodLabel = moodLabel,
+    foodId = foodId,
 )
 
 fun LogEvent.toEntity() = EntryEntity(
@@ -87,4 +88,5 @@ fun LogEvent.toEntity() = EntryEntity(
     note = note,
     moodScore = moodScore,
     moodLabel = moodLabel,
+    foodId = foodId,
 )
