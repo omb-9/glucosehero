@@ -1,5 +1,6 @@
 package com.omb9.glucosehero.ui.log
 
+import com.omb9.glucosehero.data.local.entity.toEntity
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.UserSettings
 import org.junit.Assert.assertEquals
@@ -90,6 +91,17 @@ class DraftEventStateTest {
     @Test
     fun `carbs negative returns null`() {
         assertNull(DraftEventState(carbsGrams = "-1").toLogEvent(mgdl, now))
+    }
+
+    @Test
+    fun `copied foodId survives toEntity`() {
+        val event = DraftEventState(carbsGrams = "30", mealDescription = "Pizza")
+            .toLogEvent(mgdl, now)!!
+            .copy(foodId = 42L)
+        val entity = event.toEntity()
+        assertEquals(42L, entity.foodId)
+        assertEquals("Pizza", entity.mealDescription)
+        assertEquals(30, entity.carbsGrams)
     }
 
     @Test

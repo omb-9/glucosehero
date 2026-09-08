@@ -91,7 +91,6 @@ import com.omb9.glucosehero.ui.log.filledMetrics
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.omb9.glucosehero.domain.model.FoodSource
 
 private data class Category(
     val type: EntryType,
@@ -378,6 +377,7 @@ fun AddEntrySheet(
                         isLookingUp = isLookingUp,
                         lookupMessage = lookupMessage,
                         lookupIsError = lookupIsError,
+                        selectedFood = selectedFood,
                     )
                     if (sendMealPhotosToHeroAi) {
                         Spacer(Modifier.height(8.dp))
@@ -446,17 +446,12 @@ fun AddEntrySheet(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     )
                     Spacer(Modifier.height(8.dp))
-                    if (selectedFood == null &&
-                        draft.carbsGrams.isNotBlank() &&
-                        draft.mealDescription.isNotBlank()
-                    ) {
-                        TextButton(onClick = viewModel::saveAsFood) {
-                            Text("Save this as a food")
-                        }
-                    }
-                    if (selectedFood?.source == FoodSource.OPEN_FOOD_FACTS) {
-                        OffAttribution(Modifier.padding(top = 4.dp))
-                    }
+                    SaveDraftAsFoodButton(
+                        visible = selectedFood == null &&
+                            draft.carbsGrams.isNotBlank() &&
+                            draft.mealDescription.isNotBlank(),
+                        onClick = viewModel::saveAsFood,
+                    )
                 }
 
                 EntryType.ACTIVITY -> {
