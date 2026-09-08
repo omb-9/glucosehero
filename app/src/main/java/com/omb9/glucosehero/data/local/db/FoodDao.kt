@@ -15,6 +15,11 @@ interface FoodDao {
     @Insert
     suspend fun insert(food: FoodEntity): Long
 
+    /**
+     * Inserts a fetched Open Food Facts product. Duplicate barcodes are ignored
+     * so a race with a cache hit cannot wipe [FoodEntity.useCount], uuid, or
+     * user corrections. Returns `-1` when the barcode is already stored.
+     */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIgnore(food: FoodEntity): Long
 
@@ -28,9 +33,8 @@ interface FoodDao {
     suspend fun update(food: FoodEntity)
 
     /**
-     * Persists an Open Food Facts product without clobbering a row the user
-     * already has. Duplicate barcodes are ignored so uuid, use count, and
-     * manual corrections stay intact.
+     * Writes [food] into the local library if its barcode is not already cached.
+     * Repeat scans must reuse the existing row instead of replacing it.
      */
     @Transaction
     suspend fun cacheOffProduct(food: FoodEntity): FoodEntity {
@@ -61,20 +65,17 @@ interface FoodDao {
     suspend fun search(query: String): List<FoodEntity>
 
     @Query("SELECT * FROM foods ORDER BY use_count DESC LIMIT :limit")
-    suspend fun recent(limit: Int = 12): List<FoodEntity>
-
-    @Query("SELECT * FROM foods ORDER BY id LIMIT :limit OFFSET :offset")
-    suspend fun pageForExport(limit: Int, offset: Int): List<FoodEntity>
-
-    @Query("SELECT COUNT(*) FROM foods")
-    suspend fun countAll(): Int
-
-    @Query("SELECT * FROM foods ORDER BY id")
-    suspend fun getAll(): List<FoodEntity>
+    suspend fun recent(limit: Int = 20): List<FoodEntity>
 
     @Query("UPDATE foods SET use_count = use_count + 1, last_used_at = :now WHERE id = :id")
     suspend fun recordUse(id: Long, now: Long)
 
+    /**
+     * Updates Open Food Facts product data strictly when the row has NOT been
+     * corrected by the user (`user_corrected = 0`). Never overwrites a
+     * user-corrected row. Returns the number of updated rows (0 if
+     * user_corrected was 1 or the food was not found).
+     */
     @Query(
         """
         UPDATE foods SET name = :name, brand = :brand, carbs_grams = :carbsGrams,
@@ -118,6 +119,17 @@ interface FoodDao {
         servingLabel: String?,
         offFetchedAt: Long,
     ): Int
+
+    // ---------- Backup/export paged reads (additive) ----------
+
+    @Query("SELECT * FROM foods ORDER BY id LIMIT :limit OFFSET :offset")
+    suspend fun pageForExport(limit: Int, offset: Int): List<FoodEntity>
+
+    @Query("SELECT COUNT(*) FROM foods")
+    suspend fun countAll(): Int
+
+    @Query("SELECT * FROM foods ORDER BY id")
+    suspend fun getAll(): List<FoodEntity>
 
     @Query("DELETE FROM foods")
     suspend fun clear()
