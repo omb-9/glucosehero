@@ -99,6 +99,15 @@ object Formatters {
         return "$sign${glucose(mgdl, unit)} ${unit.label}"
     }
 
+    /**
+     * Insulin bolus amount. Averages always keep one decimal so "4.2 units"
+     * and "4.0 units" read the same way.
+     */
+    fun bolus(units: Double): String = "%.1f units".format(units)
+
+    /** Carbohydrate amount in grams, nearest gram. */
+    fun carbs(grams: Double): String = "${grams.roundToInt()} g"
+
     fun toDisplayValue(mgdl: Double, unit: GlucoseUnit): Double = when (unit) {
         GlucoseUnit.MGDL -> mgdl
         GlucoseUnit.MMOL -> mgdl / GlucoseUnit.MGDL_PER_MMOL

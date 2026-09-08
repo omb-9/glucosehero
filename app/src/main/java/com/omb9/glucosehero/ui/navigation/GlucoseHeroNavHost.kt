@@ -117,6 +117,7 @@ fun GlucoseHeroNavHost(
             composable(Routes.LOG) {
                 LogScreen(
                     onEntryClick = { id -> navController.navigate(Routes.entryDetail(id)) },
+                    onManageFoods = { navController.navigate(Routes.FOOD_LIBRARY) },
                     addGlucoseTick = addGlucoseTick,
                     addMealTick = addMealTick,
                     addBolusTick = addBolusTick,

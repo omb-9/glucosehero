@@ -9,6 +9,7 @@ import com.omb9.glucosehero.data.local.db.GlucoseSampleDao
 import com.omb9.glucosehero.data.local.db.InsightDao
 import com.omb9.glucosehero.data.local.db.PendingAiQueryDao
 import com.omb9.glucosehero.data.local.db.SupplyDao
+import com.omb9.glucosehero.data.local.db.TagAnalyticDao
 import com.omb9.glucosehero.data.local.db.migration.Migration1To2
 import com.omb9.glucosehero.data.local.db.migration.Migration2To3
 import com.omb9.glucosehero.data.local.db.migration.Migration3To4
@@ -61,4 +62,7 @@ object DatabaseModule {
 
     @Provides
     fun provideGlucoseSampleDao(db: GlucoseHeroDatabase): GlucoseSampleDao = db.glucoseSampleDao()
+
+    @Provides
+    fun provideTagAnalyticDao(db: GlucoseHeroDatabase): TagAnalyticDao = db.tagAnalyticDao()
 }

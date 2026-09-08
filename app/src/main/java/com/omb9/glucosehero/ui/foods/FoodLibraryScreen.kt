@@ -1,11 +1,13 @@
 package com.omb9.glucosehero.ui.foods
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,10 +15,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Restaurant
@@ -26,34 +30,42 @@ import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.data.local.entity.FoodEntity
+import com.omb9.glucosehero.domain.model.FoodSource
 import com.omb9.glucosehero.util.Formatters
 
 /**
- * Standalone library for browsing, searching, favoriting, editing, and
- * deleting saved foods. Independent of the in-sheet picker owned by the
- * Add Entry flow.
+ * Saved-foods library: search, favorite, edit, and delete. Default order is
+ * [FoodEntity.useCount] descending from [com.omb9.glucosehero.data.local.db.FoodDao.observeAll].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +78,14 @@ fun FoodLibraryScreen(
     val pendingDelete by viewModel.pendingDelete.collectAsStateWithLifecycle()
     val offRefresh by viewModel.offRefresh.collectAsStateWithLifecycle()
     var editingFood by remember { mutableStateOf<FoodEntity?>(null) }
+    var favoritesOnly by rememberSaveable { mutableStateOf(false) }
+
+    val displayedFoods = remember(foods, favoritesOnly) {
+        if (favoritesOnly) foods.filter { it.isFavorite } else foods
+    }
+
+    val accent = MaterialTheme.colorScheme.primary
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
     LaunchedEffect(offRefresh) {
         val refreshed = (offRefresh as? OffRefreshState.Success)?.food ?: return@LaunchedEffect
@@ -73,9 +93,11 @@ fun FoodLibraryScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Food Library") },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -84,6 +106,11 @@ fun FoodLibraryScreen(
                         )
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                ),
             )
         },
     ) { padding ->
@@ -98,22 +125,60 @@ fun FoodLibraryScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Search foods") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                placeholder = { Text("Search foods", color = muted) },
+                leadingIcon = {
+                    Icon(Icons.Filled.Search, contentDescription = null, tint = muted)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotBlank()) {
+                        IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = "Clear search",
+                                tint = muted,
+                            )
+                        }
+                    }
+                },
                 singleLine = true,
+                colors = libraryFieldColors(accent),
+            )
+
+            FilterChip(
+                selected = favoritesOnly,
+                onClick = { favoritesOnly = !favoritesOnly },
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+                label = { Text("Favorites") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = if (favoritesOnly) Icons.Filled.Star else Icons.Filled.StarBorder,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    labelColor = MaterialTheme.colorScheme.onSurface,
+                    iconColor = muted,
+                    selectedContainerColor = accent.copy(alpha = 0.18f),
+                    selectedLabelColor = accent,
+                    selectedLeadingIconColor = accent,
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = favoritesOnly,
+                    borderColor = MaterialTheme.colorScheme.outline,
+                    selectedBorderColor = accent,
+                ),
             )
 
             when {
-                foods.isEmpty() && searchQuery.isBlank() -> EmptyLibraryState()
-
-                foods.isEmpty() -> NoSearchResultsState()
-
-                else -> LazyColumn(
+                displayedFoods.isNotEmpty() -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(foods, key = { it.id }) { food ->
+                    items(displayedFoods, key = { it.id }) { food ->
                         FoodRow(
                             food = food,
                             onClick = { editingFood = food },
@@ -122,6 +187,12 @@ fun FoodLibraryScreen(
                         )
                     }
                 }
+
+                searchQuery.isNotBlank() -> NoSearchResultsState()
+
+                favoritesOnly -> NoFavoritesState()
+
+                else -> EmptyLibraryState()
             }
         }
     }
@@ -146,6 +217,7 @@ fun FoodLibraryScreen(
     pendingDelete?.let { food ->
         AlertDialog(
             onDismissRequest = viewModel::dismissDelete,
+            containerColor = MaterialTheme.colorScheme.surface,
             title = { Text("Delete food?") },
             text = { Text("This removes \"${food.name}\" from your library.") },
             confirmButton = {
@@ -155,7 +227,7 @@ fun FoodLibraryScreen(
             },
             dismissButton = {
                 TextButton(onClick = viewModel::dismissDelete) {
-                    Text("Cancel")
+                    Text("Cancel", color = muted)
                 }
             },
         )
@@ -169,12 +241,15 @@ private fun FoodRow(
     onToggleFavorite: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val accent = MaterialTheme.colorScheme.primary
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Row(
             modifier = Modifier.padding(start = 14.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
@@ -188,15 +263,18 @@ private fun FoodRow(
                 Text(
                     food.name,
                     style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 val subtitle = foodSubtitle(food)
                 if (subtitle.isNotBlank()) {
                     Text(
                         subtitle,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = muted,
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -209,11 +287,7 @@ private fun FoodRow(
                     } else {
                         "Add to favorites"
                     },
-                    tint = if (food.isFavorite) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    tint = if (food.isFavorite) accent else muted,
                 )
             }
 
@@ -221,7 +295,7 @@ private fun FoodRow(
                 Icon(
                     Icons.Filled.Delete,
                     contentDescription = "Delete food",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = muted,
                 )
             }
         }
@@ -244,6 +318,11 @@ private fun FoodEditDialog(
     }
     var protein by remember(food) { mutableStateOf(food.proteinGrams?.let(::formatMacro).orEmpty()) }
     var fat by remember(food) { mutableStateOf(food.fatGrams?.let(::formatMacro).orEmpty()) }
+    var kcal by remember(food) { mutableStateOf(food.kcal?.let(::formatMacro).orEmpty()) }
+
+    val accent = MaterialTheme.colorScheme.primary
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val fieldColors = libraryFieldColors(accent)
 
     val carbsInvalid = carbs.isBlank() || Formatters.parseDecimal(carbs)?.takeIf { it > 0 } == null
     val canSave = !carbsInvalid && name.isNotBlank()
@@ -254,6 +333,7 @@ private fun FoodEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
         title = { Text("Edit food") },
         text = {
             Column(
@@ -266,6 +346,7 @@ private fun FoodEditDialog(
                     label = { Text("Name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors,
                 )
 
                 OutlinedTextField(
@@ -274,6 +355,7 @@ private fun FoodEditDialog(
                     label = { Text("Brand") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors,
                 )
 
                 OutlinedTextField(
@@ -282,6 +364,7 @@ private fun FoodEditDialog(
                     label = { Text("Serving") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors,
                 )
 
                 OutlinedTextField(
@@ -295,6 +378,7 @@ private fun FoodEditDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors,
                 )
 
                 OutlinedTextField(
@@ -304,6 +388,7 @@ private fun FoodEditDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors,
                 )
 
                 OutlinedTextField(
@@ -313,6 +398,17 @@ private fun FoodEditDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors,
+                )
+
+                OutlinedTextField(
+                    value = kcal,
+                    onValueChange = { kcal = it },
+                    label = { Text("Calories (kcal)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = fieldColors,
                 )
 
                 if (showRefresh) {
@@ -325,12 +421,14 @@ private fun FoodEditDialog(
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
+                                color = accent,
                             )
                         } else {
                             Icon(
                                 Icons.Filled.Refresh,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
+                                tint = if (canRefresh) accent else muted,
                             )
                         }
                         Text(
@@ -340,15 +438,16 @@ private fun FoodEditDialog(
                                 "Refresh from Open Food Facts"
                             },
                             modifier = Modifier.padding(start = 8.dp),
+                            color = if (canRefresh) accent else muted,
                         )
                     }
                     val refreshMessage = when (refreshState) {
                         is OffRefreshState.Success -> "Updated from Open Food Facts."
                         OffRefreshState.KeptLocalEdits ->
-                            "Your edits are kept — Open Food Facts won't overwrite them."
+                            "Your edits are kept. Open Food Facts won't overwrite them."
                         is OffRefreshState.Failed -> refreshState.message
                         else -> if (food.userCorrected) {
-                            "Your edits are kept — Open Food Facts won't overwrite them."
+                            "Your edits are kept. Open Food Facts won't overwrite them."
                         } else {
                             null
                         }
@@ -360,10 +459,18 @@ private fun FoodEditDialog(
                             color = if (refreshState is OffRefreshState.Failed) {
                                 MaterialTheme.colorScheme.error
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                                muted
                             },
                         )
                     }
+                }
+
+                if (food.source == FoodSource.OPEN_FOOD_FACTS) {
+                    Text(
+                        "Nutrition data from Open Food Facts",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = muted,
+                    )
                 }
             }
         },
@@ -380,13 +487,14 @@ private fun FoodEditDialog(
                             carbsGrams = parsedCarbs,
                             proteinGrams = Formatters.parseDecimal(protein)?.takeIf { it > 0 },
                             fatGrams = Formatters.parseDecimal(fat)?.takeIf { it > 0 },
+                            kcal = Formatters.parseDecimal(kcal)?.takeIf { it > 0 },
                             userCorrected = true,
                         ),
                     )
                 },
                 enabled = canSave && refreshState !is OffRefreshState.Loading,
             ) {
-                Text("Save")
+                Text("Save", color = if (canSave) accent else muted)
             }
         },
         dismissButton = {
@@ -394,7 +502,7 @@ private fun FoodEditDialog(
                 onClick = onDismiss,
                 enabled = refreshState !is OffRefreshState.Loading,
             ) {
-                Text("Cancel")
+                Text("Cancel", color = muted)
             }
         },
     )
@@ -402,58 +510,78 @@ private fun FoodEditDialog(
 
 @Composable
 private fun EmptyLibraryState() {
+    LibraryEmptyState(
+        icon = Icons.Filled.Restaurant,
+        title = "No saved foods yet",
+        body = "Foods you save while logging will show up here.",
+    )
+}
+
+@Composable
+private fun NoSearchResultsState() {
+    LibraryEmptyState(
+        icon = Icons.Filled.Search,
+        title = "No foods found",
+        body = "Try a different search.",
+    )
+}
+
+@Composable
+private fun NoFavoritesState() {
+    LibraryEmptyState(
+        icon = Icons.Filled.StarBorder,
+        title = "No favorites yet",
+        body = "Star foods you reach for often.",
+    )
+}
+
+@Composable
+private fun LibraryEmptyState(
+    icon: ImageVector,
+    title: String,
+    body: String,
+) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
         Column(
+            modifier = Modifier.padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Icon(
-                Icons.Filled.Restaurant,
+                icon,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                tint = muted.copy(alpha = 0.4f),
             )
-            Text("No saved foods yet", style = MaterialTheme.typography.titleMedium)
             Text(
-                "Foods you save while logging will show up here.",
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                body,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = muted,
             )
         }
     }
 }
 
 @Composable
-private fun NoSearchResultsState() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                Icons.Filled.Search,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            )
-            Text("No foods found", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Try a different search.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
+private fun libraryFieldColors(accent: Color) =
+    OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = accent,
+        cursorColor = accent,
+        focusedLabelColor = accent,
+    )
 
 private fun foodSubtitle(food: FoodEntity): String = buildList {
     food.brand?.takeIf { it.isNotBlank() }?.let { add(it) }
+    food.servingLabel?.takeIf { it.isNotBlank() }?.let { add(it) }
     if (food.hasMissingCarbs) {
         add("No carb data")
     } else {
@@ -461,6 +589,7 @@ private fun foodSubtitle(food: FoodEntity): String = buildList {
     }
     food.proteinGrams?.let { add("${formatMacro(it)}g protein") }
     food.fatGrams?.let { add("${formatMacro(it)}g fat") }
+    if (food.useCount > 0) add("Used ${food.useCount}×")
 }.joinToString(" · ")
 
 private fun formatMacro(value: Double): String =

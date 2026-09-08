@@ -64,6 +64,7 @@ data class BackupUiState(
     val backupDirUri: String? = null,
     val preview: BackupPreview? = null,
     val message: String? = null,
+    val hasSnapshot: Boolean = false,
 )
 
 /** One-shot snackbar feedback for API key save attempts. */
@@ -149,6 +150,9 @@ class SettingsViewModel @Inject constructor(
     private val _healthConnectSampleCount = MutableStateFlow(0)
     val healthConnectSampleCount: StateFlow<Int> = _healthConnectSampleCount.asStateFlow()
 
+    val barcodeLookupEnabled: StateFlow<Boolean> = settingsDataStore.barcodeLookupEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     val glucoseImportEnabled: StateFlow<Boolean> = settingsDataStore.glucoseImportEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
@@ -194,7 +198,10 @@ class SettingsViewModel @Inject constructor(
         backupCore,
         _backupPreview,
         _backupMessage,
-    ) { core, preview, message -> core.copy(preview = preview, message = message) }
+        backupManager.hasPreImportSnapshot,
+    ) { core, preview, message, hasSnapshot ->
+        core.copy(preview = preview, message = message, hasSnapshot = hasSnapshot)
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BackupUiState())
 
     /**
@@ -282,6 +289,9 @@ class SettingsViewModel @Inject constructor(
 
     fun setSendMealPhotosToHeroAi(enabled: Boolean) =
         viewModelScope.launch { settingsRepository.setSendMealPhotosToHeroAi(enabled) }
+
+    fun setBarcodeLookupEnabled(enabled: Boolean) =
+        viewModelScope.launch { settingsDataStore.setBarcodeLookupEnabled(enabled) }
 
     fun setProfileTarget(target: ProfileTarget) =
         viewModelScope.launch { settingsRepository.setProfileTarget(target) }
@@ -448,6 +458,7 @@ class SettingsViewModel @Inject constructor(
     fun exportBackup(uri: Uri) {
         viewModelScope.launch {
             _backupMessage.value = null
+            persistUriPermission(uri)
             runCatching { backupManager.exportTo(uri) }
                 .onSuccess { summary ->
                     _backupMessage.value = "Backed up ${summary.counts.entries} entries."
@@ -459,8 +470,15 @@ class SettingsViewModel @Inject constructor(
     fun exportMarkdown(uri: Uri) {
         viewModelScope.launch {
             _backupMessage.value = null
+            persistUriPermission(uri)
             runCatching { markdownExporter.exportToTree(uri) }
-                .onSuccess { _backupMessage.value = "Markdown export saved." }
+                .onSuccess { files ->
+                    _backupMessage.value = if (files.isEmpty()) {
+                        "No log entries to export."
+                    } else {
+                        "Saved ${files.size} Markdown ${if (files.size == 1) "file" else "files"}."
+                    }
+                }
                 .onFailure { _backupMessage.value = it.message ?: "Markdown export failed." }
         }
     }
@@ -468,6 +486,7 @@ class SettingsViewModel @Inject constructor(
     fun previewImport(uri: Uri) {
         viewModelScope.launch {
             _backupMessage.value = null
+            persistUriPermission(uri)
             runCatching { backupManager.previewFrom(uri) }
                 .onSuccess { _backupPreview.value = it }
                 .onFailure { _backupMessage.value = it.message ?: "Couldn't read backup." }
@@ -482,6 +501,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _backupPreview.value = null
             _backupMessage.value = null
+            persistUriPermission(uri)
             runCatching { backupManager.importFrom(uri, mode) }
                 .onSuccess {
                     _backupMessage.value = when (mode) {
@@ -493,6 +513,16 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun restoreLatestSnapshot() {
+        viewModelScope.launch {
+            _backupPreview.value = null
+            _backupMessage.value = null
+            runCatching { backupManager.restoreLatestPreImportSnapshot() }
+                .onSuccess { _backupMessage.value = "Last snapshot restored." }
+                .onFailure { _backupMessage.value = it.message ?: "Couldn't restore snapshot." }
+        }
+    }
+
     fun setAutoBackupEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsDataStore.setBackupEnabled(enabled) }
     }
@@ -500,12 +530,7 @@ class SettingsViewModel @Inject constructor(
     fun setBackupFolder(uri: Uri?) {
         viewModelScope.launch {
             if (uri != null) {
-                runCatching {
-                    context.contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-                    )
-                }
+                persistUriPermission(uri)
                 settingsDataStore.setBackupDirUri(uri.toString())
                 settingsDataStore.setBackupEnabled(true)
                 _backupMessage.value = "Automatic backups enabled."
@@ -514,6 +539,15 @@ class SettingsViewModel @Inject constructor(
                 settingsDataStore.setBackupEnabled(false)
                 _backupMessage.value = "Automatic backups disabled."
             }
+        }
+    }
+
+    private fun persistUriPermission(uri: Uri) {
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
         }
     }
 

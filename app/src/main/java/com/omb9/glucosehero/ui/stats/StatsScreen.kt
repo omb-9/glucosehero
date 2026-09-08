@@ -95,6 +95,7 @@ import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
 import com.omb9.glucosehero.ui.theme.GlucoseHigh
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.RangeCategory
+import com.omb9.glucosehero.util.TagImpactCopy
 import kotlin.math.abs
 
 private val InsightCardBackground = Color(0xFF000000)
@@ -943,7 +944,7 @@ private fun FoodImpactSection(
                 color = MaterialTheme.colorScheme.surfaceContainer,
             ) {
                 Text(
-                    text = "Log meals with a glucose reading before and about two hours after to see food patterns.",
+                    text = TagImpactCopy.emptyFoodImpact(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp),

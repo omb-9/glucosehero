@@ -21,7 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.omb9.glucosehero.domain.model.GlucoseUnit
+import com.omb9.glucosehero.domain.model.TagKind
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
+import com.omb9.glucosehero.util.TagImpactCopy
 import kotlin.math.abs
 
 /**
@@ -30,7 +32,7 @@ import kotlin.math.abs
  * observational, with no interpretation or advice.
  */
 private const val MOOD_CONFOUNDER =
-    "The app cannot tell which way this relationship runs — a mood may follow glucose, or glucose may follow a mood."
+    "The app cannot tell which way this relationship runs: a mood may follow glucose, or glucose may follow a mood."
 
 /**
  * The separate Mood section: same row/card styling as the food list, but with
@@ -77,8 +79,8 @@ fun MoodImpactSection(
 
 /**
  * A mood row: label (prefix already stripped), occurrence count with the same
- * provisional band, median 2h delta, p25–p75 spread, and the diverging delta
- * bar. Deliberately omits carbs/bolus, which mood rows do not carry.
+ * provisional band, median 2h delta, p25–p75 spread, logged carbs/bolus as
+ * confounders, and the diverging delta bar.
  */
 @Composable
 fun MoodImpactCard(
@@ -127,6 +129,15 @@ fun MoodImpactCard(
                 }
             }
 
+            if (item.isProvisional) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = TagImpactCopy.provisionalProgress(item.occurrences),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = onSurfaceVariant,
+                )
+            }
+
             Spacer(Modifier.height(12.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -148,6 +159,22 @@ fun MoodImpactCard(
 
             Text(
                 text = "Middle 50%: ${spreadLabel(item)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                text = observationSentence(item),
+                style = MaterialTheme.typography.bodySmall,
+                color = onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(2.dp))
+
+            Text(
+                text = confounderLabel(item),
                 style = MaterialTheme.typography.bodySmall,
                 color = onSurfaceVariant,
             )
@@ -180,6 +207,7 @@ private fun MoodImpactSectionPreview() {
                 moods = listOf(
                     TagImpactUi(
                         tag = "Anxious",
+                        kind = TagKind.MOOD,
                         occurrences = 6,
                         medianDeltaMgdl = 42.0,
                         p25DeltaMgdl = 10.0,
@@ -190,6 +218,7 @@ private fun MoodImpactSectionPreview() {
                     ),
                     TagImpactUi(
                         tag = "Tired",
+                        kind = TagKind.MOOD,
                         occurrences = 3,
                         medianDeltaMgdl = -15.0,
                         p25DeltaMgdl = -30.0,

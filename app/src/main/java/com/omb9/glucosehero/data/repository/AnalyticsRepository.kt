@@ -1,6 +1,7 @@
 package com.omb9.glucosehero.data.repository
 
 import com.omb9.glucosehero.data.local.db.EntryDao
+import com.omb9.glucosehero.data.local.db.TagAnalyticDao
 import com.omb9.glucosehero.data.local.entity.TagAnalyticEntity
 import com.omb9.glucosehero.domain.model.TagKind
 import com.omb9.glucosehero.domain.model.isWindowed
@@ -9,7 +10,9 @@ import com.omb9.glucosehero.util.Percentiles
 import com.omb9.glucosehero.util.TagExtractor
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 /**
@@ -24,10 +27,14 @@ import kotlinx.coroutines.withContext
  *
  * Aggregation (median/quartiles rather than a mean of the per-event deltas)
  * happens in Kotlin on [Dispatchers.IO] so the main thread is never blocked.
+ *
+ * [topFoodPatternsForPrompt] reads the cached `tag_analytics` rows (not a
+ * live recompute) and returns a short list for the Hero system prompt.
  */
 @Singleton
 class AnalyticsRepository @Inject constructor(
     private val entryDao: EntryDao,
+    private val tagAnalyticDao: TagAnalyticDao,
 ) {
 
     /**
@@ -44,7 +51,8 @@ class AnalyticsRepository @Inject constructor(
      * Entries whose follow-up reading is missing are dropped before delta
      * grouping, so a tag only appears once at least one of its entries yields
      * a computable delta. Every such tag is emitted regardless of how many
-     * occurrences it has.
+     * occurrences it has; [TagExtractor.minOccurrences] is applied at display
+     * time so the "still building" UI can still show tags below the floor.
      */
     suspend fun computeTagAnalytics(since: Long, now: Long): List<TagAnalyticEntity> =
         withContext(Dispatchers.IO) {
@@ -177,6 +185,26 @@ class AnalyticsRepository @Inject constructor(
                 .sortedBy { it.tag }
         }
 
+    /**
+     * Cached food, hashtag, and description tags that meet display floors,
+     * ranked for the Hero system prompt.
+     *
+     * Ranking is |median 2h delta| descending, then occurrence count, so the
+     * handful of rows we spend tokens on are the user's strongest observed
+     * patterns rather than n=1 noise. Mood and windowed lifestyle tags are
+     * omitted. [excludedTags] is typically the user's dismissed food-impact list.
+     */
+    suspend fun topFoodPatternsForPrompt(
+        limit: Int = PROMPT_FOOD_PATTERN_LIMIT,
+        excludedTags: Set<String> = emptySet(),
+    ): List<TagAnalyticEntity> = withContext(Dispatchers.IO) {
+        selectPromptFoodPatterns(
+            tags = tagAnalyticDao.observeAll().first(),
+            limit = limit,
+            excludedTags = excludedTags,
+        )
+    }
+
     private data class Accumulator(
         val kind: TagKind,
         val foodId: Long?,
@@ -274,7 +302,30 @@ class AnalyticsRepository @Inject constructor(
 
         /** Extra readings fetched behind the `since` bound so baseline windows near the window edge resolve. */
         const val WINDOW_BASELINE_MARGIN_MILLIS = CYCLE_BASELINE_LOOKBACK_MILLIS
+
+        /** Tags appended to the Hero prompt: enough signal, few enough tokens. */
+        const val PROMPT_FOOD_PATTERN_LIMIT = 6
     }
 }
+
+/**
+ * Filters, ranks, and truncates cached tag analytics for the Hero prompt.
+ * Visible for tests.
+ */
+internal fun selectPromptFoodPatterns(
+    tags: List<TagAnalyticEntity>,
+    limit: Int,
+    excludedTags: Set<String> = emptySet(),
+): List<TagAnalyticEntity> =
+    tags.asSequence()
+        .filter { it.kind != TagKind.MOOD && !it.kind.isWindowed }
+        .filter { TagExtractor.meetsOccurrenceThreshold(it.kind, it.occurrences) }
+        .filter { it.tag !in excludedTags }
+        .sortedWith(
+            compareByDescending<TagAnalyticEntity> { abs(it.medianDeltaMgdl) }
+                .thenByDescending { it.occurrences },
+        )
+        .take(limit)
+        .toList()
 
 private fun List<Double>.averageOrNull(): Double? = if (isEmpty()) null else average()

@@ -147,6 +147,7 @@ fun AddEntrySheet(
     onDismiss: () -> Unit,
     streakReward: StreakReward? = null,
     onRewardConsumed: () -> Unit = {},
+    onManageFoods: () -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusRequester = remember { FocusRequester() }
@@ -160,6 +161,7 @@ fun AddEntrySheet(
     val foodSearchResults by viewModel.foodSearchResults.collectAsStateWithLifecycle()
     val selectedFood by viewModel.selectedFood.collectAsStateWithLifecycle()
     val foodLookupState by viewModel.foodLookupState.collectAsStateWithLifecycle()
+    val barcodeLookupEnabled by viewModel.barcodeLookupEnabled.collectAsStateWithLifecycle()
     val showCrisisSupport by viewModel.showCrisisSupport.collectAsStateWithLifecycle()
     val mealPhotoState by viewModel.mealPhotoState.collectAsStateWithLifecycle()
 
@@ -378,6 +380,8 @@ fun AddEntrySheet(
                         lookupMessage = lookupMessage,
                         lookupIsError = lookupIsError,
                         selectedFood = selectedFood,
+                        barcodeLookupEnabled = barcodeLookupEnabled,
+                        onManageFoods = onManageFoods,
                     )
                     if (sendMealPhotosToHeroAi) {
                         Spacer(Modifier.height(8.dp))

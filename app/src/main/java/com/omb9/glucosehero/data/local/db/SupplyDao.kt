@@ -2,6 +2,7 @@ package com.omb9.glucosehero.data.local.db
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import com.omb9.glucosehero.data.local.entity.SupplyEntity
@@ -87,4 +88,12 @@ interface SupplyDao {
 
     @Insert
     suspend fun insertAll(supplies: List<SupplyEntity>): List<Long>
+
+    /**
+     * Inserts supplies, skipping any whose unique `uuid` (migration 8→9)
+     * already exists. Backup MERGE uses this so repeated imports stay
+     * idempotent without loading every uuid into memory.
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnoreAll(supplies: List<SupplyEntity>): List<Long>
 }

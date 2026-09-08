@@ -80,6 +80,7 @@ import com.omb9.glucosehero.ui.theme.GlucoseLow
 @Composable
 fun LogScreen(
     onEntryClick: (Long) -> Unit,
+    onManageFoods: () -> Unit = {},
     addGlucoseTick: Int = 0,
     addMealTick: Int = 0,
     addBolusTick: Int = 0,
@@ -358,6 +359,7 @@ fun LogScreen(
                 viewModel.consumeStreakReward()
                 showSheet = false
             },
+            onManageFoods = onManageFoods,
         )
     }
 

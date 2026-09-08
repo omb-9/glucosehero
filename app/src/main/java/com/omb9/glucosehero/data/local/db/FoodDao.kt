@@ -52,6 +52,9 @@ interface FoodDao {
     @Query("SELECT * FROM foods WHERE barcode = :barcode LIMIT 1")
     suspend fun getByBarcode(barcode: String): FoodEntity?
 
+    @Query("SELECT * FROM foods WHERE uuid = :uuid LIMIT 1")
+    suspend fun getByUuid(uuid: String): FoodEntity?
+
     @Query(
         """
         SELECT * FROM foods

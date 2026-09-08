@@ -65,6 +65,8 @@ fun FoodPickerSection(
     lookupIsError: Boolean,
     modifier: Modifier = Modifier,
     selectedFood: FoodEntity? = null,
+    barcodeLookupEnabled: Boolean = true,
+    onManageFoods: (() -> Unit)? = null,
     scanner: MealBarcodeScanner = remember { MealBarcodeScanner() },
 ) {
     val context = LocalContext.current
@@ -75,9 +77,10 @@ fun FoodPickerSection(
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val chrome = MaterialTheme.colorScheme.surfaceContainerHigh
     val outline = MaterialTheme.colorScheme.outline
+    val canScan = barcodeLookupEnabled && !isScanning && !isLookingUp
 
     val scan: () -> Unit = {
-        if (!isScanning && !isLookingUp) {
+        if (canScan) {
             isScanning = true
             scanError = null
             scope.launch {
@@ -160,12 +163,12 @@ fun FoodPickerSection(
             trailingIcon = {
                 IconButton(
                     onClick = scan,
-                    enabled = !isScanning && !isLookingUp,
+                    enabled = canScan,
                 ) {
                     Icon(
                         imageVector = Icons.Filled.QrCodeScanner,
                         contentDescription = "Scan barcode",
-                        tint = accent,
+                        tint = if (barcodeLookupEnabled) accent else muted,
                     )
                 }
             },
@@ -203,7 +206,7 @@ fun FoodPickerSection(
 
         Surface(
             onClick = scan,
-            enabled = !isScanning && !isLookingUp,
+            enabled = canScan,
             shape = RoundedCornerShape(16.dp),
             color = chrome,
             border = BorderStroke(1.dp, outline),
@@ -216,7 +219,7 @@ fun FoodPickerSection(
                 Icon(
                     imageVector = Icons.Filled.QrCodeScanner,
                     contentDescription = null,
-                    tint = accent,
+                    tint = if (barcodeLookupEnabled) accent else muted,
                 )
                 Text(
                     "Scan barcode",
@@ -272,6 +275,13 @@ fun FoodPickerSection(
         if (showsOffData) {
             Spacer(Modifier.height(8.dp))
             OffAttribution()
+        }
+
+        if (onManageFoods != null) {
+            Spacer(Modifier.height(4.dp))
+            TextButton(onClick = onManageFoods) {
+                Text("Manage foods", color = accent)
+            }
         }
     }
 }
@@ -352,6 +362,9 @@ private fun FoodResultRow(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (food.source == FoodSource.OPEN_FOOD_FACTS) {
+                OffAttribution(modifier = Modifier.padding(top = 4.dp))
+            }
         }
     }
 }

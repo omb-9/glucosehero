@@ -10,7 +10,6 @@ import com.omb9.glucosehero.data.billing.BillingRepository
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.ChatMessageDao
 import com.omb9.glucosehero.data.local.db.EntryDao
-import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
 import com.omb9.glucosehero.data.local.db.PendingAiQueryDao
 import com.omb9.glucosehero.data.local.entity.ChatMessageEntity
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
@@ -30,18 +29,16 @@ import com.omb9.glucosehero.domain.model.MealPhotoAnalysis
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.QuotaExhaustedException
 import com.omb9.glucosehero.domain.model.StreamEvent
-import com.omb9.glucosehero.domain.model.TagKind
 import com.omb9.glucosehero.domain.model.UserProfile
-import com.omb9.glucosehero.domain.model.isWindowed
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.util.AiQuota
 import com.omb9.glucosehero.util.AiTier
 import com.omb9.glucosehero.util.AppJson
 import com.omb9.glucosehero.util.Formatters
+import com.omb9.glucosehero.util.TagImpactCopy
 import com.omb9.glucosehero.work.PendingQueryWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
@@ -65,7 +62,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val chatMessageDao: ChatMessageDao,
     private val pendingAiQueryDao: PendingAiQueryDao,
     private val entryDao: EntryDao,
-    private val database: GlucoseHeroDatabase,
+    private val analyticsRepository: AnalyticsRepository,
     private val settingsDataStore: SettingsDataStore,
     private val settingsRepository: SettingsRepository,
     private val billingRepository: BillingRepository,
@@ -310,12 +307,7 @@ class ChatRepositoryImpl @Inject constructor(
             }
             val foodDeferred = async {
                 val dismissed = settingsDataStore.dismissedFoodTags.first()
-                database.tagAnalyticDao().observeAll().first()
-                    .filter {
-                        it.kind != TagKind.MOOD && !it.kind.isWindowed &&
-                            it.occurrences >= FOOD_PATTERN_MIN_OCCURRENCES && it.tag !in dismissed
-                    }
-                    .take(FOOD_PATTERN_LIMIT)
+                analyticsRepository.topFoodPatternsForPrompt(excludedTags = dismissed)
             }
 
             val settings = settingsDeferred.await()
@@ -367,22 +359,25 @@ class ChatRepositoryImpl @Inject constructor(
             val persona = buildPersonaSection(profile)
 
             val foodBlock = buildString {
-                append("--- Food patterns (median 2h glucose change, from the user's log) ---")
+                append("--- Food patterns (observational median 2h glucose change after tagged meals) ---")
+                append("\nThese are observations about tagged meals, including logged insulin, not claims that a food causes a glucose change.")
                 if (foodTags.isEmpty()) {
-                    append("\nNone meet the ${FOOD_PATTERN_MIN_OCCURRENCES}-occurrence threshold yet.")
+                    append("\nNone meet the occurrence threshold yet.")
                 } else {
                     foodTags.forEach { tag ->
                         append('\n')
-                        append(tag.tag)
-                        append(": ")
-                        append(Formatters.signedGlucoseWithUnit(tag.medianDeltaMgdl, unit))
-                        append(" over ")
-                        append(tag.occurrences)
-                        append(" occurrences (avg ")
-                        append(tag.avgCarbsGrams?.roundToInt()?.toString() ?: "n/a")
-                        append("g carbs, ")
-                        append(tag.avgBolusUnits?.let { "%.1f".format(it) } ?: "n/a")
-                        append("u bolus)")
+                        append(
+                            TagImpactCopy.observation(
+                                tag = tag.tag,
+                                medianDeltaMgdl = tag.medianDeltaMgdl,
+                                occurrences = tag.occurrences,
+                                avgBolusUnits = tag.avgBolusUnits,
+                                unit = unit,
+                            ),
+                        )
+                        append(" Avg carbs: ")
+                        append(tag.avgCarbsGrams?.let { Formatters.carbs(it) } ?: "n/a")
+                        append(".")
                     }
                 }
             }
@@ -394,6 +389,9 @@ class ChatRepositoryImpl @Inject constructor(
                 |You are not a medical professional: never give insulin dosing instructions or
                 |diagnoses, and remind the user to confirm treatment decisions with their care
                 |team when the topic calls for it.
+                |When discussing food patterns, phrase them as observations about tagged meals
+                |(sample size and logged bolus included). Never say a food causes a spike or
+                |raises glucose.
                 |
                 |If the user provides health metrics, dietary intake, or insulin doses, you MUST
                 |use the `prefill_log_draft` tool to extract the data. Do not just reply with text.
@@ -539,8 +537,6 @@ class ChatRepositoryImpl @Inject constructor(
     private companion object {
         const val MAX_HISTORY_TURNS = 20
         const val MAX_MANAGED_REPLY_TOKENS = 200
-        const val FOOD_PATTERN_MIN_OCCURRENCES = 3
-        const val FOOD_PATTERN_LIMIT = 3
 
         const val MEAL_PHOTO_SYSTEM_PROMPT =
             "You are Hero, the nutrition assistant inside GlucoseHero. Estimate the " +

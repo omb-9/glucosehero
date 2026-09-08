@@ -42,6 +42,7 @@ import com.omb9.glucosehero.util.GlucoseRangeColor
 import com.omb9.glucosehero.util.RangeCategory
 import com.omb9.glucosehero.util.SupplyCalculator
 import com.omb9.glucosehero.util.TagExtractor
+import com.omb9.glucosehero.util.TagImpactCopy
 import com.omb9.glucosehero.util.adagPercentage
 import com.omb9.glucosehero.util.gmiPercentage
 import com.omb9.glucosehero.util.shouldUseGmi
@@ -644,10 +645,18 @@ class StatsViewModel @Inject constructor(
 
                 val dismissedTags = settingsDataStore.dismissedFoodTags.first()
                 val foodTags = database.tagAnalyticDao().observeAll().first()
-                    .filter { it.kind != TagKind.MOOD && !it.kind.isWindowed && it.tag !in dismissedTags }
+                    .filter {
+                        it.kind != TagKind.MOOD && !it.kind.isWindowed &&
+                            TagExtractor.meetsOccurrenceThreshold(it.kind, it.occurrences) &&
+                            it.tag !in dismissedTags
+                    }
                     .take(5)
                 val moodTags = database.tagAnalyticDao().observeAll().first()
-                    .filter { it.kind == TagKind.MOOD && it.tag !in dismissedTags }
+                    .filter {
+                        it.kind == TagKind.MOOD &&
+                            TagExtractor.meetsOccurrenceThreshold(it.kind, it.occurrences) &&
+                            it.tag !in dismissedTags
+                    }
                     .take(3)
 
                 val prompt = buildString {
@@ -675,17 +684,29 @@ class StatsViewModel @Inject constructor(
                         }
                     }
                     if (foodTags.isNotEmpty() || moodTags.isNotEmpty()) {
-                        appendLine("- Tag & Food Observations:")
+                        appendLine("- Tag & Food Observations (not causes):")
                         foodTags.forEach { tag ->
-                            val delta = Formatters.toDisplayValue(tag.medianDeltaMgdl, unit).roundToInt()
-                            val sign = if (delta >= 0) "+" else ""
-                            appendLine("  * #${tag.tag} (${tag.occurrences} logs): median post-meal delta $sign$delta ${unit.label}")
+                            appendLine(
+                                "  * ${TagImpactCopy.observation(
+                                    tag = tag.tag,
+                                    medianDeltaMgdl = tag.medianDeltaMgdl,
+                                    occurrences = tag.occurrences,
+                                    avgBolusUnits = tag.avgBolusUnits,
+                                    unit = unit,
+                                )} Avg carbs: ${tag.avgCarbsGrams?.let { Formatters.carbs(it) } ?: "n/a"}.",
+                            )
                         }
                         moodTags.forEach { tag ->
                             val cleanTag = tag.tag.removePrefix(TagExtractor.MOOD_TAG_PREFIX)
-                            val delta = Formatters.toDisplayValue(tag.medianDeltaMgdl, unit).roundToInt()
-                            val sign = if (delta >= 0) "+" else ""
-                            appendLine("  * Mood '$cleanTag' (${tag.occurrences} logs): median delta $sign$delta ${unit.label}")
+                            appendLine(
+                                "  * ${TagImpactCopy.observation(
+                                    tag = cleanTag,
+                                    medianDeltaMgdl = tag.medianDeltaMgdl,
+                                    occurrences = tag.occurrences,
+                                    avgBolusUnits = tag.avgBolusUnits,
+                                    unit = unit,
+                                )}",
+                            )
                         }
                     }
                     appendLine()
@@ -695,6 +716,7 @@ class StatsViewModel @Inject constructor(
                     appendLine("2. Note any notable tag patterns or daily fluctuations.")
                     appendLine("3. Offer 1-2 practical, supportive suggestions for next week.")
                     appendLine("Keep tone encouraging, clinical yet conversational, and concise.")
+                    appendLine("Treat tag patterns as observations about tagged meals, never as claims that a food causes a spike.")
                 }
 
                 val reply = chatRepository.completeReply(

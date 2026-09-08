@@ -477,6 +477,14 @@ interface EntryDao {
     suspend fun insertAll(entities: List<EntryEntity>): List<Long>
 
     /**
+     * Inserts rows, skipping any whose unique `uuid` (migration 8→9) or unique
+     * `hc_record_id` already exists. Backup MERGE uses this so repeated
+     * imports stay idempotent without loading every uuid into memory.
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnoreAll(entities: List<EntryEntity>): List<Long>
+
+    /**
      * Conflict-ignore bulk insert keyed on the unique `hc_record_id` index.
      * Re-importing the same Health Connect nutrition/exercise records silently
      * skips rows whose `hc_record_id` already exists, so re-imports stay

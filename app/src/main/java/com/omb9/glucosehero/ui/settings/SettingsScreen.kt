@@ -74,8 +74,7 @@ fun SettingsScreen(
             SettingsScreenDataStoreEntryPoint::class.java,
         ).settingsDataStore()
     }
-    val barcodeLookupEnabled by settingsDataStore.barcodeLookupEnabled
-        .collectAsStateWithLifecycle(initialValue = true)
+    val barcodeLookupEnabled by viewModel.barcodeLookupEnabled.collectAsStateWithLifecycle()
     val webhookUrl by settingsDataStore.webhookUrl
         .collectAsStateWithLifecycle(initialValue = "")
 
@@ -167,11 +166,14 @@ fun SettingsScreen(
                 sendMealPhotosToHeroAi = settings.sendMealPhotosToHeroAi,
                 onPostMealRemindersEnabledChange = viewModel::setPostMealRemindersEnabled,
                 onShowAdvancedMacrosChange = viewModel::setShowAdvancedMacros,
-                onBarcodeLookupChange = { enabled ->
-                    scope.launch { settingsDataStore.setBarcodeLookupEnabled(enabled) }
-                },
+                onBarcodeLookupChange = viewModel::setBarcodeLookupEnabled,
                 onSendMealPhotosToHeroAiChange = viewModel::setSendMealPhotosToHeroAi,
-                onManageFoods = onManageFoods,
+            )
+
+            SectionHeader("Foods")
+            NavigationRow(
+                title = "Food Library",
+                onClick = onManageFoods,
             )
 
             SectionHeader("Hero AI")
@@ -207,6 +209,7 @@ fun SettingsScreen(
                 onDismissPreview = viewModel::dismissImportPreview,
                 onImport = viewModel::importBackup,
                 onAutoBackupToggle = viewModel::setAutoBackupEnabled,
+                onRestoreSnapshot = viewModel::restoreLatestSnapshot,
             )
 
             AppearanceSection(

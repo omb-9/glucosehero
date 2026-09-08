@@ -146,6 +146,9 @@ class LogViewModel @Inject constructor(
     val isHealthConnectRevoked: StateFlow<Boolean> = settingsDataStore.healthConnectRevoked
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val barcodeLookupEnabled: StateFlow<Boolean> = settingsDataStore.barcodeLookupEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     /** Minute-grain ticker so the IOB value keeps decaying without a DB emission. */
     private val timeTick: Flow<Unit> = flow {
         while (true) {
@@ -409,7 +412,7 @@ class LogViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Cache miss: respect the privacy toggle before any network call.
+                // Cache miss: never contact Open Food Facts when the privacy toggle is off.
                 if (!settingsDataStore.barcodeLookupEnabled.first()) {
                     _foodLookupState.value = FoodLookupState.ManualEntry(code)
                     return@launch
@@ -573,6 +576,7 @@ class LogViewModel @Inject constructor(
      */
     private fun presentFetchedFood(saved: FoodEntity, draft: OffFoodDraft) {
         if (draft.carbs.isBlank() || saved.hasMissingCarbs) {
+            _selectedFood.value = saved
             _foodLookupState.value = FoodLookupState.MissingCarbohydrates(saved.barcode, draft)
             openManualEntryForMissingCarbs(draft)
         } else {

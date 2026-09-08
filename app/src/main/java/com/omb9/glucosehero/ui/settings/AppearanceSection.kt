@@ -1,0 +1,121 @@
+package com.omb9.glucosehero.ui.settings
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import com.omb9.glucosehero.domain.model.AccentColor
+import com.omb9.glucosehero.domain.model.ThemeMode
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AppearanceSection(
+    themeMode: ThemeMode,
+    accent: AccentColor,
+    use24HourTime: Boolean,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    onAccentChange: (AccentColor) -> Unit,
+    onUse24HourTimeChange: (Boolean) -> Unit,
+) {
+    Column {
+        SectionHeader("Appearance")
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Theme",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            GlossaryIcon(
+                term = "AMOLED",
+                definition = SettingsGlossary.AMOLED,
+                contentDescription = "About AMOLED theme",
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            ThemeMode.entries.forEachIndexed { index, mode ->
+                SegmentedButton(
+                    selected = themeMode == mode,
+                    onClick = { onThemeModeChange(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = ThemeMode.entries.size,
+                    ),
+                ) {
+                    Text(
+                        when (mode) {
+                            ThemeMode.SYSTEM -> "System"
+                            ThemeMode.LIGHT -> "Light"
+                            ThemeMode.AMOLED -> "AMOLED"
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Accent color",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            AccentColor.entries.forEach { accentColor ->
+                val selected = accent == accentColor
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color(accentColor.argb), CircleShape)
+                        .clickable { onAccentChange(accentColor) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (selected) {
+                        Icon(
+                            Icons.Filled.Check,
+                            contentDescription = accentColor.label,
+                            tint = Color.Black,
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("24-hour time", style = MaterialTheme.typography.bodyLarge)
+            Switch(
+                checked = use24HourTime,
+                onCheckedChange = onUse24HourTimeChange,
+            )
+        }
+    }
+}
