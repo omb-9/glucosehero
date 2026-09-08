@@ -17,11 +17,13 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
+import androidx.work.ExistingWorkPolicy
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.navigation.GlucoseHeroNavHost
 import com.omb9.glucosehero.ui.navigation.Routes
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
+import com.omb9.glucosehero.work.HealthConnectSyncWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -39,6 +41,11 @@ class MainActivity : ComponentActivity() {
     /** Monotonic triggers for notification deep-links (cold + warm start). */
     private var heroTick by mutableIntStateOf(0)
     private var addGlucoseTick by mutableIntStateOf(0)
+
+    override fun onStart() {
+        super.onStart()
+        HealthConnectSyncWorker.enqueueExpedited(this, ExistingWorkPolicy.KEEP)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

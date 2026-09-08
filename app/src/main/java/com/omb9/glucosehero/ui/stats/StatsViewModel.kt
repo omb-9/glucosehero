@@ -17,15 +17,19 @@ import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.domain.model.Ea1cConfidence
 import com.omb9.glucosehero.domain.model.ExportFormat
 import com.omb9.glucosehero.domain.model.ExportedFile
+import com.omb9.glucosehero.domain.model.ChatRole
+import com.omb9.glucosehero.domain.model.ChatTurn
 import com.omb9.glucosehero.domain.model.GlucosePointRow
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.LogEvent
 import com.omb9.glucosehero.domain.model.Supply
 import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.TagKind
+import com.omb9.glucosehero.domain.model.isWindowed
 import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.model.TimeRange
+import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.domain.repository.SupplyRepository
@@ -46,6 +50,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -66,6 +71,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -172,6 +178,32 @@ sealed interface ExportEvent {
     data class Failed(val message: String) : ExportEvent
 }
 
+@Immutable
+sealed interface WeeklySummaryState {
+    data object Idle : WeeklySummaryState
+    data object Loading : WeeklySummaryState
+    data class Success(val summary: String) : WeeklySummaryState
+    data class Error(val message: String) : WeeklySummaryState
+}
+
+/** Primary entry data surfaced on the chart marker popup card. */
+@Immutable
+data class MarkerPopupUiState(
+    val entryId: Long,
+    val timeDisplay: String,
+    val dateDisplay: String,
+    val glucoseDisplay: String?,
+    val glucoseUnitLabel: String,
+    val glucoseRange: RangeCategory?,
+    val hasGlucose: Boolean,
+    val foodDescription: String?,
+    val carbsDisplay: String?,
+    val hasFood: Boolean,
+    val insulinDisplay: String?,
+    val hasInsulin: Boolean,
+    val note: String? = null,
+)
+
 /**
  * Spec §4: every heavy step — folding rows into chart points, averages,
  * TIR, min/max, shading bounds — runs inside the ViewModel on
@@ -182,13 +214,14 @@ sealed interface ExportEvent {
 class StatsViewModel @Inject constructor(
     private val entryRepository: EntryRepository,
     private val entryDao: EntryDao,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     private val supplyRepository: SupplyRepository,
     private val insightDao: InsightDao,
     private val database: GlucoseHeroDatabase,
     private val exportManager: ExportManager,
     @ApplicationContext private val context: Context,
     private val settingsDataStore: SettingsDataStore,
+    private val chatRepository: ChatRepository,
 ) : ViewModel() {
 
     private val tagAnalyticDao = database.tagAnalyticDao()
@@ -208,7 +241,7 @@ class StatsViewModel @Inject constructor(
         settingsDataStore.dismissedFoodTags,
     ) { entities, settings, dismissed ->
         entities
-            .filter { it.kind != TagKind.MOOD }
+            .filter { it.kind != TagKind.MOOD && !it.kind.isWindowed }
             .toDisplayableTags(dismissed, settings.unit)
             .take(FOOD_IMPACT_PREVIEW_LIMIT)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -265,6 +298,29 @@ class StatsViewModel @Inject constructor(
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     val exportEvents: SharedFlow<ExportEvent> = _exportEvents.asSharedFlow()
+
+    private val _weeklySummaryState = MutableStateFlow<WeeklySummaryState>(WeeklySummaryState.Idle)
+    /** Current AI weekly summary generation lifecycle state. */
+    val weeklySummaryState: StateFlow<WeeklySummaryState> = _weeklySummaryState.asStateFlow()
+
+    private val _selectedMarkerEntryId = MutableStateFlow<Long?>(null)
+    val selectedMarkerEntryId: StateFlow<Long?> = _selectedMarkerEntryId.asStateFlow()
+
+    /** Primary entry data surfaced on the chart marker popup card. */
+    val selectedMarkerPopup: StateFlow<MarkerPopupUiState?> = _selectedMarkerEntryId
+        .flatMapLatest { id ->
+            if (id == null) {
+                flowOf(null)
+            } else {
+                combine(
+                    entryRepository.observeEntry(id),
+                    settingsRepository.settings,
+                ) { entry, settings ->
+                    entry?.toMarkerPopupUiState(settings)
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
         viewModelScope.launch {
@@ -488,6 +544,14 @@ class StatsViewModel @Inject constructor(
         }
     }
 
+    fun selectMarker(entryId: Long) {
+        _selectedMarkerEntryId.value = entryId
+    }
+
+    fun dismissMarkerPopup() {
+        _selectedMarkerEntryId.value = null
+    }
+
     /**
      * Pull-to-refresh entry point. The stats pipeline is already reactive via
      * Room flows (see init), so there is no re-fetch to perform — this only
@@ -499,14 +563,7 @@ class StatsViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 if (settingsDataStore.healthConnectSyncEnabled.first()) {
-                    val request = OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
-                        .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                        .build()
-                    WorkManager.getInstance(context).enqueueUniqueWork(
-                        HealthConnectSyncWorker.EXPEDITED_UNIQUE_NAME,
-                        ExistingWorkPolicy.REPLACE,
-                        request,
-                    )
+                    HealthConnectSyncWorker.enqueueExpedited(context, ExistingWorkPolicy.REPLACE)
                 }
                 delay(REFRESH_MIN_MILLIS)
             } finally {
@@ -561,6 +618,110 @@ class StatsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Sends the last 7 days of glucose metrics, daily averages, and tag analytics
+     * to Hero AI via OpenRouter / existing AI architecture to generate a concise summary.
+     */
+    fun generateWeeklySummary() {
+        if (_weeklySummaryState.value is WeeklySummaryState.Loading) return
+        _weeklySummaryState.value = WeeklySummaryState.Loading
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val since = Formatters.daysAgoMillis(7)
+                val settings = settingsRepository.settings.first()
+                val unit = settings.unit
+
+                val avgMgdl = entryDao.averageGlucoseReadingsSince(since)
+                val tirCounts = entryDao.timeInRangeCountsSince(
+                    since,
+                    settings.targetLowMgdl.toDouble(),
+                    settings.targetHighMgdl.toDouble(),
+                )
+                val manualCount = entryDao.manualReadingCountSince(since)
+                val cgmCount = entryDao.cgmReadingCountSince(since)
+                val dailySummaries = entryDao.dailySummaries(since, limit = 7)
+
+                val dismissedTags = settingsDataStore.dismissedFoodTags.first()
+                val foodTags = database.tagAnalyticDao().observeAll().first()
+                    .filter { it.kind != TagKind.MOOD && !it.kind.isWindowed && it.tag !in dismissedTags }
+                    .take(5)
+                val moodTags = database.tagAnalyticDao().observeAll().first()
+                    .filter { it.kind == TagKind.MOOD && it.tag !in dismissedTags }
+                    .take(3)
+
+                val prompt = buildString {
+                    appendLine("Please generate a concise, supportive weekly summary of my glucose trends for the last 7 days.")
+                    appendLine()
+                    appendLine("Last 7 Days Glucose Metrics:")
+                    if (avgMgdl != null && avgMgdl.isFinite()) {
+                        appendLine("- Average Glucose: ${Formatters.glucose(avgMgdl, unit)} ${unit.label}")
+                    }
+                    val totalTir = tirCounts.veryLow + tirCounts.low + tirCounts.inRange + tirCounts.high + tirCounts.veryHigh
+                    if (totalTir > 0) {
+                        val tirPct = (tirCounts.inRange * 100f / totalTir).roundToInt()
+                        val lowPct = ((tirCounts.low + tirCounts.veryLow) * 100f / totalTir).roundToInt()
+                        val highPct = ((tirCounts.high + tirCounts.veryHigh) * 100f / totalTir).roundToInt()
+                        appendLine("- Time in Range: $tirPct% in range, $lowPct% low, $highPct% high (Target: ${settings.targetLowMgdl}–${settings.targetHighMgdl} mg/dL)")
+                    }
+                    appendLine("- Readings Logged: $manualCount manual, $cgmCount CGM sensor readings")
+                    if (dailySummaries.isNotEmpty()) {
+                        appendLine("- Daily Averages:")
+                        dailySummaries.forEach { d ->
+                            val avgStr = d.avgMgdl?.let { Formatters.glucose(it, unit) } ?: "n/a"
+                            val minStr = d.minMgdl?.let { Formatters.glucose(it, unit) } ?: "n/a"
+                            val maxStr = d.maxMgdl?.let { Formatters.glucose(it, unit) } ?: "n/a"
+                            appendLine("  * ${d.day}: avg $avgStr ${unit.label}, range $minStr–$maxStr (${d.readings} readings)")
+                        }
+                    }
+                    if (foodTags.isNotEmpty() || moodTags.isNotEmpty()) {
+                        appendLine("- Tag & Food Observations:")
+                        foodTags.forEach { tag ->
+                            val delta = Formatters.toDisplayValue(tag.medianDeltaMgdl, unit).roundToInt()
+                            val sign = if (delta >= 0) "+" else ""
+                            appendLine("  * #${tag.tag} (${tag.occurrences} logs): median post-meal delta $sign$delta ${unit.label}")
+                        }
+                        moodTags.forEach { tag ->
+                            val cleanTag = tag.tag.removePrefix(TagExtractor.MOOD_TAG_PREFIX)
+                            val delta = Formatters.toDisplayValue(tag.medianDeltaMgdl, unit).roundToInt()
+                            val sign = if (delta >= 0) "+" else ""
+                            appendLine("  * Mood '$cleanTag' (${tag.occurrences} logs): median delta $sign$delta ${unit.label}")
+                        }
+                    }
+                    appendLine()
+                    appendLine("Instructions:")
+                    appendLine("Provide a 2 to 4 paragraph weekly summary:")
+                    appendLine("1. Acknowledge key highlights and trends over the week.")
+                    appendLine("2. Note any notable tag patterns or daily fluctuations.")
+                    appendLine("3. Offer 1-2 practical, supportive suggestions for next week.")
+                    appendLine("Keep tone encouraging, clinical yet conversational, and concise.")
+                }
+
+                val reply = chatRepository.completeReply(
+                    listOf(
+                        ChatTurn(
+                            role = ChatRole.USER,
+                            content = prompt,
+                            timestamp = System.currentTimeMillis(),
+                        )
+                    )
+                )
+                _weeklySummaryState.value = WeeklySummaryState.Success(reply)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _weeklySummaryState.value = WeeklySummaryState.Error(
+                    e.message ?: "Failed to generate weekly summary",
+                )
+            }
+        }
+    }
+
+    /** Clears the weekly summary state, dismissing the card from the UI. */
+    fun dismissWeeklySummary() {
+        _weeklySummaryState.value = WeeklySummaryState.Idle
+    }
+
     private fun markerCategoryFor(event: LogEvent): MarkerCategory? = when {
         event.carbsGrams != null || event.proteinGrams != null || event.fatGrams != null ||
             !event.mealDescription.isNullOrBlank() -> MarkerCategory.MEAL
@@ -608,8 +769,52 @@ class StatsViewModel @Inject constructor(
         )
     }
 
+    private fun LogEvent.toMarkerPopupUiState(settings: UserSettings): MarkerPopupUiState {
+        val unit = settings.unit
+        val glucoseDisplay = glucoseMgdl?.let { Formatters.glucose(it, unit) }
+        val glucoseRange = glucoseMgdl?.let {
+            GlucoseRangeColor.forValue(
+                it.toFloat(),
+                settings.targetLowMgdl,
+                settings.targetHighMgdl,
+            )
+        }
+
+        val foodParts = mutableListOf<String>()
+        carbsGrams?.let { foodParts += "$it g carbs" }
+        proteinGrams?.let { foodParts += "$it g protein" }
+        fatGrams?.let { foodParts += "$it g fat" }
+        val carbsDisplay = foodParts.joinToString(" · ").takeIf { it.isNotBlank() }
+        val hasFood = !mealDescription.isNullOrBlank() || carbsDisplay != null
+
+        val insulinParts = mutableListOf<String>()
+        insulinBolusUnits?.let { insulinParts += "${trim(it)} U Rapid" }
+        insulinBasalUnits?.let { insulinParts += "${trim(it)} U Long" }
+        val insulinDisplay = insulinParts.joinToString(" · ").takeIf { it.isNotBlank() }
+        val hasInsulin = insulinDisplay != null
+
+        return MarkerPopupUiState(
+            entryId = id,
+            timeDisplay = Formatters.time(timestamp, settings.use24HourTime),
+            dateDisplay = Formatters.dayHeader(Formatters.localDate(timestamp)),
+            glucoseDisplay = glucoseDisplay,
+            glucoseUnitLabel = unit.label,
+            glucoseRange = glucoseRange,
+            hasGlucose = glucoseMgdl != null,
+            foodDescription = mealDescription?.takeIf { it.isNotBlank() },
+            carbsDisplay = carbsDisplay,
+            hasFood = hasFood,
+            insulinDisplay = insulinDisplay,
+            hasInsulin = hasInsulin,
+            note = note?.takeIf { it.isNotBlank() },
+        )
+    }
+
     private fun trim(value: Float): String =
         if (value % 1f == 0f) value.toInt().toString() else "%.1f".format(value)
+
+    private fun trim(value: Double): String =
+        if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
 
     private companion object {
         const val MILLIS_PER_DAY = 24f * 60f * 60f * 1000f

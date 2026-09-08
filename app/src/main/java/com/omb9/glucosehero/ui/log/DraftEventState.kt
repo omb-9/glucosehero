@@ -8,6 +8,7 @@ import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.domain.model.Metric
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.util.Formatters
+import kotlin.math.roundToInt
 
 @Immutable
 data class DraftEventState(
@@ -80,17 +81,38 @@ fun DraftEventState.toLogEvent(settings: UserSettings, now: Long): LogEvent? {
         carbsGrams.isBlank() -> null
         // Zero is an explicit, meaningful statement ("I ate 0 carbs") and must
         // survive as 0 — distinct from the empty/blank case above, which is null.
-        else -> carbsGrams.trim().toIntOrNull()?.takeIf { it >= 0 } ?: return null
+        else -> {
+            val parsed = Formatters.parseDecimal(carbsGrams)
+            if (parsed != null && parsed >= 0.0) {
+                parsed.roundToInt()
+            } else {
+                carbsGrams.trim().toIntOrNull()?.takeIf { it >= 0 } ?: return null
+            }
+        }
     }
 
     val proteinValue: Int? = when {
         proteinGrams.isBlank() -> null
-        else -> proteinGrams.trim().toIntOrNull()?.takeIf { it > 0 } ?: return null
+        else -> {
+            val parsed = Formatters.parseDecimal(proteinGrams)
+            if (parsed != null && parsed > 0.0) {
+                parsed.roundToInt()
+            } else {
+                proteinGrams.trim().toIntOrNull()?.takeIf { it > 0 } ?: return null
+            }
+        }
     }
 
     val fatValue: Int? = when {
         fatGrams.isBlank() -> null
-        else -> fatGrams.trim().toIntOrNull()?.takeIf { it > 0 } ?: return null
+        else -> {
+            val parsed = Formatters.parseDecimal(fatGrams)
+            if (parsed != null && parsed > 0.0) {
+                parsed.roundToInt()
+            } else {
+                fatGrams.trim().toIntOrNull()?.takeIf { it > 0 } ?: return null
+            }
+        }
     }
 
     val exerciseValue: Int? = when {

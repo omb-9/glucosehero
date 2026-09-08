@@ -7,6 +7,7 @@ import com.omb9.glucosehero.data.remote.DynamicApiInterceptor
 import com.omb9.glucosehero.data.remote.off.OffHttpClient
 import com.omb9.glucosehero.data.remote.off.OffRetrofit
 import com.omb9.glucosehero.data.remote.off.OpenFoodFactsApi
+import com.omb9.glucosehero.data.remote.off.OpenFoodFactsUserAgentInterceptor
 import com.omb9.glucosehero.util.AppJson
 import dagger.Module
 import dagger.Provides
@@ -33,7 +34,7 @@ object NetworkModule {
     private const val PLACEHOLDER_BASE_URL = "https://placeholder.invalid/"
 
     /** Open Food Facts requires a User-Agent identifying the app. */
-    private const val OFF_USER_AGENT = "GlucoseHero/1.0.0 (outreach@chromagrid.com)"
+    val OFF_USER_AGENT = OpenFoodFactsUserAgentInterceptor.DEFAULT_USER_AGENT
 
     @Provides
     @Singleton
@@ -66,6 +67,22 @@ object NetworkModule {
             .readTimeout(Duration.ZERO)
             .build()
 
+    /**
+     * Fire-and-forget local webhook client. Deliberately does not attach
+     * [DynamicApiInterceptor], so the user-supplied URL is used verbatim
+     * (never rewritten to the live AI provider), and uses short timeouts so a
+     * slow or unreachable automation endpoint never lingers on a save.
+     */
+    @Provides
+    @Singleton
+    @Named("webhook")
+    fun provideWebhookOkHttpClient(): OkHttpClient =
+        OkHttpClient.Builder()
+            .addInterceptor(CleartextGuardInterceptor())
+            .connectTimeout(Duration.ofSeconds(5))
+            .readTimeout(Duration.ofSeconds(5))
+            .build()
+
     @Provides
     @Singleton
     fun provideRetrofit(client: OkHttpClient): Retrofit =
@@ -79,6 +96,11 @@ object NetworkModule {
     @Singleton
     fun provideAiApi(retrofit: Retrofit): AiApi = retrofit.create(AiApi::class.java)
 
+    @Provides
+    @Singleton
+    fun provideOpenFoodFactsUserAgentInterceptor(): OpenFoodFactsUserAgentInterceptor =
+        OpenFoodFactsUserAgentInterceptor()
+
     /**
      * Isolated Open Food Facts client. Deliberately built on a fresh
      * [OkHttpClient.Builder] that never sees [DynamicApiInterceptor], so
@@ -87,32 +109,40 @@ object NetworkModule {
      */
     @Provides
     @Singleton
-    @OffHttpClient
+    @Named("openfoodfacts")
     fun provideOffOkHttpClient(): OkHttpClient =
         OkHttpClient.Builder()
-            .addInterceptor { chain ->
-                chain.proceed(
-                    chain.request().newBuilder()
-                        .header("User-Agent", OFF_USER_AGENT)
-                        .build()
-                )
-            }
+            .addInterceptor(OpenFoodFactsUserAgentInterceptor())
             .connectTimeout(Duration.ofSeconds(10))
             .readTimeout(Duration.ofSeconds(15))
             .build()
 
+    fun provideOpenFoodFactsOkHttpClient(): OkHttpClient = provideOffOkHttpClient()
+
     @Provides
     @Singleton
-    @OffRetrofit
-    fun provideOffRetrofit(@OffHttpClient client: OkHttpClient): Retrofit =
+    @Named("openfoodfacts")
+    fun provideOffRetrofit(@Named("openfoodfacts") client: OkHttpClient): Retrofit =
         Retrofit.Builder()
             .baseUrl("https://world.openfoodfacts.org/")
             .client(client)
             .addConverterFactory(AppJson.asConverterFactory("application/json".toMediaType()))
             .build()
 
+    fun provideOpenFoodFactsRetrofit(client: OkHttpClient): Retrofit = provideOffRetrofit(client)
+
     @Provides
     @Singleton
-    fun provideOpenFoodFactsApi(@OffRetrofit retrofit: Retrofit): OpenFoodFactsApi =
+    fun provideOpenFoodFactsApi(@Named("openfoodfacts") retrofit: Retrofit): OpenFoodFactsApi =
         retrofit.create(OpenFoodFactsApi::class.java)
+
+    @Provides
+    @Singleton
+    @OffHttpClient
+    fun provideOffHttpClientQualifier(@Named("openfoodfacts") client: OkHttpClient): OkHttpClient = client
+
+    @Provides
+    @Singleton
+    @OffRetrofit
+    fun provideOffRetrofitQualifier(@Named("openfoodfacts") retrofit: Retrofit): Retrofit = retrofit
 }

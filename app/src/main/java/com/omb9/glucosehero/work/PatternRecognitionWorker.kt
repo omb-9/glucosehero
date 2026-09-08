@@ -67,8 +67,9 @@ class PatternRecognitionWorker @AssistedInject constructor(
      */
     private suspend fun refreshTagAnalytics(since: Long, now: Long) {
         try {
-            val analytics = analyticsRepository.computeTagAnalytics(since = since, now = now)
-            database.tagAnalyticDao().replaceAll(analytics)
+            val deltaAnalytics = analyticsRepository.computeTagAnalytics(since = since, now = now)
+            val windowAnalytics = analyticsRepository.computeWindowTagAnalytics(since = since, now = now)
+            database.tagAnalyticDao().replaceAll(deltaAnalytics + windowAnalytics)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

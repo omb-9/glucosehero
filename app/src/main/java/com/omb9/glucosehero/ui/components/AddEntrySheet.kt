@@ -208,7 +208,9 @@ fun AddEntrySheet(
 
     val isLookingUp = foodLookupState is FoodLookupState.Loading
     val lookupMessage = when (val state = foodLookupState) {
-        is FoodLookupState.ManualEntry -> "Barcode not found. Enter the meal details below."
+        is FoodLookupState.NotFound -> "Barcode not found. Enter the meal details below."
+        is FoodLookupState.ManualEntry -> "Barcode lookup disabled. Enter the meal details below."
+        is FoodLookupState.MissingCarbohydrates -> "No carbohydrate data from Open Food Facts. Please enter carbs manually."
         is FoodLookupState.Error -> state.message
         else -> null
     }
@@ -562,6 +564,13 @@ fun AddEntrySheet(
         if (streakReward != null) return@LaunchedEffect
         focusRequester.requestFocus()
         keyboard?.show()
+    }
+
+    LaunchedEffect(foodLookupState) {
+        if (foodLookupState is FoodLookupState.MissingCarbohydrates) {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
     }
 }
 

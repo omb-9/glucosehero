@@ -11,18 +11,25 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import dagger.hilt.EntryPoint
@@ -49,9 +56,12 @@ fun SettingsScreen(
     val bolus by viewModel.bolusSettings.collectAsStateWithLifecycle()
     val healthConnectStatus = viewModel.healthConnectAvailabilityStatus
     val isHealthConnectConnected by viewModel.isHealthConnectConnected.collectAsStateWithLifecycle()
+    val isHealthConnectRevoked by viewModel.isHealthConnectRevoked.collectAsStateWithLifecycle()
     val glucoseImportEnabled by viewModel.glucoseImportEnabled.collectAsStateWithLifecycle()
     val nutritionImportEnabled by viewModel.nutritionImportEnabled.collectAsStateWithLifecycle()
     val exerciseImportEnabled by viewModel.exerciseImportEnabled.collectAsStateWithLifecycle()
+    val sleepImportEnabled by viewModel.sleepImportEnabled.collectAsStateWithLifecycle()
+    val cycleImportEnabled by viewModel.cycleImportEnabled.collectAsStateWithLifecycle()
     val healthConnectInitialImportRange by viewModel.healthConnectInitialImportRange.collectAsStateWithLifecycle()
     val healthConnectLastSync by viewModel.healthConnectLastSync.collectAsStateWithLifecycle()
     val healthConnectSampleCount by viewModel.healthConnectSampleCount.collectAsStateWithLifecycle()
@@ -66,6 +76,21 @@ fun SettingsScreen(
     }
     val barcodeLookupEnabled by settingsDataStore.barcodeLookupEnabled
         .collectAsStateWithLifecycle(initialValue = true)
+    val webhookUrl by settingsDataStore.webhookUrl
+        .collectAsStateWithLifecycle(initialValue = "")
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshHealthConnectStatus()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -115,17 +140,24 @@ fun SettingsScreen(
                 glucoseImportEnabled = glucoseImportEnabled,
                 nutritionImportEnabled = nutritionImportEnabled,
                 exerciseImportEnabled = exerciseImportEnabled,
+                sleepImportEnabled = sleepImportEnabled,
+                cycleImportEnabled = cycleImportEnabled,
                 initialImportRange = healthConnectInitialImportRange,
                 lastSync = healthConnectLastSync,
                 sampleCount = healthConnectSampleCount,
                 use24HourTime = settings.use24HourTime,
-                readPermissions = viewModel.readPermissions,
+                readPermissions = viewModel.allPermissions,
                 onPermissionsResult = viewModel::onPermissionsResult,
                 onGlucoseImportEnabledChange = viewModel::setGlucoseImportEnabled,
                 onNutritionImportEnabledChange = viewModel::setNutritionImportEnabled,
                 onExerciseImportEnabledChange = viewModel::setExerciseImportEnabled,
+                onSleepImportEnabledChange = viewModel::setSleepImportEnabled,
+                onCycleImportEnabledChange = viewModel::setCycleImportEnabled,
                 onInitialImportRangeChange = viewModel::setHealthConnectInitialImportRange,
+                onManagePermissions = { openHealthConnectPermissions(context) },
                 onClearImportedData = viewModel::clearImportedGlucoseData,
+                isRevoked = isHealthConnectRevoked,
+                onDismissRevocationBanner = viewModel::dismissHealthConnectRevokedBanner,
             )
 
             MealLoggingSection(
@@ -146,6 +178,23 @@ fun SettingsScreen(
             NavigationRow(
                 title = "Hero AI",
                 onClick = onHeroAiSettings,
+            )
+
+            SectionHeader("Integrations")
+            var webhookInput by remember(webhookUrl) { mutableStateOf(webhookUrl) }
+            OutlinedTextField(
+                value = webhookInput,
+                onValueChange = { newUrl ->
+                    webhookInput = newUrl
+                    scope.launch { settingsDataStore.setWebhookUrl(newUrl) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Local webhook URL") },
+                placeholder = { Text("http://192.168.1.10:8123/webhook") },
+                singleLine = true,
+                supportingText = {
+                    Text("A JSON payload is POSTed here whenever a new glucose entry is saved.")
+                },
             )
 
             SectionHeader("Data & Backup")

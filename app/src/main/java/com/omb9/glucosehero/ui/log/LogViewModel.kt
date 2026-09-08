@@ -1,6 +1,7 @@
 package com.omb9.glucosehero.ui.log
 
 import android.content.Context
+import java.util.UUID
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -136,6 +137,9 @@ class LogViewModel @Inject constructor(
     val settings: StateFlow<UserSettings> = settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserSettings())
 
+    val isHealthConnectRevoked: StateFlow<Boolean> = settingsDataStore.healthConnectRevoked
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** Minute-grain ticker so the IOB value keeps decaying without a DB emission. */
     private val timeTick: Flow<Unit> = flow {
         while (true) {
@@ -255,9 +259,11 @@ class LogViewModel @Inject constructor(
             body.products.mapNotNull { product ->
                 val name = product.productName?.trim().orEmpty()
                 if (name.isBlank()) return@mapNotNull null
+                val entity = product.toSearchResult()
+                offSearchProducts[entity.uuid] = product
                 val code = product.code?.trim()?.takeIf { it.isNotBlank() }
                 if (code != null) offSearchProducts[code] = product
-                product.toSearchResult()
+                entity
             }
         } catch (e: CancellationException) {
             throw e
@@ -280,7 +286,7 @@ class LogViewModel @Inject constructor(
         settings,
         activeInsulin,
     ) { draft, bolus, userSettings, iob ->
-        val carbs = draft.carbsGrams.trim().toIntOrNull()?.takeIf { it > 0 }
+        val carbs = Formatters.parseDecimal(draft.carbsGrams)?.takeIf { it > 0 }
             ?: return@combine null
         val glucoseDisplay = Formatters.parseDecimal(draft.glucose)?.takeIf { it > 0 }
             ?: return@combine null
@@ -288,7 +294,7 @@ class LogViewModel @Inject constructor(
         BolusCalculator.recommend(
             currentGlucoseMgdl = glucoseMgdl,
             targetGlucoseMgdl = bolus.targetGlucoseMgdl.toDouble(),
-            carbsGrams = carbs.toDouble(),
+            carbsGrams = carbs,
             carbRatio = bolus.cirRatio.toDouble(),
             insulinSensitivityMgdl = bolus.isfMgdl.toDouble(),
             insulinOnBoard = iob,
@@ -354,19 +360,18 @@ class LogViewModel @Inject constructor(
             _isRefreshing.value = true
             try {
                 if (settingsDataStore.healthConnectSyncEnabled.first()) {
-                    val request = OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
-                        .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                        .build()
-                    WorkManager.getInstance(context).enqueueUniqueWork(
-                        HealthConnectSyncWorker.EXPEDITED_UNIQUE_NAME,
-                        ExistingWorkPolicy.REPLACE,
-                        request,
-                    )
+                    HealthConnectSyncWorker.enqueueExpedited(context, ExistingWorkPolicy.REPLACE)
                 }
                 delay(REFRESH_MIN_MILLIS)
             } finally {
                 _isRefreshing.value = false
             }
+        }
+    }
+
+    fun dismissHealthConnectRevokedBanner() {
+        viewModelScope.launch {
+            settingsDataStore.setHealthConnectRevoked(false)
         }
     }
 
@@ -430,16 +435,28 @@ class LogViewModel @Inject constructor(
     }
 
     fun onFoodSelected(food: FoodEntity) {
-        // Remote search rows are transient (id = 0) and resolve through the same
-        // review dialog as a barcode scan before anything is persisted.
-        val barcode = food.barcode
-        val product = if (food.id == 0L && food.source == FoodSource.OPEN_FOOD_FACTS) {
-            barcode?.let { offSearchProducts[it] }
-        } else {
-            null
-        }
-        if (product != null && barcode != null) {
-            _foodLookupState.value = FoodLookupState.ConfirmOff(product.toOffFoodDraft(barcode))
+        // Remote search rows are transient (id = 0, source = OPEN_FOOD_FACTS)
+        // and resolve through the confirmation dialog or manual entry. Never auto-fill carbs!
+        if (food.id == 0L && food.source == FoodSource.OPEN_FOOD_FACTS) {
+            val product = offSearchProducts[food.uuid]
+                ?: food.barcode?.let { offSearchProducts[it] }
+            val draft = product?.toOffFoodDraft(food.barcode.orEmpty()) ?: OffFoodDraft(
+                barcode = food.barcode.orEmpty(),
+                name = food.name,
+                brand = food.brand.orEmpty(),
+                servingLabel = food.servingLabel.orEmpty(),
+                servingGrams = food.servingGrams,
+                carbs = if (food.hasMissingCarbs) "" else trim(food.carbsGrams),
+                protein = food.proteinGrams?.let(::trim).orEmpty(),
+                fat = food.fatGrams?.let(::trim).orEmpty(),
+                kcal = food.kcal,
+            )
+            if (draft.carbs.isBlank() || food.hasMissingCarbs) {
+                _foodLookupState.value = FoodLookupState.MissingCarbohydrates(food.barcode, draft)
+                openManualEntryForMissingCarbs(draft)
+            } else {
+                _foodLookupState.value = FoodLookupState.ConfirmOff(draft)
+            }
             return
         }
         applyFood(food)
@@ -470,18 +487,25 @@ class LogViewModel @Inject constructor(
 
                 val response = openFoodFactsApi.product(code)
                 if (response.code() == 404) {
-                    _foodLookupState.value = FoodLookupState.ManualEntry(code)
+                    _foodLookupState.value = FoodLookupState.NotFound(code)
                     return@launch
                 }
 
                 val body = response.body()
                 val product = body?.product
                 when {
-                    response.isSuccessful && body != null && body.status == 1 && product != null ->
-                        _foodLookupState.value = FoodLookupState.ConfirmOff(product.toOffFoodDraft(code))
+                    response.isSuccessful && body != null && body.status == 1 && product != null -> {
+                        val draft = product.toOffFoodDraft(code)
+                        if (draft.carbs.isBlank()) {
+                            _foodLookupState.value = FoodLookupState.MissingCarbohydrates(code, draft)
+                            openManualEntryForMissingCarbs(draft)
+                        } else {
+                            _foodLookupState.value = FoodLookupState.ConfirmOff(draft)
+                        }
+                    }
 
                     response.isSuccessful && (body == null || body.status == 0 || product == null) ->
-                        _foodLookupState.value = FoodLookupState.ManualEntry(code)
+                        _foodLookupState.value = FoodLookupState.NotFound(code)
 
                     else ->
                         _foodLookupState.value = FoodLookupState.Error("Couldn't look up that barcode.")
@@ -494,6 +518,22 @@ class LogViewModel @Inject constructor(
         }
     }
 
+    private fun openManualEntryForMissingCarbs(draft: OffFoodDraft) {
+        val description = buildString {
+            if (draft.brand.isNotBlank()) append(draft.brand.trim()).append(" ")
+            append(draft.name.trim())
+        }.trim()
+        _draft.update {
+            it.copy(
+                activeCategory = EntryType.MEAL,
+                mealDescription = if (it.mealDescription.isBlank()) description else it.mealDescription,
+                carbsGrams = "", // Never auto-fill carbs; manual entry required
+                proteinGrams = if (it.proteinGrams.isBlank()) draft.protein else it.proteinGrams,
+                fatGrams = if (it.fatGrams.isBlank()) draft.fat else it.fatGrams,
+            )
+        }
+    }
+
     fun dismissFoodLookup() {
         _foodLookupState.value = FoodLookupState.Idle
     }
@@ -501,10 +541,11 @@ class LogViewModel @Inject constructor(
     fun confirmOffFood(draft: OffFoodDraft) {
         val carbs = Formatters.parseDecimal(draft.carbs)?.takeIf { it > 0 } ?: return
         val name = draft.name.trim().ifBlank { return }
+        val barcode = draft.barcode.trim().ifBlank { null }
         val food = FoodEntity(
             name = name,
             brand = draft.brand.trim().ifBlank { null },
-            barcode = draft.barcode.trim().ifBlank { null },
+            barcode = barcode,
             carbsGrams = carbs,
             proteinGrams = Formatters.parseDecimal(draft.protein)?.takeIf { it > 0 },
             fatGrams = Formatters.parseDecimal(draft.fat)?.takeIf { it > 0 },
@@ -517,7 +558,22 @@ class LogViewModel @Inject constructor(
             createdAt = System.currentTimeMillis(),
         )
         viewModelScope.launch {
-            val id = database.foodDao().insert(food)
+            val existing = barcode?.let { database.foodDao().getByBarcode(it) }
+            val id = if (existing != null) {
+                val updated = food.copy(
+                    id = existing.id,
+                    uuid = existing.uuid,
+                    useCount = existing.useCount,
+                    lastUsedAt = existing.lastUsedAt,
+                    isFavorite = existing.isFavorite,
+                    createdAt = existing.createdAt,
+                    userCorrected = true,
+                )
+                database.foodDao().update(updated)
+                existing.id
+            } else {
+                database.foodDao().insert(food)
+            }
             applyFood(food.copy(id = id))
             _foodLookupState.value = FoodLookupState.Idle
         }
@@ -588,21 +644,31 @@ class LogViewModel @Inject constructor(
     /** Transient, display-only [FoodEntity] for a remote search result. */
     private fun OffProduct.toSearchResult(): FoodEntity {
         val n = nutriments
-        val carbs = n?.carbs100g ?: n?.carbsServing ?: 0.0
+        val servingGrams = PortionCalculator.parseServingGrams(servingSize)
+        val carbs = n?.carbsServing
+            ?: if (n?.carbs100g != null && servingGrams != null) n.carbs100g * servingGrams / 100.0
+            else n?.carbs100g
+            ?: FoodEntity.CARBS_MISSING
         val barcode = code?.trim()?.takeIf { it.isNotBlank() }
-        return FoodEntity(
+        val uuid = UUID.randomUUID().toString()
+        val entity = FoodEntity(
             id = 0L,
+            uuid = uuid,
             name = productName?.trim().orEmpty(),
             brand = brands?.trim()?.takeIf { it.isNotBlank() },
             barcode = barcode,
             carbsGrams = carbs,
-            proteinGrams = n?.protein100g ?: n?.proteinServing,
-            fatGrams = n?.fat100g ?: n?.fatServing,
-            kcal = n?.kcal100g ?: n?.kcalServing,
+            proteinGrams = n?.proteinServing ?: n?.protein100g,
+            fatGrams = n?.fatServing ?: n?.fat100g,
+            kcal = n?.kcalServing ?: n?.kcal100g,
+            servingGrams = servingGrams,
             servingLabel = servingSize?.trim()?.takeIf { it.isNotBlank() },
             source = FoodSource.OPEN_FOOD_FACTS,
             createdAt = System.currentTimeMillis(),
         )
+        offSearchProducts[uuid] = this
+        barcode?.let { offSearchProducts[it] = this }
+        return entity
     }
 
     /** Starts a fresh draft with the user's saved reminder default applied. */
@@ -881,6 +947,8 @@ sealed interface FoodLookupState {
     data object Idle : FoodLookupState
     data object Loading : FoodLookupState
     data class ConfirmOff(val draft: OffFoodDraft) : FoodLookupState
+    data class MissingCarbohydrates(val barcode: String?, val draft: OffFoodDraft) : FoodLookupState
+    data class NotFound(val barcode: String) : FoodLookupState
     data class ManualEntry(val barcode: String) : FoodLookupState
     data class Error(val message: String) : FoodLookupState
 }

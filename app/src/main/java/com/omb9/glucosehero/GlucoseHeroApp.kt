@@ -1,15 +1,19 @@
 package com.omb9.glucosehero
 
+import android.app.Activity
 import android.app.Application
+import android.os.Bundle
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.work.AutoBackupWorker
+import com.omb9.glucosehero.work.DailyMarkdownWorker
 import com.omb9.glucosehero.work.HealthConnectSyncWorker
 import com.omb9.glucosehero.work.InsightNotifier
 import com.omb9.glucosehero.work.PatternRecognitionWorker
@@ -49,7 +53,9 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
         postMealReminderNotifier.createChannel()
         schedulePatternRecognition()
         scheduleHealthConnectSync()
+        observeForegroundHealthConnectSync()
         scheduleAutoBackup()
+        scheduleDailyMarkdownExport()
     }
 
     /**
@@ -84,21 +90,42 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
     private fun scheduleHealthConnectSync() {
         applicationScope.launch {
             if (!settingsDataStore.healthConnectSyncEnabled.first()) return@launch
-
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
-                .build()
-
-            val request = PeriodicWorkRequestBuilder<HealthConnectSyncWorker>(3, TimeUnit.HOURS)
-                .setConstraints(constraints)
-                .build()
-
-            WorkManager.getInstance(this@GlucoseHeroApp).enqueueUniquePeriodicWork(
-                HealthConnectSyncWorker.UNIQUE_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
-                request,
-            )
+            HealthConnectSyncWorker.schedulePeriodic(this@GlucoseHeroApp)
         }
+    }
+
+    /**
+     * Registers an activity lifecycle observer to trigger a one-shot expedited Health Connect
+     * sync whenever the app transitions from background to foreground.
+     */
+    private fun observeForegroundHealthConnectSync() {
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            private var startedActivityCount = 0
+            private var isChangingConfig = false
+
+            override fun onActivityStarted(activity: Activity) {
+                if (startedActivityCount == 0 && !isChangingConfig) {
+                    applicationScope.launch {
+                        if (settingsDataStore.healthConnectSyncEnabled.first()) {
+                            HealthConnectSyncWorker.enqueueExpedited(activity, ExistingWorkPolicy.KEEP)
+                        }
+                    }
+                }
+                startedActivityCount++
+                isChangingConfig = false
+            }
+
+            override fun onActivityStopped(activity: Activity) {
+                isChangingConfig = activity.isChangingConfigurations
+                startedActivityCount--
+            }
+
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+            override fun onActivityResumed(activity: Activity) {}
+            override fun onActivityPaused(activity: Activity) {}
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+            override fun onActivityDestroyed(activity: Activity) {}
+        })
     }
 
     /**
@@ -127,6 +154,23 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
                 request,
             )
         }
+    }
+
+    /**
+     * Schedules a daily Markdown export to run once every 24 hours, starting
+     * at the next 3 AM so "yesterday" always refers to a fully elapsed local
+     * day. KEEP preserves the cadence across app launches.
+     */
+    private fun scheduleDailyMarkdownExport() {
+        val request = PeriodicWorkRequestBuilder<DailyMarkdownWorker>(24, TimeUnit.HOURS)
+            .setInitialDelay(initialDelayToNextNightlyRun(), TimeUnit.MILLISECONDS)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            DailyMarkdownWorker.UNIQUE_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
     }
 
     private fun initialDelayToNextNightlyRun(): Long {

@@ -129,7 +129,7 @@ class EntryDetailViewModel @Inject constructor(
         settings,
         activeInsulin,
     ) { form, bolus, userSettings, iob ->
-        val carbs = form.carbs.trim().toIntOrNull()?.takeIf { it > 0 }
+        val carbs = Formatters.parseDecimal(form.carbs)?.takeIf { it > 0 }
             ?: return@combine null
         val glucoseDisplay = Formatters.parseDecimal(form.glucose)?.takeIf { it > 0 }
             ?: return@combine null
@@ -137,7 +137,7 @@ class EntryDetailViewModel @Inject constructor(
         BolusCalculator.recommend(
             currentGlucoseMgdl = glucoseMgdl,
             targetGlucoseMgdl = bolus.targetGlucoseMgdl.toDouble(),
-            carbsGrams = carbs.toDouble(),
+            carbsGrams = carbs,
             carbRatio = bolus.cirRatio.toDouble(),
             insulinSensitivityMgdl = bolus.isfMgdl.toDouble(),
             insulinOnBoard = iob,

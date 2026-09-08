@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.omb9.glucosehero.MainActivity
 import com.omb9.glucosehero.R
-import com.omb9.glucosehero.data.local.db.EntryDao
+import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.util.Formatters
@@ -41,12 +41,12 @@ import kotlinx.coroutines.withContext
 /**
  * Hilt entry point for the widget process. Glance receivers are instantiated
  * by the system, not by Hilt, so this is how the widget reaches the app's
- * singleton Room database and DataStore-backed settings.
+ * singleton repositories and DataStore-backed settings.
  */
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface GlucoseHeroWidgetEntryPoint {
-    fun entryDao(): EntryDao
+    fun entryRepository(): EntryRepository
     fun settingsRepository(): SettingsRepository
 }
 
@@ -162,7 +162,7 @@ private suspend fun loadSnapshot(context: Context): GlucoseWidgetSnapshot {
         GlucoseHeroWidgetEntryPoint::class.java,
     )
     val settings = entryPoint.settingsRepository().settings.first()
-    val reading = entryPoint.entryDao().latestGlucoseReading()
+    val reading = entryPoint.entryRepository().latestGlucoseReading()
 
     val valueText = reading?.glucoseMgdl?.let { Formatters.glucose(it, settings.unit) }
     val timeText = reading?.let {

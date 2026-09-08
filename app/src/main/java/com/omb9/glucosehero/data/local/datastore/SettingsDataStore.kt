@@ -66,17 +66,21 @@ class SettingsDataStore @Inject constructor(
         val ISF_MGDL = floatPreferencesKey("isf_mgdl")
         val TARGET_GLUCOSE_MGDL = floatPreferencesKey("target_glucose_mgdl")
         val HEALTH_CONNECT_SYNC_ENABLED = booleanPreferencesKey("health_connect_sync_enabled")
+        val HEALTH_CONNECT_REVOKED = booleanPreferencesKey("health_connect_revoked")
         val HEALTH_CONNECT_CHANGES_TOKEN = stringPreferencesKey("health_connect_changes_token")
         val HEALTH_CONNECT_LAST_SYNC = longPreferencesKey("health_connect_last_sync")
         val GLUCOSE_IMPORT_ENABLED = booleanPreferencesKey("glucose_import_enabled")
         val NUTRITION_IMPORT_ENABLED = booleanPreferencesKey("nutrition_import_enabled")
         val EXERCISE_IMPORT_ENABLED = booleanPreferencesKey("exercise_import_enabled")
+        val SLEEP_IMPORT_ENABLED = booleanPreferencesKey("sleep_import_enabled")
+        val CYCLE_IMPORT_ENABLED = booleanPreferencesKey("cycle_import_enabled")
         val HEALTH_CONNECT_INITIAL_IMPORT_RANGE = stringPreferencesKey("health_connect_initial_import_range")
         val BARCODE_LOOKUP_ENABLED = booleanPreferencesKey("barcode_lookup_enabled")
         val DISMISSED_FOOD_TAGS = stringSetPreferencesKey("dismissed_food_tags")
         val BACKUP_DIR_URI = stringPreferencesKey("backup_dir_uri")
         val BACKUP_ENABLED = booleanPreferencesKey("backup_enabled")
         val BACKUP_LAST_RUN = longPreferencesKey("backup_last_run")
+        val WEBHOOK_URL = stringPreferencesKey("webhook_url")
     }
 
     /**
@@ -145,6 +149,10 @@ class SettingsDataStore @Inject constructor(
         runCatching { p[Keys.HEALTH_CONNECT_SYNC_ENABLED] }.getOrNull() ?: false
     }
 
+    val healthConnectRevoked: Flow<Boolean> = safeData.map { p ->
+        runCatching { p[Keys.HEALTH_CONNECT_REVOKED] }.getOrNull() ?: false
+    }
+
     val healthConnectChangesToken: Flow<String?> = safeData.map { p ->
         runCatching { p[Keys.HEALTH_CONNECT_CHANGES_TOKEN] }.getOrNull()
     }
@@ -163,6 +171,14 @@ class SettingsDataStore @Inject constructor(
 
     val exerciseImportEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.EXERCISE_IMPORT_ENABLED] }.getOrNull() ?: false
+    }
+
+    val sleepImportEnabled: Flow<Boolean> = safeData.map { p ->
+        runCatching { p[Keys.SLEEP_IMPORT_ENABLED] }.getOrNull() ?: false
+    }
+
+    val cycleImportEnabled: Flow<Boolean> = safeData.map { p ->
+        runCatching { p[Keys.CYCLE_IMPORT_ENABLED] }.getOrNull() ?: false
     }
 
     val healthConnectInitialImportRange: Flow<InitialImportRange> = safeData.map { p ->
@@ -185,6 +201,10 @@ class SettingsDataStore @Inject constructor(
         runCatching { p[Keys.BACKUP_LAST_RUN] }.getOrNull()
     }
 
+    val webhookUrl: Flow<String> = safeData.map { p ->
+        runCatching { p[Keys.WEBHOOK_URL] }.getOrNull().orEmpty()
+    }
+
     /** Single fresh snapshot used by the export utility when assembling a report. */
     suspend fun profileSnapshot(): UserProfile = safeData.first().toUserProfile()
 
@@ -199,6 +219,10 @@ class SettingsDataStore @Inject constructor(
             .getOrNull()?.takeIf { it.isNotBlank() }
 
     suspend fun aiQuotaUsedTodaySnapshot(): Int = safeData.first().aiQuotaUsedToday()
+
+    /** Single fresh snapshot — read once per saved entry by the webhook broadcaster. */
+    suspend fun webhookUrlSnapshot(): String =
+        runCatching { safeData.first()[Keys.WEBHOOK_URL] }.getOrNull().orEmpty()
 
     private fun Preferences.aiQuotaUsedToday(): Int {
         val storedDay = runCatching { this[Keys.AI_QUOTA_DAY] }.getOrNull()
@@ -269,6 +293,9 @@ class SettingsDataStore @Inject constructor(
     suspend fun setHealthConnectSyncEnabled(enabled: Boolean) =
         edit { it[Keys.HEALTH_CONNECT_SYNC_ENABLED] = enabled }
 
+    suspend fun setHealthConnectRevoked(revoked: Boolean) =
+        edit { it[Keys.HEALTH_CONNECT_REVOKED] = revoked }
+
     suspend fun setHealthConnectChangesToken(token: String?) = edit {
         if (token == null) it.remove(Keys.HEALTH_CONNECT_CHANGES_TOKEN)
         else it[Keys.HEALTH_CONNECT_CHANGES_TOKEN] = token
@@ -286,6 +313,12 @@ class SettingsDataStore @Inject constructor(
     suspend fun setExerciseImportEnabled(enabled: Boolean) =
         edit { it[Keys.EXERCISE_IMPORT_ENABLED] = enabled }
 
+    suspend fun setSleepImportEnabled(enabled: Boolean) =
+        edit { it[Keys.SLEEP_IMPORT_ENABLED] = enabled }
+
+    suspend fun setCycleImportEnabled(enabled: Boolean) =
+        edit { it[Keys.CYCLE_IMPORT_ENABLED] = enabled }
+
     suspend fun setHealthConnectInitialImportRange(range: InitialImportRange) =
         edit { it[Keys.HEALTH_CONNECT_INITIAL_IMPORT_RANGE] = range.name }
 
@@ -296,6 +329,11 @@ class SettingsDataStore @Inject constructor(
     suspend fun setBackupEnabled(enabled: Boolean) = edit { it[Keys.BACKUP_ENABLED] = enabled }
 
     suspend fun setBackupLastRun(timestamp: Long) = edit { it[Keys.BACKUP_LAST_RUN] = timestamp }
+
+    suspend fun setWebhookUrl(url: String) = edit {
+        val trimmed = url.trim()
+        if (trimmed.isEmpty()) it.remove(Keys.WEBHOOK_URL) else it[Keys.WEBHOOK_URL] = trimmed
+    }
 
     suspend fun setProfileTarget(target: ProfileTarget) =
         edit { it[Keys.PROFILE_TARGET] = target.name }

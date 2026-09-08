@@ -1,6 +1,7 @@
 package com.omb9.glucosehero.domain.repository
 
 import com.omb9.glucosehero.domain.model.DailyGlucoseSummary
+import com.omb9.glucosehero.domain.model.GlucosePointRow
 import com.omb9.glucosehero.domain.model.GlucoseStats
 import com.omb9.glucosehero.domain.model.LogEvent
 import java.time.LocalDate
@@ -39,4 +40,7 @@ interface EntryRepository {
 
     /** One-shot snapshot of all entries since [sinceMillis], oldest first. */
     suspend fun entriesSince(sinceMillis: Long): List<LogEvent>
+
+    /** Newest reading across manual entries and CGM samples (widget). */
+    suspend fun latestGlucoseReading(): GlucosePointRow?
 }

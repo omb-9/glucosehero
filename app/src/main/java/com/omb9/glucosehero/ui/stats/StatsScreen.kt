@@ -2,6 +2,12 @@ package com.omb9.glucosehero.ui.stats
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,13 +26,25 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bloodtype
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -41,6 +59,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,12 +67,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -70,7 +92,9 @@ import com.omb9.glucosehero.ui.insights.TagImpactUi
 import com.omb9.glucosehero.ui.stats.components.GlucoseChart
 import com.omb9.glucosehero.ui.stats.components.TimeInRangeBar
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
+import com.omb9.glucosehero.ui.theme.GlucoseHigh
 import com.omb9.glucosehero.util.Formatters
+import com.omb9.glucosehero.util.RangeCategory
 import kotlin.math.abs
 
 private val InsightCardBackground = Color(0xFF000000)
@@ -92,10 +116,12 @@ fun StatsScreen(
     val streak by viewModel.currentStreakDays.collectAsStateWithLifecycle()
     val supplies by viewModel.activeSupplies.collectAsStateWithLifecycle()
     val insights by viewModel.insights.collectAsStateWithLifecycle()
+    val weeklySummaryState by viewModel.weeklySummaryState.collectAsStateWithLifecycle()
     val foodImpactTags by viewModel.foodImpactTags.collectAsStateWithLifecycle()
     val moodImpactTags by viewModel.moodImpactTags.collectAsStateWithLifecycle()
     val isExporting by viewModel.isExporting.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val markerPopup by viewModel.selectedMarkerPopup.collectAsStateWithLifecycle()
     var showExportSheet by remember { mutableStateOf(false) }
     var showSupplySheet by remember { mutableStateOf(false) }
     var editingSupply by remember { mutableStateOf<ActiveSupplyUi?>(null) }
@@ -206,6 +232,9 @@ fun StatsScreen(
 
             InsightsSection(
                 insights = insights,
+                weeklySummaryState = weeklySummaryState,
+                onGenerateWeeklySummary = viewModel::generateWeeklySummary,
+                onDismissWeeklySummary = viewModel::dismissWeeklySummary,
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -277,7 +306,7 @@ fun StatsScreen(
                             rangeStartMillis = state.rangeStartMillis,
                             themeMode = state.themeMode,
                             use24Hour = state.use24HourTime,
-                            onMarkerClick = onEntryClick,
+                            onMarkerClick = viewModel::selectMarker,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
@@ -365,6 +394,17 @@ fun StatsScreen(
             isExporting = isExporting,
             onSelect = { format -> viewModel.export(format) },
             onDismiss = { showExportSheet = false },
+        )
+    }
+
+    markerPopup?.let { popup ->
+        MarkerDetailBottomSheet(
+            entry = popup,
+            onDismiss = viewModel::dismissMarkerPopup,
+            onViewFullDetails = { entryId ->
+                viewModel.dismissMarkerPopup()
+                onEntryClick(entryId)
+            },
         )
     }
 }
@@ -460,6 +500,9 @@ private fun StreakIndicator(
 @Composable
 private fun InsightsSection(
     insights: List<InsightCardEntity>,
+    weeklySummaryState: WeeklySummaryState,
+    onGenerateWeeklySummary: () -> Unit,
+    onDismissWeeklySummary: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -468,6 +511,86 @@ private fun InsightsSection(
             style = MaterialTheme.typography.titleMedium,
         )
         Spacer(Modifier.height(8.dp))
+
+        // "Generate Weekly Summary" button at the top of the Insights section
+        Surface(
+            onClick = onGenerateWeeklySummary,
+            enabled = weeklySummaryState !is WeeklySummaryState.Loading,
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(
+                1.dp,
+                if (weeklySummaryState is WeeklySummaryState.Loading) {
+                    MaterialTheme.colorScheme.outlineVariant
+                } else {
+                    GlucoseHigh.copy(alpha = 0.5f)
+                },
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.AutoAwesome,
+                    contentDescription = null,
+                    tint = if (weeklySummaryState is WeeklySummaryState.Loading) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        GlucoseHigh
+                    },
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = if (weeklySummaryState is WeeklySummaryState.Loading) {
+                        "Generating Weekly Summary…"
+                    } else {
+                        "Generate Weekly Summary"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (weeklySummaryState is WeeklySummaryState.Loading) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+            }
+        }
+
+        // Dedicated, dismissible weekly summary card
+        when (weeklySummaryState) {
+            is WeeklySummaryState.Loading -> {
+                Spacer(Modifier.height(12.dp))
+                WeeklySummaryLoadingCard(modifier = Modifier.fillMaxWidth())
+            }
+
+            is WeeklySummaryState.Success -> {
+                Spacer(Modifier.height(12.dp))
+                WeeklySummaryCard(
+                    summary = weeklySummaryState.summary,
+                    onDismiss = onDismissWeeklySummary,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            is WeeklySummaryState.Error -> {
+                Spacer(Modifier.height(12.dp))
+                WeeklySummaryErrorCard(
+                    message = weeklySummaryState.message,
+                    onDismiss = onDismissWeeklySummary,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            is WeeklySummaryState.Idle -> { /* Card is hidden / dismissed */ }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
         if (insights.isEmpty()) {
             InsightsEmptyState()
         } else {
@@ -480,6 +603,223 @@ private fun InsightsSection(
                     InsightCard(insight = insight)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun rememberOrangeShimmerBrush(): Brush {
+    val shimmerColors = listOf(
+        GlucoseHigh.copy(alpha = 0.08f),
+        GlucoseHigh.copy(alpha = 0.28f),
+        GlucoseHigh.copy(alpha = 0.08f),
+    )
+    val transition = rememberInfiniteTransition(label = "weekly-summary-orange-shimmer")
+    val translateAnim by transition.animateFloat(
+        initialValue = -300f,
+        targetValue = 1200f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1300, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "weekly-summary-orange-shimmer-translate",
+    )
+    return Brush.linearGradient(
+        colors = shimmerColors,
+        start = Offset(translateAnim - 300f, 0f),
+        end = Offset(translateAnim, 0f),
+    )
+}
+
+@Composable
+private fun WeeklySummaryLoadingCard(modifier: Modifier = Modifier) {
+    val shimmerBrush = rememberOrangeShimmerBrush()
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, GlucoseHigh.copy(alpha = 0.35f)),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(GlucoseHigh.copy(alpha = 0.14f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AutoAwesome,
+                        contentDescription = null,
+                        tint = GlucoseHigh,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Weekly AI Summary",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Analyzing 7-day glucose metrics & tags…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = GlucoseHigh,
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.95f)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(shimmerBrush),
+            )
+            Spacer(Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(shimmerBrush),
+            )
+            Spacer(Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.65f)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(shimmerBrush),
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeeklySummaryCard(
+    summary: String,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, GlucoseHigh.copy(alpha = 0.4f)),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(GlucoseHigh.copy(alpha = 0.14f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AutoAwesome,
+                        contentDescription = null,
+                        tint = GlucoseHigh,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Weekly AI Summary",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Past 7 days",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Dismiss summary",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = summary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeeklySummaryErrorCard(
+    message: String,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Could not generate summary",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Dismiss error",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -916,6 +1256,287 @@ private fun InsightsEmptyStatePreview() {
                 .padding(16.dp),
         ) {
             InsightsEmptyState()
+        }
+    }
+}
+
+private val MarkerPopupBackground = Color(0xFF000000)
+private val MarkerPopupSurface = Color(0xFF0A0A0B)
+private val MarkerPopupTextPrimary = Color(0xFFFFFFFF)
+private val MarkerPopupTextSecondary = Color(0xFF9E9EA4)
+private val MarkerPopupOutline = Color(0xFF3A3A3E)
+private val MarkerPopupDivider = Color(0xFF1E1E22)
+private val MarkerPopupIconBg = Color(0xFF161618)
+private val MarkerPopupOrangeAccent = Color(0xFFFF7043)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MarkerDetailBottomSheet(
+    entry: MarkerPopupUiState,
+    onDismiss: () -> Unit,
+    onViewFullDetails: (Long) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MarkerPopupBackground,
+        contentColor = MarkerPopupTextPrimary,
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(
+                color = MarkerPopupOutline,
+            )
+        },
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            // Header: Title and Close button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    Text(
+                        text = "Entry Details",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MarkerPopupTextPrimary,
+                    )
+                    Text(
+                        text = "${entry.timeDisplay} · ${entry.dateDisplay}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MarkerPopupTextSecondary,
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Close",
+                        tint = MarkerPopupTextSecondary,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Primary Data Card container
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = MarkerPopupSurface,
+                border = BorderStroke(1.dp, MarkerPopupOutline),
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    // 1. Time
+                    MarkerDataRow(
+                        icon = Icons.Filled.Schedule,
+                        isActive = true,
+                        label = "TIME",
+                        primaryValue = "${entry.timeDisplay} · ${entry.dateDisplay}",
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(MarkerPopupDivider),
+                    )
+
+                    // 2. Glucose
+                    val glucoseText = if (entry.hasGlucose && entry.glucoseDisplay != null) {
+                        "${entry.glucoseDisplay} ${entry.glucoseUnitLabel}"
+                    } else {
+                        "No reading"
+                    }
+                    val glucoseSecondary = if (entry.hasGlucose && entry.glucoseRange != null) {
+                        when (entry.glucoseRange) {
+                            RangeCategory.VERY_LOW -> "Very Low"
+                            RangeCategory.LOW -> "Low"
+                            RangeCategory.IN_RANGE -> "In Range"
+                            RangeCategory.HIGH -> "High"
+                            RangeCategory.VERY_HIGH -> "Very High"
+                        }
+                    } else {
+                        null
+                    }
+                    MarkerDataRow(
+                        icon = Icons.Filled.Bloodtype,
+                        isActive = entry.hasGlucose,
+                        label = "GLUCOSE",
+                        primaryValue = glucoseText,
+                        secondaryValue = glucoseSecondary,
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(MarkerPopupDivider),
+                    )
+
+                    // 3. Food
+                    val foodPrimary = when {
+                        entry.foodDescription != null -> entry.foodDescription
+                        entry.carbsDisplay != null -> entry.carbsDisplay
+                        else -> "None logged"
+                    }
+                    val foodSecondary = if (entry.foodDescription != null && entry.carbsDisplay != null) {
+                        entry.carbsDisplay
+                    } else {
+                        null
+                    }
+                    MarkerDataRow(
+                        icon = Icons.Filled.Restaurant,
+                        isActive = entry.hasFood,
+                        label = "FOOD",
+                        primaryValue = foodPrimary,
+                        secondaryValue = foodSecondary,
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(MarkerPopupDivider),
+                    )
+
+                    // 4. Insulin
+                    val insulinText = if (entry.hasInsulin && entry.insulinDisplay != null) {
+                        entry.insulinDisplay
+                    } else {
+                        "None logged"
+                    }
+                    MarkerDataRow(
+                        icon = Icons.Filled.Vaccines,
+                        isActive = entry.hasInsulin,
+                        label = "INSULIN",
+                        primaryValue = insulinText,
+                    )
+
+                    // 5. Note (if present)
+                    if (!entry.note.isNullOrBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(MarkerPopupDivider),
+                        )
+                        MarkerDataRow(
+                            icon = Icons.Filled.Notes,
+                            isActive = true,
+                            label = "NOTE",
+                            primaryValue = entry.note,
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            // Full Entry Routing Button
+            Button(
+                onClick = { onViewFullDetails(entry.entryId) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MarkerPopupOrangeAccent,
+                    contentColor = Color.White,
+                ),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        text = "View Full Entry",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Icon(
+                        imageVector = Icons.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarkerDataRow(
+    icon: ImageVector,
+    isActive: Boolean,
+    label: String,
+    primaryValue: String,
+    secondaryValue: String? = null,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = MarkerPopupIconBg,
+            border = BorderStroke(
+                1.dp,
+                if (isActive) MarkerPopupOrangeAccent.copy(alpha = 0.4f) else MarkerPopupOutline,
+            ),
+            modifier = Modifier.size(40.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isActive) MarkerPopupOrangeAccent else MarkerPopupTextSecondary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MarkerPopupTextSecondary,
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = primaryValue,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (isActive) MarkerPopupTextPrimary else MarkerPopupTextSecondary,
+                )
+                if (secondaryValue != null) {
+                    Text(
+                        text = secondaryValue,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MarkerPopupTextSecondary,
+                    )
+                }
+            }
         }
     }
 }

@@ -50,6 +50,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -136,9 +137,14 @@ class SettingsViewModel @Inject constructor(
 
     /** The exact permission set requested by the connect flow (owned by [HealthConnectRepository]). */
     val readPermissions: Set<String> = healthConnectRepository.readPermissions
+    val writePermissions: Set<String> = healthConnectRepository.writePermissions
+    val allPermissions: Set<String> = healthConnectRepository.allPermissions
 
     private val _isHealthConnectConnected = MutableStateFlow(false)
     val isHealthConnectConnected: StateFlow<Boolean> = _isHealthConnectConnected.asStateFlow()
+
+    val isHealthConnectRevoked: StateFlow<Boolean> = settingsDataStore.healthConnectRevoked
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     private val _healthConnectSampleCount = MutableStateFlow(0)
     val healthConnectSampleCount: StateFlow<Int> = _healthConnectSampleCount.asStateFlow()
@@ -150,6 +156,12 @@ class SettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     val exerciseImportEnabled: StateFlow<Boolean> = settingsDataStore.exerciseImportEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val sleepImportEnabled: StateFlow<Boolean> = settingsDataStore.sleepImportEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val cycleImportEnabled: StateFlow<Boolean> = settingsDataStore.cycleImportEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     val healthConnectInitialImportRange: StateFlow<InitialImportRange> =
@@ -367,10 +379,21 @@ class SettingsViewModel @Inject constructor(
         _isHealthConnectConnected.value = connected
         viewModelScope.launch {
             if (connected) {
+                settingsDataStore.setHealthConnectRevoked(false)
                 settingsDataStore.setHealthConnectSyncEnabled(true)
+                HealthConnectSyncWorker.schedulePeriodic(context)
                 enqueueHealthConnectSync()
+            } else {
+                settingsDataStore.setHealthConnectSyncEnabled(false)
+                HealthConnectSyncWorker.cancelPeriodic(context)
             }
             refreshHealthConnectSampleCount()
+        }
+    }
+
+    fun dismissHealthConnectRevokedBanner() {
+        viewModelScope.launch {
+            settingsDataStore.setHealthConnectRevoked(false)
         }
     }
 
@@ -382,6 +405,12 @@ class SettingsViewModel @Inject constructor(
 
     fun setExerciseImportEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsDataStore.setExerciseImportEnabled(enabled) }
+
+    fun setSleepImportEnabled(enabled: Boolean) =
+        viewModelScope.launch { settingsDataStore.setSleepImportEnabled(enabled) }
+
+    fun setCycleImportEnabled(enabled: Boolean) =
+        viewModelScope.launch { settingsDataStore.setCycleImportEnabled(enabled) }
 
     fun setHealthConnectInitialImportRange(range: InitialImportRange) =
         viewModelScope.launch { settingsDataStore.setHealthConnectInitialImportRange(range) }
@@ -397,7 +426,13 @@ class SettingsViewModel @Inject constructor(
     fun refreshHealthConnectStatus() {
         viewModelScope.launch {
             val granted = healthConnectRepository.grantedPermissions()
-            _isHealthConnectConnected.value = granted.containsAll(readPermissions)
+            val connected = granted.containsAll(readPermissions)
+            _isHealthConnectConnected.value = connected
+            if (!connected && settingsDataStore.healthConnectSyncEnabled.first()) {
+                settingsDataStore.setHealthConnectSyncEnabled(false)
+                HealthConnectSyncWorker.cancelPeriodic(context)
+                settingsDataStore.setHealthConnectRevoked(true)
+            }
             refreshHealthConnectSampleCount()
         }
     }
@@ -407,14 +442,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun enqueueHealthConnectSync() {
-        val request = OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
-            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-            .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            HealthConnectSyncWorker.EXPEDITED_UNIQUE_NAME,
-            ExistingWorkPolicy.REPLACE,
-            request,
-        )
+        HealthConnectSyncWorker.enqueueExpedited(context, ExistingWorkPolicy.REPLACE)
     }
 
     fun exportBackup(uri: Uri) {

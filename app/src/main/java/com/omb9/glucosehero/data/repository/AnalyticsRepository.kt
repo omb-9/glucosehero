@@ -3,6 +3,7 @@ package com.omb9.glucosehero.data.repository
 import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.entity.TagAnalyticEntity
 import com.omb9.glucosehero.domain.model.TagKind
+import com.omb9.glucosehero.domain.model.isWindowed
 import com.omb9.glucosehero.util.CrisisDetector
 import com.omb9.glucosehero.util.Percentiles
 import com.omb9.glucosehero.util.TagExtractor
@@ -14,12 +15,15 @@ import kotlinx.coroutines.withContext
 /**
  * Computes per-tag glucose analytics from logged entries.
  *
- * The "glucose delta" for a tagged event is the event's own baseline glucose
- * reading subtracted from the glucose reading found approximately 2 hours
- * after its timestamp. Follow-up readings are resolved by a single correlated
- * subquery in [EntryDao], so the cost is one database round trip rather than
- * one per entry. Aggregation (median/quartiles rather than a mean) happens in
- * Kotlin on [Dispatchers.IO] so the main thread is never blocked.
+ * Food, hashtag, description, and mood tags use a 2-hour post-event delta: the
+ * event's own baseline glucose reading subtracted from the reading found about
+ * two hours later (see [computeTagAnalytics]). Sleep and cycle tags are
+ * interval records without their own glucose reading, so their impact is a
+ * window delta instead — the average glucose during the interval minus a
+ * baseline just before it (see [computeWindowTagAnalytics]).
+ *
+ * Aggregation (median/quartiles rather than a mean of the per-event deltas)
+ * happens in Kotlin on [Dispatchers.IO] so the main thread is never blocked.
  */
 @Singleton
 class AnalyticsRepository @Inject constructor(
@@ -27,8 +31,8 @@ class AnalyticsRepository @Inject constructor(
 ) {
 
     /**
-     * Builds a [TagAnalyticEntity] for every tag seen on a qualifying entry
-     * since [since].
+     * Builds a [TagAnalyticEntity] for every non-windowed tag seen on a
+     * qualifying entry since [since].
      *
      * [now] is stamped into each row as `computedAt`; it should match the
      * caller's notion of "the current run" so a nightly refresh is internally
@@ -69,6 +73,11 @@ class AnalyticsRepository @Inject constructor(
                 )
 
                 for (tag in tags) {
+                    // Window tags (sleep/cycle) are computed separately from
+                    // their intervals; never emit them here or they would
+                    // collide on the unique `tag` column with the window path.
+                    if (tag.kind.isWindowed) continue
+
                     val accumulator = accumulators.getOrPut(tag.tag) {
                         Accumulator(kind = tag.kind, foodId = tag.foodId)
                     }
@@ -79,6 +88,88 @@ class AnalyticsRepository @Inject constructor(
                         timestamp = row.timestamp,
                     )
                 }
+            }
+
+            accumulators
+                .map { (tag, accumulator) -> accumulator.toEntity(tag = tag, computedAt = now) }
+                .sortedBy { it.tag }
+        }
+
+    /**
+     * Builds a [TagAnalyticEntity] for the `SLEEP` and `CYCLE` tags from
+     * Health Connect interval entries since [since].
+     *
+     * Each interval contributes a single delta:
+     * - `SLEEP`: the average glucose during the session minus the last reading
+     *   within [SLEEP_BASELINE_LOOKBACK_MILLIS] before it.
+     * - `CYCLE`: the average glucose during the period minus the average over
+     *   [CYCLE_BASELINE_LOOKBACK_MILLIS] before it.
+     *
+     * Intervals without an end timestamp or without enough surrounding glucose
+     * readings are skipped.
+     */
+    suspend fun computeWindowTagAnalytics(since: Long, now: Long): List<TagAnalyticEntity> =
+        withContext(Dispatchers.IO) {
+            val events = entryDao.windowedEntriesSince(since)
+            if (events.isEmpty()) return@withContext emptyList()
+
+            val points = entryDao.glucoseReadingPointsBetween(
+                startMillis = since - WINDOW_BASELINE_MARGIN_MILLIS,
+                endMillis = now,
+            )
+            if (points.isEmpty()) return@withContext emptyList()
+
+            val timestamps = LongArray(points.size) { points[it].timestamp }
+            val values = DoubleArray(points.size) { points[it].glucoseMgdl }
+
+            val accumulators = LinkedHashMap<String, Accumulator>()
+
+            for (event in events) {
+                val start = event.timestamp
+                val end = event.endTime ?: continue
+                if (end <= start) continue
+
+                val kind = TagExtractor.extract(
+                    note = event.note,
+                    mealDescription = null,
+                    foodId = null,
+                    foodName = null,
+                ).firstOrNull { it.kind.isWindowed }?.kind ?: continue
+
+                val (baseline, windowAverage) = when (kind) {
+                    TagKind.SLEEP -> {
+                        val base = lastReadingBetween(
+                            start - SLEEP_BASELINE_LOOKBACK_MILLIS,
+                            start,
+                            timestamps,
+                            values,
+                        )
+                        val average = averageBetween(start, end, timestamps, values)
+                        if (base != null && average != null) base to average else null
+                    }
+
+                    TagKind.CYCLE -> {
+                        val base = averageBetween(
+                            start - CYCLE_BASELINE_LOOKBACK_MILLIS,
+                            start,
+                            timestamps,
+                            values,
+                        )
+                        val average = averageBetween(start, end, timestamps, values)
+                        if (base != null && average != null) base to average else null
+                    }
+
+                    else -> null
+                } ?: continue
+
+                val tag = if (kind == TagKind.SLEEP) TagExtractor.SLEEP_TAG else TagExtractor.CYCLE_TAG
+                val accumulator = accumulators.getOrPut(tag) { Accumulator(kind = kind, foodId = null) }
+                accumulator.add(
+                    delta = windowAverage - baseline,
+                    carbsGrams = null,
+                    bolusUnits = null,
+                    timestamp = start,
+                )
             }
 
             accumulators
@@ -119,12 +210,70 @@ class AnalyticsRepository @Inject constructor(
         }
     }
 
+    /** Last glucose reading with timestamp in [start, endExclusive); null if none. */
+    private fun lastReadingBetween(
+        start: Long,
+        endExclusive: Long,
+        timestamps: LongArray,
+        values: DoubleArray,
+    ): Double? {
+        val from = lowerBound(timestamps, start)
+        val to = upperBound(timestamps, endExclusive) - 1
+        return if (to >= from) values[to] else null
+    }
+
+    /** Arithmetic mean of glucose readings with timestamp in [start, endExclusive); null if none. */
+    private fun averageBetween(
+        start: Long,
+        endExclusive: Long,
+        timestamps: LongArray,
+        values: DoubleArray,
+    ): Double? {
+        val from = lowerBound(timestamps, start)
+        val to = upperBound(timestamps, endExclusive)
+        if (from >= to) return null
+        var sum = 0.0
+        for (i in from until to) sum += values[i]
+        return sum / (to - from)
+    }
+
+    /** First index whose value is >= [key]. */
+    private fun lowerBound(a: LongArray, key: Long): Int {
+        var lo = 0
+        var hi = a.size
+        while (lo < hi) {
+            val mid = (lo + hi) ushr 1
+            if (a[mid] < key) lo = mid + 1 else hi = mid
+        }
+        return lo
+    }
+
+    /** First index whose value is > [key]. */
+    private fun upperBound(a: LongArray, key: Long): Int {
+        var lo = 0
+        var hi = a.size
+        while (lo < hi) {
+            val mid = (lo + hi) ushr 1
+            if (a[mid] <= key) lo = mid + 1 else hi = mid
+        }
+        return lo
+    }
+
     private companion object {
         /** Target time-to-peak after a tagged event. */
         const val POST_EVENT_WINDOW_MILLIS = 2 * 60 * 60 * 1000L
 
         /** ± tolerance for locating the follow-up reading. */
         const val TOLERANCE_MILLIS = 30 * 60 * 1000L
+
+        /** Lookback before a sleep session used to locate its pre-sleep baseline reading. */
+        const val SLEEP_BASELINE_LOOKBACK_MILLIS = 3 * 60 * 60 * 1000L
+
+        /** Lookback before a cycle period used to compute its pre-period baseline average. */
+        const val CYCLE_BASELINE_LOOKBACK_MILLIS = 7 * 24 * 60 * 60 * 1000L
+
+        /** Extra readings fetched behind the `since` bound so baseline windows near the window edge resolve. */
+        const val WINDOW_BASELINE_MARGIN_MILLIS = CYCLE_BASELINE_LOOKBACK_MILLIS
     }
 }
 

@@ -45,6 +45,8 @@ data class EntryEntity(
     @ColumnInfo(name = "note") val note: String? = null,
     @ColumnInfo(name = "source", defaultValue = "MANUAL") val source: EntrySource = EntrySource.MANUAL,
     @ColumnInfo(name = "hc_record_id") val hcRecordId: String? = null,
+    /** End of a Health Connect interval (sleep/cycle); null for instant events. */
+    @ColumnInfo(name = "end_time") val endTime: Long? = null,
     @ColumnInfo(name = "food_id") val foodId: Long? = null,
     @ColumnInfo(name = "uuid", defaultValue = "") val uuid: String = UUID.randomUUID().toString(),
     @ColumnInfo(name = "mood_score") val moodScore: Int? = null,

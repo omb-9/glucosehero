@@ -1,68 +1,35 @@
 package com.omb9.glucosehero.data.vision
 
 import android.content.Context
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
-import kotlin.coroutines.resume
-import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
- * Thin adapter over Google Play services' out-of-process code scanner.
+ * Contract for scanning physical meal product barcodes.
  *
- * The scanner runs in its own Google-provided activity, so this class owns no
- * camera code and the app needs no CAMERA permission. A future nutrition
- * lookup (e.g. Open Food Facts by UPC) can consume the returned barcode values
- * without touching the Compose layer.
+ * The scanner interface provides an abstraction over barcode detection,
+ * allowing callers (e.g. Compose UI, ViewModels) to remain completely agnostic
+ * of the underlying implementation (Google Play services code scanner, ML Kit,
+ * or test doubles).
  */
-class MealBarcodeScanner {
+interface MealBarcodeScanner {
 
     /**
-     * Launches Google's code scanner and returns the first machine-readable
-     * EAN/UPC barcode it recognizes.
-     *
-     * Restricting to EAN/UPC specifically stops the scanner latching onto an
-     * unrelated QR code elsewhere on the packaging.
+     * Launches the code scanner and returns the first recognized machine-readable
+     * barcode or terminal outcome.
      */
-    suspend fun scanBarcodes(context: Context): MealBarcodeScanResult =
-        suspendCancellableCoroutine { continuation ->
-            val options = GmsBarcodeScannerOptions.Builder()
-                .setBarcodeFormats(
-                    Barcode.FORMAT_EAN_13,
-                    Barcode.FORMAT_EAN_8,
-                    Barcode.FORMAT_UPC_A,
-                    Barcode.FORMAT_UPC_E,
-                )
-                .enableAutoZoom()
-                .build()
+    suspend fun scanBarcodes(context: Context): MealBarcodeScanResult
 
-            val task = GmsBarcodeScanning.getClient(context, options).startScan()
-
-            task.addOnSuccessListener { barcode ->
-                if (continuation.isActive) {
-                    continuation.resume(
-                        MealBarcodeScanResult.Success(
-                            listOfNotNull(barcode.rawValue?.takeIf { it.isNotBlank() }),
-                        ),
-                    )
-                }
-            }
-            task.addOnCanceledListener {
-                if (continuation.isActive) {
-                    continuation.resume(MealBarcodeScanResult.Canceled)
-                }
-            }
-            task.addOnFailureListener {
-                if (continuation.isActive) {
-                    continuation.resume(MealBarcodeScanResult.Unavailable)
-                }
-            }
-        }
+    companion object {
+        /**
+         * Creates the default [MealBarcodeScanner] implementation backed by
+         * [PlayServicesMealBarcodeScanner].
+         */
+        operator fun invoke(): MealBarcodeScanner = PlayServicesMealBarcodeScanner()
+    }
 }
 
 /** Outcome of [MealBarcodeScanner.scanBarcodes]. */
 sealed interface MealBarcodeScanResult {
-    /** A recognized EAN/UPC barcode (or an empty list if [Barcode.rawValue] was blank). */
+    /** A recognized EAN/UPC barcode (or an empty list if rawValue was blank). */
     data class Success(val values: List<String>) : MealBarcodeScanResult
 
     /** The user dismissed the scanner without scanning anything. */

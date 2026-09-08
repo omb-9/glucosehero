@@ -297,6 +297,13 @@ interface EntryDao {
     suspend fun entriesSince(since: Long): List<EntryEntity>
 
     /**
+     * Health Connect interval events (sleep sessions / menstruation periods)
+     * that carry an end timestamp, oldest first, for window-based analytics.
+     */
+    @Query("SELECT * FROM entries WHERE end_time IS NOT NULL AND timestamp >= :since ORDER BY timestamp ASC")
+    suspend fun windowedEntriesSince(since: Long): List<EntryEntity>
+
+    /**
      * The single newest glucose reading from the `glucose_readings` view
      * (home-screen widget). The view has no `id`, so this is a projection.
      */
@@ -385,6 +392,20 @@ interface EntryDao {
         """
     )
     suspend fun glucoseReadingPointsSince(since: Long): List<GlucosePointRow>
+
+    /**
+     * Glucose readings within an inclusive timestamp range, oldest first, for
+     * window-based tag analytics (baseline + in-window averages).
+     */
+    @Query(
+        """
+        SELECT timestamp, glucose_mgdl AS glucoseMgdl
+        FROM glucose_readings
+        WHERE glucose_mgdl IS NOT NULL AND timestamp BETWEEN :startMillis AND :endMillis
+        ORDER BY timestamp ASC
+        """
+    )
+    suspend fun glucoseReadingPointsBetween(startMillis: Long, endMillis: Long): List<GlucosePointRow>
 
     /**
      * Average glucose grouped by hour of the day. The WHERE clause on

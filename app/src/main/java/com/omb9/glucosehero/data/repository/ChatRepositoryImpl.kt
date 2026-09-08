@@ -32,6 +32,7 @@ import com.omb9.glucosehero.domain.model.QuotaExhaustedException
 import com.omb9.glucosehero.domain.model.StreamEvent
 import com.omb9.glucosehero.domain.model.TagKind
 import com.omb9.glucosehero.domain.model.UserProfile
+import com.omb9.glucosehero.domain.model.isWindowed
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.util.AiQuota
@@ -311,7 +312,7 @@ class ChatRepositoryImpl @Inject constructor(
                 val dismissed = settingsDataStore.dismissedFoodTags.first()
                 database.tagAnalyticDao().observeAll().first()
                     .filter {
-                        it.kind != TagKind.MOOD &&
+                        it.kind != TagKind.MOOD && !it.kind.isWindowed &&
                             it.occurrences >= FOOD_PATTERN_MIN_OCCURRENCES && it.tag !in dismissed
                     }
                     .take(FOOD_PATTERN_LIMIT)
