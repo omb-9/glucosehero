@@ -81,6 +81,8 @@ import com.omb9.glucosehero.ui.theme.GlucoseLow
 fun LogScreen(
     onEntryClick: (Long) -> Unit,
     addGlucoseTick: Int = 0,
+    addMealTick: Int = 0,
+    addBolusTick: Int = 0,
     viewModel: LogViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -116,6 +118,22 @@ fun LogScreen(
     LaunchedEffect(addGlucoseTick) {
         if (addGlucoseTick > 0) {
             viewModel.openNewDraft(settings.postMealRemindersEnabled)
+            showSheet = true
+        }
+    }
+
+    LaunchedEffect(addMealTick) {
+        if (addMealTick > 0) {
+            viewModel.openNewDraft(settings.postMealRemindersEnabled)
+            viewModel.onCategorySelected(EntryType.MEAL)
+            showSheet = true
+        }
+    }
+
+    LaunchedEffect(addBolusTick) {
+        if (addBolusTick > 0) {
+            viewModel.openNewDraft(settings.postMealRemindersEnabled)
+            viewModel.onCategorySelected(EntryType.INSULIN)
             showSheet = true
         }
     }

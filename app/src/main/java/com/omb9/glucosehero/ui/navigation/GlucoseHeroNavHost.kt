@@ -68,6 +68,8 @@ fun GlucoseHeroNavHost(
     navController: NavHostController,
     isHeroAiEnabled: Boolean,
     addGlucoseTick: Int = 0,
+    addMealTick: Int = 0,
+    addBolusTick: Int = 0,
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -116,6 +118,8 @@ fun GlucoseHeroNavHost(
                 LogScreen(
                     onEntryClick = { id -> navController.navigate(Routes.entryDetail(id)) },
                     addGlucoseTick = addGlucoseTick,
+                    addMealTick = addMealTick,
+                    addBolusTick = addBolusTick,
                 )
             }
             composable(Routes.STATS) {

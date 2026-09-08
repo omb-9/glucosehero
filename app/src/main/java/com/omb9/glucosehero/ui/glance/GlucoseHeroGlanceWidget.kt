@@ -12,13 +12,19 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
+import androidx.glance.Button
+import androidx.glance.ButtonDefaults
 import androidx.glance.background
 import androidx.glance.unit.ColorProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
+import androidx.glance.layout.Row
+import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -74,12 +80,16 @@ class GlucoseHeroGlanceWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val snapshot = withContext(Dispatchers.IO) { loadSnapshot(context) }
-        val openAddEntry = addGlucoseIntent(context)
+        val openGlucose = addGlucoseIntent(context)
+        val openMeal = addMealIntent(context)
+        val openBolus = addBolusIntent(context)
 
         provideContent {
             GlucoseHeroWidgetContent(
                 snapshot = snapshot,
-                openAddEntry = actionStartActivity(openAddEntry),
+                openGlucose = actionStartActivity(openGlucose),
+                openMeal = actionStartActivity(openMeal),
+                openBolus = actionStartActivity(openBolus),
             )
         }
     }
@@ -92,63 +102,116 @@ class GlucoseHeroGlanceWidgetReceiver : GlanceAppWidgetReceiver() {
 @Composable
 private fun GlucoseHeroWidgetContent(
     snapshot: GlucoseWidgetSnapshot,
-    openAddEntry: Action,
+    openGlucose: Action,
+    openMeal: Action,
+    openBolus: Action,
 ) {
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(WidgetBackground.asColorProvider())
-            .clickable(openAddEntry)
-            .padding(16.dp),
+            .padding(12.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = snapshot.title,
-                style = TextStyle(
-                    color = WidgetOnSurfaceVariant.asColorProvider(),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
-            )
-
-            if (snapshot.valueText != null) {
+            Column(
+                modifier = GlanceModifier.clickable(openGlucose),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(
-                    text = "${snapshot.valueText} ${snapshot.unitLabel}",
-                    modifier = GlanceModifier.padding(top = 2.dp),
-                    maxLines = 1,
-                    style = TextStyle(
-                        color = WidgetAccent.asColorProvider(),
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                )
-            } else {
-                Text(
-                    text = snapshot.emptyText,
-                    modifier = GlanceModifier.padding(top = 2.dp),
-                    maxLines = 2,
-                    style = TextStyle(
-                        color = WidgetAccent.asColorProvider(),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                )
-            }
-
-            if (snapshot.timeText != null) {
-                Text(
-                    text = snapshot.timeText,
-                    modifier = GlanceModifier.padding(top = 2.dp),
-                    maxLines = 1,
+                    text = snapshot.title,
                     style = TextStyle(
                         color = WidgetOnSurfaceVariant.asColorProvider(),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Normal,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
                     ),
+                )
+
+                if (snapshot.valueText != null) {
+                    Text(
+                        text = "${snapshot.valueText} ${snapshot.unitLabel}",
+                        modifier = GlanceModifier.padding(top = 2.dp),
+                        maxLines = 1,
+                        style = TextStyle(
+                            color = WidgetAccent.asColorProvider(),
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                    )
+                } else {
+                    Text(
+                        text = snapshot.emptyText,
+                        modifier = GlanceModifier.padding(top = 2.dp),
+                        maxLines = 2,
+                        style = TextStyle(
+                            color = WidgetAccent.asColorProvider(),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                    )
+                }
+
+                if (snapshot.timeText != null) {
+                    Text(
+                        text = snapshot.timeText,
+                        modifier = GlanceModifier.padding(top = 2.dp),
+                        maxLines = 1,
+                        style = TextStyle(
+                            color = WidgetOnSurfaceVariant.asColorProvider(),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Normal,
+                        ),
+                    )
+                }
+            }
+
+            Spacer(GlanceModifier.height(6.dp))
+
+            Row(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    text = "Log Meal",
+                    onClick = openMeal,
+                    modifier = GlanceModifier.padding(
+                        start = 8.dp,
+                        end = 8.dp,
+                        top = 4.dp,
+                        bottom = 4.dp,
+                    ),
+                    style = TextStyle(
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = WidgetOnSurfaceVariant.asColorProvider(),
+                        contentColor = WidgetBackground.asColorProvider(),
+                    ),
+                    maxLines = 1,
+                )
+                Spacer(GlanceModifier.width(8.dp))
+                Button(
+                    text = "Log Bolus",
+                    onClick = openBolus,
+                    modifier = GlanceModifier.padding(
+                        start = 8.dp,
+                        end = 8.dp,
+                        top = 4.dp,
+                        bottom = 4.dp,
+                    ),
+                    style = TextStyle(
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    colors = ButtonDefaults.buttonColors(
+                        backgroundColor = WidgetAccent.asColorProvider(),
+                        contentColor = WidgetBackground.asColorProvider(),
+                    ),
+                    maxLines = 1,
                 )
             }
         }
@@ -184,4 +247,16 @@ private fun addGlucoseIntent(context: Context): Intent =
     Intent(context, MainActivity::class.java).apply {
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         putExtra(MainActivity.EXTRA_DESTINATION, MainActivity.DESTINATION_ADD_GLUCOSE)
+    }
+
+private fun addMealIntent(context: Context): Intent =
+    Intent(context, MainActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        putExtra(MainActivity.EXTRA_DESTINATION, MainActivity.DESTINATION_ADD_MEAL)
+    }
+
+private fun addBolusIntent(context: Context): Intent =
+    Intent(context, MainActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        putExtra(MainActivity.EXTRA_DESTINATION, MainActivity.DESTINATION_ADD_BOLUS)
     }
