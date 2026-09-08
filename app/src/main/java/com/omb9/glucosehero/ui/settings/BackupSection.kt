@@ -7,18 +7,29 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,6 +39,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.data.export.BackupCounts
 import com.omb9.glucosehero.data.export.BackupPreview
 import com.omb9.glucosehero.data.export.ImportMode
@@ -36,6 +49,55 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BackupSettingsScreen(
+    onBack: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val backupState by viewModel.backupState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(backupState.message) {
+        backupState.message?.let { snackbarHostState.showSnackbar(it) }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Data & Backup") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                        )
+                    }
+                },
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { padding ->
+        BackupSection(
+            state = backupState,
+            onBackupNow = viewModel::exportBackup,
+            onExportMarkdown = viewModel::exportMarkdown,
+            onImportPicked = viewModel::previewImport,
+            onChooseFolder = viewModel::setBackupFolder,
+            onDismissPreview = viewModel::dismissImportPreview,
+            onImport = viewModel::importBackup,
+            onAutoBackupToggle = viewModel::setAutoBackupEnabled,
+            onRestoreSnapshot = viewModel::restoreLatestSnapshot,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(top = 8.dp, bottom = 24.dp),
+        )
+    }
+}
 
 @Composable
 fun BackupSection(
@@ -52,11 +114,6 @@ fun BackupSection(
 ) {
     var importUri by remember { mutableStateOf<Uri?>(null) }
     var confirmRestoreSnapshot by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(state.message) {
-        state.message?.let { snackbarHostState.showSnackbar(it) }
-    }
 
     val backupLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -162,8 +219,6 @@ fun BackupSection(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-
-        SnackbarHost(snackbarHostState)
     }
 
     val preview = state.preview

@@ -29,6 +29,12 @@ import com.omb9.glucosehero.ui.foods.FoodLibraryScreen
 import com.omb9.glucosehero.ui.insights.FoodImpactScreen
 import com.omb9.glucosehero.ui.log.LogScreen
 import com.omb9.glucosehero.ui.settings.AiSettingsScreen
+import com.omb9.glucosehero.ui.settings.AppearanceSettingsScreen
+import com.omb9.glucosehero.ui.settings.BackupSettingsScreen
+import com.omb9.glucosehero.ui.settings.GlucoseTargetsSettingsScreen
+import com.omb9.glucosehero.ui.settings.HealthConnectSettingsScreen
+import com.omb9.glucosehero.ui.settings.MealLoggingSettingsScreen
+import com.omb9.glucosehero.ui.settings.ProfileSettingsScreen
 import com.omb9.glucosehero.ui.settings.SettingsScreen
 import com.omb9.glucosehero.ui.stats.StatsScreen
 
@@ -46,6 +52,12 @@ object Routes {
     const val FOOD_LIBRARY = "food_library"
     const val FOOD_IMPACT = "food_impact"
     const val AI_SETTINGS = "ai_settings"
+    const val PROFILE_SETTINGS = "profile_settings"
+    const val GLUCOSE_TARGETS_SETTINGS = "glucose_targets_settings"
+    const val MEAL_LOGGING_SETTINGS = "meal_logging_settings"
+    const val HEALTH_CONNECT_SETTINGS = "health_connect_settings"
+    const val BACKUP_SETTINGS = "backup_settings"
+    const val APPEARANCE_SETTINGS = "appearance_settings"
 
     fun entryDetail(entryId: Long) = "entry/$entryId"
 }
@@ -146,10 +158,34 @@ fun GlucoseHeroNavHost(
                 SettingsScreen(
                     onManageFoods = { navController.navigate(Routes.FOOD_LIBRARY) },
                     onHeroAiSettings = { navController.navigate(Routes.AI_SETTINGS) },
+                    onProfile = { navController.navigate(Routes.PROFILE_SETTINGS) },
+                    onGlucoseTargets = { navController.navigate(Routes.GLUCOSE_TARGETS_SETTINGS) },
+                    onMealLogging = { navController.navigate(Routes.MEAL_LOGGING_SETTINGS) },
+                    onHealthConnect = { navController.navigate(Routes.HEALTH_CONNECT_SETTINGS) },
+                    onBackup = { navController.navigate(Routes.BACKUP_SETTINGS) },
+                    onAppearance = { navController.navigate(Routes.APPEARANCE_SETTINGS) },
                 )
             }
             composable(Routes.AI_SETTINGS) {
                 AiSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.PROFILE_SETTINGS) {
+                ProfileSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.GLUCOSE_TARGETS_SETTINGS) {
+                GlucoseTargetsSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.MEAL_LOGGING_SETTINGS) {
+                MealLoggingSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.HEALTH_CONNECT_SETTINGS) {
+                HealthConnectSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.BACKUP_SETTINGS) {
+                BackupSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.APPEARANCE_SETTINGS) {
+                AppearanceSettingsScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.FOOD_LIBRARY) {
                 FoodLibraryScreen(onBack = { navController.popBackStack() })

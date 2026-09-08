@@ -6,26 +6,33 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,10 +42,106 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.health.connect.client.PermissionController
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.data.health.HealthConnectStatus
 import com.omb9.glucosehero.data.local.datastore.InitialImportRange
 import com.omb9.glucosehero.util.Formatters
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HealthConnectSettingsScreen(
+    onBack: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val healthConnectStatus = viewModel.healthConnectAvailabilityStatus
+    val isHealthConnectConnected by viewModel.isHealthConnectConnected.collectAsStateWithLifecycle()
+    val isHealthConnectRevoked by viewModel.isHealthConnectRevoked.collectAsStateWithLifecycle()
+    val glucoseImportEnabled by viewModel.glucoseImportEnabled.collectAsStateWithLifecycle()
+    val nutritionImportEnabled by viewModel.nutritionImportEnabled.collectAsStateWithLifecycle()
+    val exerciseImportEnabled by viewModel.exerciseImportEnabled.collectAsStateWithLifecycle()
+    val sleepImportEnabled by viewModel.sleepImportEnabled.collectAsStateWithLifecycle()
+    val cycleImportEnabled by viewModel.cycleImportEnabled.collectAsStateWithLifecycle()
+    val healthConnectInitialImportRange by viewModel.healthConnectInitialImportRange.collectAsStateWithLifecycle()
+    val healthConnectLastSync by viewModel.healthConnectLastSync.collectAsStateWithLifecycle()
+    val healthConnectSampleCount by viewModel.healthConnectSampleCount.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshHealthConnectStatus()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Health Connect")
+                        GlossaryIcon(
+                            term = "Health Connect",
+                            definition = SettingsGlossary.HEALTH_CONNECT,
+                            contentDescription = "About Health Connect",
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                        )
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        HealthConnectSection(
+            status = healthConnectStatus,
+            isConnected = isHealthConnectConnected,
+            glucoseImportEnabled = glucoseImportEnabled,
+            nutritionImportEnabled = nutritionImportEnabled,
+            exerciseImportEnabled = exerciseImportEnabled,
+            sleepImportEnabled = sleepImportEnabled,
+            cycleImportEnabled = cycleImportEnabled,
+            initialImportRange = healthConnectInitialImportRange,
+            lastSync = healthConnectLastSync,
+            sampleCount = healthConnectSampleCount,
+            use24HourTime = settings.use24HourTime,
+            readPermissions = viewModel.allPermissions,
+            onPermissionsResult = viewModel::onPermissionsResult,
+            onGlucoseImportEnabledChange = viewModel::setGlucoseImportEnabled,
+            onNutritionImportEnabledChange = viewModel::setNutritionImportEnabled,
+            onExerciseImportEnabledChange = viewModel::setExerciseImportEnabled,
+            onSleepImportEnabledChange = viewModel::setSleepImportEnabled,
+            onCycleImportEnabledChange = viewModel::setCycleImportEnabled,
+            onInitialImportRangeChange = viewModel::setHealthConnectInitialImportRange,
+            onManagePermissions = { openHealthConnectPermissions(context) },
+            onClearImportedData = viewModel::clearImportedGlucoseData,
+            isRevoked = isHealthConnectRevoked,
+            onDismissRevocationBanner = viewModel::dismissHealthConnectRevokedBanner,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(top = 8.dp, bottom = 24.dp),
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +169,7 @@ internal fun HealthConnectSection(
     onClearImportedData: () -> Unit,
     isRevoked: Boolean = false,
     onDismissRevocationBanner: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val healthConnectPermissionLauncher = rememberLauncherForActivityResult(
@@ -73,14 +177,7 @@ internal fun HealthConnectSection(
     ) { granted -> onPermissionsResult(granted) }
     var showClearHealthConnectDialog by remember { mutableStateOf(false) }
 
-    Column {
-        SectionHeader(
-            title = "Health Connect",
-            glossaryTerm = "Health Connect",
-            glossaryDefinition = SettingsGlossary.HEALTH_CONNECT,
-            glossaryContentDescription = "About Health Connect",
-        )
-
+    Column(modifier = modifier) {
         when (status) {
             HealthConnectStatus.AVAILABLE -> {
                 if (isConnected) {

@@ -9,17 +9,74 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MealLoggingSettingsScreen(
+    onBack: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val barcodeLookupEnabled by viewModel.barcodeLookupEnabled.collectAsStateWithLifecycle()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Meal Logging") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                        )
+                    }
+                },
+            )
+        },
+    ) { padding ->
+        MealLoggingSection(
+            postMealRemindersEnabled = settings.postMealRemindersEnabled,
+            showAdvancedMacros = settings.showAdvancedMacros,
+            barcodeLookupEnabled = barcodeLookupEnabled,
+            sendMealPhotosToHeroAi = settings.sendMealPhotosToHeroAi,
+            onPostMealRemindersEnabledChange = viewModel::setPostMealRemindersEnabled,
+            onShowAdvancedMacrosChange = viewModel::setShowAdvancedMacros,
+            onBarcodeLookupChange = viewModel::setBarcodeLookupEnabled,
+            onSendMealPhotosToHeroAiChange = viewModel::setSendMealPhotosToHeroAi,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(top = 8.dp, bottom = 24.dp),
+        )
+    }
+}
 
 @Composable
 internal fun MealLoggingSection(
@@ -31,10 +88,9 @@ internal fun MealLoggingSection(
     onShowAdvancedMacrosChange: (Boolean) -> Unit,
     onBarcodeLookupChange: (Boolean) -> Unit,
     onSendMealPhotosToHeroAiChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column {
-        SectionHeader("Meal Logging")
-
+    Column(modifier = modifier) {
         val context = LocalContext.current
         val notificationPermissionLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission(),
