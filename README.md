@@ -137,19 +137,11 @@ In other words, your raw log data and settings are **not** silently copied to Go
 
 **Health Connect.** Import is one-way: the app reads Health Connect records into your local log and never writes back. You can remove imported data at any time without touching manual entries.
 
-## Contributing
-
-`TODO(owner)`, add contribution guidelines, code style, and issue/PR templates if desired.
-
 ## Disclaimer
 
 GlucoseHero is a logging tool, not a medical device. Hero's answers are informational, always confirm treatment decisions with your care team.
 
 This wording matches the in-app disclaimer ([`SettingsScreen.kt`](app/src/main/java/com/omb9/glucosehero/ui/settings/SettingsScreen.kt)). The app does not diagnose, treat, or advise on any medical condition.
-
-## License
-
-`TODO(owner)`m no `LICENSE` file is present in the repository, so the project is currently unlicensed (all rights reserved by default). Add an explicit open-source license before publishing.
 
 ## Attributions
 
