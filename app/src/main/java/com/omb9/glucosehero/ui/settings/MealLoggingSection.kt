@@ -3,6 +3,7 @@ package com.omb9.glucosehero.ui.settings
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +28,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,12 +50,26 @@ fun MealLoggingSettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val barcodeLookupEnabled by viewModel.barcodeLookupEnabled.collectAsStateWithLifecycle()
 
+    val scope = rememberCoroutineScope()
+    var backInFlight by remember { mutableStateOf(false) }
+
+    fun handleBack() {
+        if (backInFlight) return
+        backInFlight = true
+        scope.launch {
+            runCatching { viewModel.savePendingChanges() }
+            onBack()
+        }
+    }
+
+    BackHandler { handleBack() }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Meal Logging") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { handleBack() }) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",

@@ -15,6 +15,9 @@ interface PendingAiQueryDao {
     @Query("SELECT * FROM pending_ai_queries ORDER BY created_at ASC")
     suspend fun getAll(): List<PendingAiQueryEntity>
 
+    @Query("SELECT * FROM pending_ai_queries WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): PendingAiQueryEntity?
+
     @Query("DELETE FROM pending_ai_queries WHERE id = :id")
     suspend fun deleteById(id: Long)
 

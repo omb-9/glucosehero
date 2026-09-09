@@ -8,6 +8,7 @@ import android.util.JsonToken
 import android.util.JsonWriter
 import androidx.room.withTransaction
 import com.omb9.glucosehero.BuildConfig
+import com.omb9.glucosehero.data.backup.EncryptedBackupCipher
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.ChatMessageDao
 import com.omb9.glucosehero.data.local.db.EntryDao
@@ -25,6 +26,7 @@ import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
 import com.omb9.glucosehero.data.local.entity.SupplyEntity
 import com.omb9.glucosehero.domain.model.ChatRole
+import com.omb9.glucosehero.domain.model.ExportWhitelist
 import com.omb9.glucosehero.util.AppJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -74,6 +76,11 @@ data class BackupImportSummary(val counts: BackupCounts, val mode: ImportMode)
  * Owns the app's real backup path: a self-contained JSON envelope that covers
  * every user table plus profile/settings (minus the KeyStore-wrapped API key).
  *
+ * Streams are sanitized against [ExportWhitelist] **before** any `.ghzk`
+ * encryption ([EncryptedBackupCipher]) so secrets never enter the ciphertext.
+ * Restore decodes with [BackupJson] (unknown keys rejected) so extra fields
+ * cannot be injected into Room.
+ *
  * Export streams page-by-page through [streamBackupEnvelope] so a CGM-heavy
  * history never becomes one giant in-memory String or List. Import is run
  * inside a single Room transaction so a partial import is never observable.
@@ -83,6 +90,7 @@ class BackupManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val database: GlucoseHeroDatabase,
     private val settingsDataStore: SettingsDataStore,
+    private val encryptedBackupCipher: EncryptedBackupCipher,
 ) {
     private val entryDao: EntryDao = database.entryDao()
     private val foodDao: FoodDao = database.foodDao()
@@ -150,6 +158,33 @@ class BackupManager @Inject constructor(
         documentUri
     }
 
+    /**
+     * Same JSON envelope as [exportTo], wrapped with AES-GCM so the file can
+     * be stored on WebDAV/Drive without exposing glucose history. The wrapping
+     * key never leaves Android Keystore.
+     */
+    suspend fun exportEncryptedTo(uri: Uri): BackupExportSummary {
+        val output = context.contentResolver.openOutputStream(uri)
+            ?: throw BackupFormatException("Couldn't open $uri for writing.")
+        return output.use { exportEncryptedTo(it) }
+    }
+
+    suspend fun exportEncryptedTo(output: OutputStream): BackupExportSummary = withContext(Dispatchers.IO) {
+        _isWorking.value = true
+        _progress.value = 0f
+        try {
+            val counts = loadCounts()
+            // Sanitize JSON (whitelist, no tokens) then encrypt. Never reverse.
+            encryptedBackupCipher.encryptingOutputStream(output).use { encrypted ->
+                writeBackup(encrypted) { _progress.value = it }
+            }
+            BackupExportSummary(counts)
+        } finally {
+            _isWorking.value = false
+            _progress.value = 0f
+        }
+    }
+
     // ------------------------------------------------------------------ import
 
     suspend fun previewFrom(uri: Uri): BackupPreview {
@@ -159,20 +194,22 @@ class BackupManager @Inject constructor(
     }
 
     suspend fun previewFrom(input: InputStream): BackupPreview = withContext(Dispatchers.IO) {
-        JsonReader(input.bufferedReader(Charsets.UTF_8)).use { reader ->
-            val (header, _) = readHeader(reader)
-            requireSupportedBackup(header.format, header.formatVersion)
-            val current = loadCounts()
-            BackupPreview(
-                counts = header.counts,
-                exportedAt = header.exportedAt,
-                appVersion = header.appVersion,
-                databaseVersion = header.databaseVersion,
-                earliestEntry = header.earliestEntry,
-                latestEntry = header.latestEntry,
-                currentEntryCount = current.entries,
-                currentCounts = current,
-            )
+        openMaybeDecrypted(input).use { stream ->
+            JsonReader(stream.bufferedReader(Charsets.UTF_8)).use { reader ->
+                val (header, _) = readHeader(reader)
+                requireSupportedBackup(header.format, header.formatVersion)
+                val current = loadCounts()
+                BackupPreview(
+                    counts = header.counts,
+                    exportedAt = header.exportedAt,
+                    appVersion = header.appVersion,
+                    databaseVersion = header.databaseVersion,
+                    earliestEntry = header.earliestEntry,
+                    latestEntry = header.latestEntry,
+                    currentEntryCount = current.entries,
+                    currentCounts = current,
+                )
+            }
         }
     }
 
@@ -187,21 +224,23 @@ class BackupManager @Inject constructor(
             _isWorking.value = true
             _progress.value = 0f
             try {
-                JsonReader(input.bufferedReader(Charsets.UTF_8)).use { reader ->
-                    val (header, firstArrayName) = readHeader(reader)
-                    requireSupportedBackup(header.format, header.formatVersion)
+                openMaybeDecrypted(input).use { stream ->
+                    JsonReader(stream.bufferedReader(Charsets.UTF_8)).use { reader ->
+                        val (header, firstArrayName) = readHeader(reader)
+                        requireSupportedBackup(header.format, header.formatVersion)
 
-                    // Snapshot the current database to filesDir (not cache) before
-                    // the import transaction starts, so a rollback still leaves
-                    // a one-tap undo file.
-                    writePreImportSnapshot()
+                        // Snapshot the current database to filesDir (not cache) before
+                        // the import transaction starts, so a rollback still leaves
+                        // a one-tap undo file.
+                        writePreImportSnapshot()
 
-                    database.withTransaction {
-                        restoreStreaming(reader, firstArrayName, header, mode)
+                        database.withTransaction {
+                            restoreStreaming(reader, firstArrayName, header, mode)
+                        }
+
+                        restoreProfileAndSettings(header.profile, header.settings)
+                        BackupImportSummary(header.counts, mode)
                     }
-
-                    restoreProfileAndSettings(header.profile, header.settings)
-                    BackupImportSummary(header.counts, mode)
                 }
             } finally {
                 _isWorking.value = false
@@ -224,6 +263,20 @@ class BackupManager @Inject constructor(
         preImportSnapshotFiles().maxByOrNull { it.lastModified() }
 
     // ------------------------------------------------------------- internals
+
+    private fun openMaybeDecrypted(input: InputStream): InputStream {
+        val peek = EncryptedBackupCipher.looksEncrypted(input)
+        if (!peek.encrypted) return peek.stream
+        return try {
+            encryptedBackupCipher.decryptingInputStream(peek.stream)
+        } catch (e: BackupFormatException) {
+            throw e
+        } catch (_: Exception) {
+            throw BackupFormatException(
+                "Couldn't decrypt this backup on this device. Encrypted backups can only be opened where they were created.",
+            )
+        }
+    }
 
     private suspend fun writeBackup(
         output: OutputStream,
@@ -411,7 +464,7 @@ class BackupManager @Inject constructor(
                     actual = actual.copy(insights = streamInsights(reader, mode, existingInsightKeys))
                     reportImportProgress()
                 }
-                else -> reader.skipValue()
+                else -> throw BackupFormatException("Backup contains unsupported field '$name'.")
             }
             name = if (reader.hasNext()) reader.nextName() else null
         }
@@ -445,7 +498,7 @@ class BackupManager @Inject constructor(
         mode: ImportMode,
         existingFoodByUuid: MutableMap<String, FoodEntity>,
         foodIdMap: MutableMap<Long, Long>,
-    ): Int = reader.forEachInArray(BackupFood.serializer(), IMPORT_BATCH_SIZE) { batch ->
+    ): Int = reader.forEachInArray(BackupFood.serializer(), "foods", IMPORT_BATCH_SIZE) { batch ->
         when (mode) {
             ImportMode.REPLACE -> foodDao.insertAll(batch.map { it.toEntity() })
             ImportMode.MERGE -> {
@@ -477,7 +530,7 @@ class BackupManager @Inject constructor(
         reader: JsonReader,
         mode: ImportMode,
         foodIdMap: Map<Long, Long>,
-    ): Int = reader.forEachInArray(BackupEntry.serializer(), IMPORT_BATCH_SIZE) { batch ->
+    ): Int = reader.forEachInArray(BackupEntry.serializer(), "entries", IMPORT_BATCH_SIZE) { batch ->
         when (mode) {
             ImportMode.REPLACE -> entryDao.insertAll(batch.map { it.toEntity() })
             ImportMode.MERGE -> {
@@ -493,7 +546,7 @@ class BackupManager @Inject constructor(
     private suspend fun streamSupplies(
         reader: JsonReader,
         mode: ImportMode,
-    ): Int = reader.forEachInArray(BackupSupply.serializer(), IMPORT_BATCH_SIZE) { batch ->
+    ): Int = reader.forEachInArray(BackupSupply.serializer(), "supplies", IMPORT_BATCH_SIZE) { batch ->
         when (mode) {
             ImportMode.REPLACE -> supplyDao.insertAll(batch.map { it.toEntity() })
             ImportMode.MERGE -> {
@@ -505,7 +558,7 @@ class BackupManager @Inject constructor(
     private suspend fun streamGlucoseSamples(
         reader: JsonReader,
         mode: ImportMode,
-    ): Int = reader.forEachInArray(BackupGlucoseSample.serializer(), IMPORT_BATCH_SIZE) { batch ->
+    ): Int = reader.forEachInArray(BackupGlucoseSample.serializer(), "glucoseSamples", IMPORT_BATCH_SIZE) { batch ->
         when (mode) {
             ImportMode.REPLACE -> glucoseSampleDao.insertAll(batch.map { it.toEntity() })
             // INSERT OR IGNORE: glucose_samples has a unique index on
@@ -520,7 +573,7 @@ class BackupManager @Inject constructor(
         mode: ImportMode,
         existingChatByKey: Map<ChatKey, ChatMessageEntity>,
         chatIdMap: MutableMap<Long, Long>,
-    ): Int = reader.forEachInArray(BackupChatMessage.serializer(), IMPORT_BATCH_SIZE) { batch ->
+    ): Int = reader.forEachInArray(BackupChatMessage.serializer(), "chat", IMPORT_BATCH_SIZE) { batch ->
         when (mode) {
             ImportMode.REPLACE -> chatMessageDao.insertAll(batch.map { it.toEntity() })
             ImportMode.MERGE -> {
@@ -542,7 +595,7 @@ class BackupManager @Inject constructor(
         mode: ImportMode,
         existingPendingKeys: Set<PendingKey>,
         chatIdMap: Map<Long, Long>,
-    ): Int = reader.forEachInArray(BackupPendingQuery.serializer(), IMPORT_BATCH_SIZE) { batch ->
+    ): Int = reader.forEachInArray(BackupPendingQuery.serializer(), "pendingAiQueries", IMPORT_BATCH_SIZE) { batch ->
         when (mode) {
             ImportMode.REPLACE -> pendingAiQueryDao.insertAll(batch.map { it.toEntity() })
             ImportMode.MERGE -> {
@@ -565,7 +618,7 @@ class BackupManager @Inject constructor(
         reader: JsonReader,
         mode: ImportMode,
         existingInsightKeys: Set<InsightKey>,
-    ): Int = reader.forEachInArray(BackupInsight.serializer(), IMPORT_BATCH_SIZE) { batch ->
+    ): Int = reader.forEachInArray(BackupInsight.serializer(), "insights", IMPORT_BATCH_SIZE) { batch ->
         when (mode) {
             ImportMode.REPLACE -> insightDao.insertAll(batch.map { it.toEntity() })
             ImportMode.MERGE -> {
@@ -844,12 +897,18 @@ internal fun readHeader(reader: JsonReader): Pair<BackupHeader, String?> {
             "appVersion" -> appVersion = reader.nextString()
             "databaseVersion" -> databaseVersion = reader.nextInt()
             "exportedAt" -> exportedAt = reader.nextLong()
-            "counts" -> counts = reader.decodeRaw<BackupCounts>()
-            "profile" -> profile = reader.decodeRaw<BackupProfile>()
-            "settings" -> settings = reader.decodeRaw<BackupSettings>()
+            "counts" -> counts = reader.decodeRaw("counts")
+            "profile" -> profile = reader.decodeRaw("profile")
+            "settings" -> settings = reader.decodeRaw("settings")
             "earliestEntry" -> earliestEntry = reader.nextNullableLong()
             "latestEntry" -> latestEntry = reader.nextNullableLong()
-            else -> firstArrayName = name
+            else -> {
+                if (name in ExportWhitelist.arrayKeys) {
+                    firstArrayName = name
+                } else {
+                    throw BackupFormatException("Backup contains unsupported field '$name'.")
+                }
+            }
         }
     }
     return BackupHeader(
@@ -867,8 +926,8 @@ private fun JsonReader.nextNullableLong(): Long? =
     }
 
 /** Decodes the next complete JSON value by first capturing its raw text. */
-private inline fun <reified T> JsonReader.decodeRaw(): T =
-    AppJson.decodeFromString(serializer(), readRawValue(this))
+private inline fun <reified T> JsonReader.decodeRaw(fieldName: String): T =
+    decodeWhitelisted(serializer(), readRawValue(this), fieldName)
 
 /** Copies the next complete JSON value into a string so it can be decoded lazily. */
 private fun readRawValue(reader: JsonReader): String {
@@ -945,6 +1004,7 @@ private fun escapeJsonString(value: String): String {
  */
 private suspend fun <T : Any> JsonReader.forEachInArray(
     serializer: KSerializer<T>,
+    fieldName: String,
     batchSize: Int,
     onBatch: suspend (List<T>) -> Unit,
 ): Int {
@@ -952,7 +1012,7 @@ private suspend fun <T : Any> JsonReader.forEachInArray(
     var count = 0
     val batch = ArrayList<T>(batchSize)
     while (hasNext()) {
-        batch.add(AppJson.decodeFromString(serializer, readRawValue(this)))
+        batch.add(decodeWhitelisted(serializer, readRawValue(this), fieldName))
         count++
         if (batch.size >= batchSize) {
             onBatch(batch)

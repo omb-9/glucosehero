@@ -106,6 +106,11 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
+    // FEATURE: sqlcipher-migrations
+    // net.zetetic:sqlcipher-android + SupportOpenHelperFactory. Room 2.8.4
+    // already pulls androidx.sqlite:sqlite:2.6.2; do not force sqlite-ktx.
+    implementation(libs.sqlcipher.android)
+
     // DataStore
     implementation(libs.androidx.datastore.preferences)
 
@@ -122,6 +127,11 @@ dependencies {
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.coroutines.play.services)
 
+    // FEATURE: meal-nlp-food-swaps
+    // Meal-photo JSON, NL/voice quick-log, and food swaps reuse kotlinx.serialization
+    // plus the existing OpenAI-compatible AiApi client. Speech uses the platform
+    // RecognizerIntent. No extra Gradle dependencies.
+
     // Coil (image loading)
     implementation(libs.coil.compose)
 
@@ -131,6 +141,10 @@ dependencies {
     // Charts
     implementation(libs.vico.compose)
     implementation(libs.vico.compose.m3)
+
+    // FEATURE: lttb-chart-perf
+    // CGM downsampling (LTTB + SQLite 15 min / 1 hour buckets) is pure Kotlin and Room.
+    // Vico still renders the reduced series. No extra chart dependency.
 
     // Background work
     implementation(libs.androidx.work.runtime)
@@ -144,6 +158,9 @@ dependencies {
     // Health Connect
     implementation(libs.health.connect.client)
 
+    // FEATURE: wear-os-companion
+    implementation(libs.play.services.wearable)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -151,4 +168,14 @@ dependencies {
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
+
+    // FEATURE: agp-pdf-encrypted-backup
+    // AGP PDFs use android.graphics.pdf.PdfDocument + Canvas (already on minSdk 26).
+    // Encrypted backups use javax.crypto AES-GCM plus Android Keystore; WebDAV/Drive
+    // upload uses the existing OkHttp client. No extra PDF or Drive SDK dependency.
+
+    // FEATURE: widget-iob-backup-sanitize
+    // Widget mini-trend is a fixed 120x36 PNG (java.util.zip Deflater). IOB uses
+    // the Walsh activity triangle in Kotlin math. Backup restore uses kotlinx
+    // serialization with unknown keys rejected. No extra Gradle dependencies.
 }

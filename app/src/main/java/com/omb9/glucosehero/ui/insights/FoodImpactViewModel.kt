@@ -5,10 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
+import com.omb9.glucosehero.data.local.entity.FoodEntity
 import com.omb9.glucosehero.data.local.entity.TagAnalyticEntity
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.TagKind
 import com.omb9.glucosehero.domain.model.isWindowed
+import com.omb9.glucosehero.util.FoodSwap
+import com.omb9.glucosehero.util.FoodSwapRecommender
 import com.omb9.glucosehero.util.TagExtractor
 import com.omb9.glucosehero.util.TagImpactCopy
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -63,6 +66,7 @@ data class FoodImpactUiState(
     val maxAbsDeltaMgdl: Double = 0.0,
     val moods: List<TagImpactUi> = emptyList(),
     val lifestyle: List<TagImpactUi> = emptyList(),
+    val swaps: List<FoodSwap> = emptyList(),
 )
 
 /** Shared display gating: only tags at/above the minimum, not dismissed, sorted by impact. */
@@ -95,13 +99,15 @@ class FoodImpactViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val tagAnalyticDao = database.tagAnalyticDao()
+    private val foodDao = database.foodDao()
 
     val uiState: StateFlow<FoodImpactUiState> = combine(
         tagAnalyticDao.observeAll(),
+        foodDao.observeAll(),
         settingsDataStore.settings,
         settingsDataStore.dismissedFoodTags,
-    ) { entities, settings, dismissed ->
-        foodImpactUiState(entities, settings.unit, dismissed)
+    ) { entities, foods, settings, dismissed ->
+        foodImpactUiState(entities, settings.unit, dismissed, foods)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FoodImpactUiState())
 
     fun dismiss(tag: String) {
@@ -117,6 +123,7 @@ internal fun foodImpactUiState(
     entities: List<TagAnalyticEntity>,
     unit: GlucoseUnit,
     dismissed: Set<String>,
+    foods: List<FoodEntity> = emptyList(),
 ): FoodImpactUiState {
     val foodEntities = entities.filter { it.kind != TagKind.MOOD && !it.kind.isWindowed }
     val lifestyleEntities = entities.filter { it.kind.isWindowed }
@@ -150,5 +157,11 @@ internal fun foodImpactUiState(
         maxAbsDeltaMgdl = visible.maxOfOrNull { abs(it.medianDeltaMgdl) } ?: 0.0,
         moods = moods,
         lifestyle = lifestyle,
+        swaps = FoodSwapRecommender.recommend(
+            analytics = entities,
+            foods = foods,
+            dismissed = dismissed,
+            unit = unit,
+        ),
     )
 }

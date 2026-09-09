@@ -5,10 +5,13 @@ import android.net.Uri
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.omb9.glucosehero.data.backup.CloudBackupProvider
+import com.omb9.glucosehero.data.backup.EncryptedCloudBackupManager
 import com.omb9.glucosehero.data.export.BackupManager
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
@@ -27,6 +30,7 @@ class AutoBackupWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val backupManager: BackupManager,
+    private val encryptedCloudBackupManager: EncryptedCloudBackupManager,
     private val settingsDataStore: SettingsDataStore,
 ) : CoroutineWorker(appContext, workerParams) {
 
@@ -38,6 +42,7 @@ class AutoBackupWorker @AssistedInject constructor(
         return try {
             backupManager.exportToTree(Uri.parse(treeUri))
             settingsDataStore.setBackupLastRun(System.currentTimeMillis())
+            uploadEncryptedCloudIfConfigured()
             Result.success()
         } catch (e: CancellationException) {
             throw e
@@ -49,6 +54,18 @@ class AutoBackupWorker @AssistedInject constructor(
             Result.success()
         } catch (e: Exception) {
             Result.retry()
+        }
+    }
+
+    private suspend fun uploadEncryptedCloudIfConfigured() {
+        val provider = settingsDataStore.cloudBackupProvider.first()
+        if (provider == CloudBackupProvider.NONE) return
+        try {
+            encryptedCloudBackupManager.uploadEncrypted()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            Log.w(UNIQUE_NAME, "Encrypted cloud upload failed")
         }
     }
 

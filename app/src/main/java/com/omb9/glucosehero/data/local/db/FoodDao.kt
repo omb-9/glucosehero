@@ -35,6 +35,7 @@ interface FoodDao {
     /**
      * Writes [food] into the local library if its barcode is not already cached.
      * Repeat scans must reuse the existing row instead of replacing it.
+     * Cached Open Food Facts payloads are kept indefinitely (no TTL).
      */
     @Transaction
     suspend fun cacheOffProduct(food: FoodEntity): FoodEntity {

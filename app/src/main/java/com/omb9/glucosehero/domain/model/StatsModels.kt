@@ -14,6 +14,18 @@ data class GlucosePointRow(
     val glucoseMgdl: Double,
 )
 
+/**
+ * True min/max/mean over every reading in a window. Chart downsampling must
+ * not be used for these: LTTB and bucket averages can soften a spike that
+ * still belongs on the y-axis domain and in the Average card.
+ */
+data class GlucoseReadingBounds(
+    val minMgdl: Double?,
+    val maxMgdl: Double?,
+    val avgMgdl: Double?,
+    val count: Int,
+)
+
 /** Row shape returned by the GROUP BY day aggregate query. */
 data class DailyGlucoseSummary(
     val day: String,

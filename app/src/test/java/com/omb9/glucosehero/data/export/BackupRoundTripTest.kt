@@ -12,6 +12,7 @@ import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.ThemeMode
+import com.omb9.glucosehero.domain.model.ExportWhitelist
 import com.omb9.glucosehero.util.AppJson
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -312,6 +313,102 @@ class BackupRoundTripTest {
         assertFalse(json.contains("QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo="))
         assertFalse(encodeSettingsForBackup(settings).contains("ai_api_key_enc"))
         assertFalse(encodeSettingsForBackup(settings).contains("apiKey"))
+        for (key in listOf(
+            "oauthToken",
+            "accessToken",
+            "driveAccessTokenEnc",
+            "webdavPasswordEnc",
+            "keystoreAlias",
+            "androidId",
+            "webhookUrl",
+        )) {
+            assertFalse("exported JSON contained $key", json.contains("\"$key\""))
+        }
+        assertFalse(ExportWhitelist.containsForbiddenKey(json))
+    }
+
+    @Test
+    fun restore_rejectsForbiddenTokenKeys() {
+        val json = """
+            {
+              "format": "glucosehero.backup",
+              "formatVersion": 2,
+              "appVersion": "1.0.0",
+              "databaseVersion": 13,
+              "exportedAt": 1,
+              "counts": {},
+              "profile": {},
+              "settings": {"themeMode": "LIGHT", "apiKey": "secret-token"},
+              "entries": [],
+              "glucoseSamples": [],
+              "foods": [],
+              "supplies": [],
+              "insights": [],
+              "chat": [],
+              "pendingAiQueries": []
+            }
+        """.trimIndent()
+        assertThrows(BackupFormatException::class.java) {
+            decodeEnvelope(ByteArrayInputStream(json.toByteArray(Charsets.UTF_8)))
+        }
+    }
+
+    @Test
+    fun restore_rejectsUnknownEntryFieldToPreventRoomInjection() {
+        val json = """
+            {
+              "format": "glucosehero.backup",
+              "formatVersion": 2,
+              "appVersion": "1.0.0",
+              "databaseVersion": 13,
+              "exportedAt": 1,
+              "counts": {"entries": 1},
+              "profile": {},
+              "settings": {},
+              "entries": [{
+                "id": 1,
+                "timestamp": 1,
+                "uuid": "a",
+                "injectedSql": "DROP TABLE entries"
+              }],
+              "glucoseSamples": [],
+              "foods": [],
+              "supplies": [],
+              "insights": [],
+              "chat": [],
+              "pendingAiQueries": []
+            }
+        """.trimIndent()
+        assertThrows(BackupFormatException::class.java) {
+            decodeEnvelope(ByteArrayInputStream(json.toByteArray(Charsets.UTF_8)))
+        }
+    }
+
+    @Test
+    fun restore_rejectsUnknownTopLevelField() {
+        val json = """
+            {
+              "format": "glucosehero.backup",
+              "formatVersion": 2,
+              "appVersion": "1.0.0",
+              "databaseVersion": 13,
+              "exportedAt": 1,
+              "counts": {},
+              "profile": {},
+              "settings": {},
+              "oauthToken": "nope",
+              "entries": [],
+              "glucoseSamples": [],
+              "foods": [],
+              "supplies": [],
+              "insights": [],
+              "chat": [],
+              "pendingAiQueries": []
+            }
+        """.trimIndent()
+        assertThrows(BackupFormatException::class.java) {
+            decodeEnvelope(ByteArrayInputStream(json.toByteArray(Charsets.UTF_8)))
+        }
     }
 
     @Test
@@ -391,6 +488,12 @@ class BackupRoundTripTest {
     fun suggestedBackupFileName_usesIsoDateAndJsonSuffix() {
         val name = suggestedBackupFileName(java.time.LocalDate.of(2026, 9, 8))
         assertEquals("glucosehero-backup-2026-09-08.json", name)
+    }
+
+    @Test
+    fun suggestedEncryptedBackupFileName_usesIsoDateAndGhzkSuffix() {
+        val name = suggestedEncryptedBackupFileName(java.time.LocalDate.of(2026, 9, 8))
+        assertEquals("glucosehero-backup-2026-09-08.ghzk", name)
     }
 
     @Test

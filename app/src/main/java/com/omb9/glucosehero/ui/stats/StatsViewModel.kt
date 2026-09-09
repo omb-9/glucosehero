@@ -12,6 +12,7 @@ import com.omb9.glucosehero.data.export.ExportManager
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
+import com.omb9.glucosehero.data.local.db.GlucoseSampleDao
 import com.omb9.glucosehero.data.local.db.InsightDao
 import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.domain.model.Ea1cConfidence
@@ -33,12 +34,16 @@ import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.domain.repository.SupplyRepository
+import com.omb9.glucosehero.forecast.GlucoseForecastRepository
+import com.omb9.glucosehero.forecast.GlucoseForecastSnapshot
 import com.omb9.glucosehero.ui.insights.TagImpactUi
 import com.omb9.glucosehero.ui.insights.toDisplayableTags
 import com.omb9.glucosehero.ui.stats.components.TimeInRangeSegment
+import com.omb9.glucosehero.util.ChartDownsample
 import com.omb9.glucosehero.util.Ea1cFormula
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.GlucoseRangeColor
+import com.omb9.glucosehero.util.Lttb
 import com.omb9.glucosehero.util.RangeCategory
 import com.omb9.glucosehero.util.SupplyCalculator
 import com.omb9.glucosehero.util.TagExtractor
@@ -155,8 +160,8 @@ data class StatsUiState(
     val ea1cNeededDays: Int = 14,
     val ea1cNeededReadings: Int = 20,
     val minMaxDisplay: String = "–",
-    /** Chart points in display-unit space; x is days since the window start. */
-    val chartPoints: List<GlucoseChartPoint> = emptyList(),
+    /** Chart points in display-unit space; x is days since the window start. Already downsampled. */
+    val chartPoints: ImmutableList<GlucoseChartPoint> = persistentListOf(),
     /** Sparse, tappable foreground markers (meal/exercise/note entries only). */
     val markers: List<GlucoseMarker> = emptyList(),
     /** Epoch millis of the window start; the bottom axis maps x (days) → dates. */
@@ -219,10 +224,12 @@ class StatsViewModel @Inject constructor(
     private val supplyRepository: SupplyRepository,
     private val insightDao: InsightDao,
     private val database: GlucoseHeroDatabase,
+    private val glucoseSampleDao: GlucoseSampleDao,
     private val exportManager: ExportManager,
     @ApplicationContext private val context: Context,
     private val settingsDataStore: SettingsDataStore,
     private val chatRepository: ChatRepository,
+    private val forecastRepository: GlucoseForecastRepository,
 ) : ViewModel() {
 
     private val tagAnalyticDao = database.tagAnalyticDao()
@@ -230,6 +237,10 @@ class StatsViewModel @Inject constructor(
     /** Continuous daily-logging streak, emitted reactively from Room. */
     val currentStreakDays: StateFlow<Int> = entryRepository.observeCurrentStreak()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    val glucoseForecast: StateFlow<GlucoseForecastSnapshot?> =
+        forecastRepository.observeForecast()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Latest generated pattern-recognition insights, newest first. */
     val insights: StateFlow<List<InsightCardEntity>> = insightDao.observeLatest(INSIGHT_LIMIT)
@@ -328,8 +339,14 @@ class StatsViewModel @Inject constructor(
             selectedRange
                 .flatMapLatest { range ->
                     val since = Formatters.daysAgoMillis(range.days)
+                    val bucketMillis = ChartDownsample.bucketMillisForRangeDays(range.days)
+                    val chartFlow = if (bucketMillis == null) {
+                        glucoseSampleDao.observeReadingsSince(since)
+                    } else {
+                        glucoseSampleDao.observeBucketedReadingsSince(since, bucketMillis)
+                    }
                     combine(
-                        entryDao.observeGlucoseReadingsPoints(since),
+                        chartFlow,
                         entryRepository.observeGlucose(since),
                         settingsRepository.settings,
                     ) { points, events, settings -> StatsPipelineInput(range, points, events, settings) }
@@ -342,13 +359,21 @@ class StatsViewModel @Inject constructor(
                             val unit = settings.unit
                             val sinceMillis = Formatters.daysAgoMillis(range.days)
 
-                            val points = input.points.mapNotNull { row ->
-                                // Non-finite values (a NaN/Infinity that reached
-                                // storage) would poison the y-axis domain below.
-                                val mgdl = row.glucoseMgdl.takeIf { it.isFinite() }
-                                    ?: return@mapNotNull null
-                                val x = (row.timestamp - sinceMillis).toDouble() / MILLIS_PER_DAY.toDouble()
-                                GlucoseChartPoint(x, Formatters.toDisplayValue(mgdl, unit).toFloat())
+                            val bounds = glucoseSampleDao.readingBoundsSince(sinceMillis)
+                            val finiteRows = input.points.filter { it.glucoseMgdl.isFinite() }
+                            val downsampledRows = Lttb.downsample(
+                                finiteRows,
+                                ChartDownsample.memoryThreshold(range.days),
+                                { it.timestamp.toDouble() },
+                                { it.glucoseMgdl },
+                            )
+                            val points = downsampledRows.map { row ->
+                                val x = (row.timestamp - sinceMillis).toDouble() /
+                                    MILLIS_PER_DAY.toDouble()
+                                GlucoseChartPoint(
+                                    x,
+                                    Formatters.toDisplayValue(row.glucoseMgdl, unit).toFloat(),
+                                )
                             }
 
                             val markers = input.events.mapNotNull { event ->
@@ -370,13 +395,10 @@ class StatsViewModel @Inject constructor(
                                 )
                             }
 
-                            val values = input.points.mapNotNull { e ->
-                                e.glucoseMgdl.takeIf { it.isFinite() }
-                            }
-                            val currentAvg = values.takeIf { it.isNotEmpty() }?.average()
+                            val currentAvg = bounds.avgMgdl?.takeIf { it.isFinite() }
 
                             // Five-bucket TIR over the `glucose_readings` view (CGM samples plus
-                            // manual entries), not `entries` alone.
+                            // manual entries), not `entries` alone. Chart LTTB is never used here.
                             val tirCounts = entryDao.timeInRangeCountsSince(
                                 sinceMillis,
                                 settings.targetLowMgdl.toDouble(),
@@ -437,9 +459,9 @@ class StatsViewModel @Inject constructor(
                             val veryHighDisplay =
                                 Formatters.toDisplayValue(GlucoseRangeColor.VERY_HIGH_MGDL.toDouble(), unit)
                                     .toFloat()
-                            val dataMin = values.minOrNull()
+                            val dataMin = bounds.minMgdl?.takeIf { it.isFinite() }
                                 ?.let { Formatters.toDisplayValue(it, unit).toFloat() }
-                            val dataMax = values.maxOrNull()
+                            val dataMax = bounds.maxMgdl?.takeIf { it.isFinite() }
                                 ?.let { Formatters.toDisplayValue(it, unit).toFloat() }
 
                             val padding = (highDisplay - lowDisplay) * 0.25f
@@ -456,7 +478,7 @@ class StatsViewModel @Inject constructor(
                                 current.copy(
                                     range = range,
                                     unit = unit,
-                                    hasData = points.isNotEmpty(),
+                                    hasData = bounds.count > 0,
                                     loadFailed = false,
                                     avgDisplay = currentAvg?.let { Formatters.glucose(it, unit) } ?: "–",
                                     avgTrend = avgDelta?.direction ?: TrendDirection.UNKNOWN,
@@ -468,7 +490,7 @@ class StatsViewModel @Inject constructor(
                                     } else {
                                         "–"
                                     },
-                                    chartPoints = points,
+                                    chartPoints = points.toImmutableList(),
                                     markers = markers,
                                     themeMode = settings.themeMode,
                                     use24HourTime = settings.use24HourTime,

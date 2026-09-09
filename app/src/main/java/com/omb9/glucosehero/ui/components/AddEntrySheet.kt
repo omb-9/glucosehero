@@ -1,7 +1,10 @@
 package com.omb9.glucosehero.ui.components
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -33,6 +36,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bloodtype
 import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Restaurant
@@ -69,13 +73,16 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import com.omb9.glucosehero.R
 import com.omb9.glucosehero.domain.model.ActivityIntensity
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.domain.model.GlucoseUnit
@@ -86,6 +93,7 @@ import com.omb9.glucosehero.ui.log.DraftEventState
 import com.omb9.glucosehero.ui.log.FoodLookupState
 import com.omb9.glucosehero.ui.log.LogViewModel
 import com.omb9.glucosehero.ui.log.MealPhotoState
+import com.omb9.glucosehero.ui.log.QuickLogState
 import com.omb9.glucosehero.ui.log.StreakReward
 import com.omb9.glucosehero.ui.log.filledMetrics
 import androidx.core.content.ContextCompat
@@ -164,10 +172,14 @@ fun AddEntrySheet(
     val barcodeLookupEnabled by viewModel.barcodeLookupEnabled.collectAsStateWithLifecycle()
     val showCrisisSupport by viewModel.showCrisisSupport.collectAsStateWithLifecycle()
     val mealPhotoState by viewModel.mealPhotoState.collectAsStateWithLifecycle()
+    val quickLogText by viewModel.quickLogText.collectAsStateWithLifecycle()
+    val quickLogState by viewModel.quickLogState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
 
     var photoDeniedFlag by remember { mutableStateOf(false) }
+    var speechDeniedFlag by remember { mutableStateOf(false) }
+    var speechUnavailableFlag by remember { mutableStateOf(false) }
 
     // Camera capture: permission is requested only when the button is tapped.
     val takePictureLauncher = rememberLauncherForActivityResult(
@@ -207,6 +219,59 @@ fun AddEntrySheet(
         }
     }
 
+    val speechLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val spoken = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+            ?.trim()
+        if (!spoken.isNullOrBlank()) {
+            viewModel.parseQuickLog(spoken)
+        }
+    }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            launchSpeechRecognizer(
+                context = context,
+                launcher = { intent ->
+                    try {
+                        speechUnavailableFlag = false
+                        speechLauncher.launch(intent)
+                    } catch (_: ActivityNotFoundException) {
+                        speechUnavailableFlag = true
+                    }
+                },
+            )
+        } else {
+            speechDeniedFlag = true
+        }
+    }
+
+    val onMicClick = {
+        speechDeniedFlag = false
+        speechUnavailableFlag = false
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            launchSpeechRecognizer(
+                context = context,
+                launcher = { intent ->
+                    try {
+                        speechLauncher.launch(intent)
+                    } catch (_: ActivityNotFoundException) {
+                        speechUnavailableFlag = true
+                    }
+                },
+            )
+        } else {
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     val isLookingUp = foodLookupState is FoodLookupState.Loading
     val lookupMessage = when (val state = foodLookupState) {
         is FoodLookupState.NotFound -> "Barcode not found. Enter the meal details below."
@@ -240,6 +305,24 @@ fun AddEntrySheet(
                 .imePadding(),
         ) {
             Text("New entry", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(12.dp))
+            QuickLogRow(
+                text = quickLogText,
+                state = quickLogState,
+                speechDenied = speechDeniedFlag,
+                speechUnavailable = speechUnavailableFlag,
+                onTextChange = viewModel::onQuickLogTextChange,
+                onMicClick = onMicClick,
+                onParse = { viewModel.parseQuickLog() },
+            )
+            draft.occurredAtMillis?.let { occurredAt ->
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = occurredAtCaption(occurredAt),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(16.dp))
 
             // --- Category icon grid ---
@@ -647,40 +730,84 @@ private fun MealPhotoCaptureRow(
     denied: Boolean,
     onCameraClick: () -> Unit,
 ) {
+    val analyzing = state is MealPhotoState.Analyzing
     Surface(
-        onClick = onCameraClick,
+        onClick = { if (!analyzing) onCameraClick() },
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            when (state) {
-                is MealPhotoState.Analyzing -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Text("Estimating meal…", style = MaterialTheme.typography.labelLarge)
-                }
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                when (state) {
+                    is MealPhotoState.Analyzing -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Text(
+                            stringResource(R.string.meal_photo_estimating),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
 
-                else -> {
-                    Icon(
-                        imageVector = Icons.Filled.PhotoCamera,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                    else -> {
+                        Icon(
+                            imageVector = Icons.Filled.PhotoCamera,
+                            contentDescription = stringResource(R.string.meal_photo_button_cd),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            stringResource(R.string.meal_photo_button),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+            }
+            (state as? MealPhotoState.Success)?.let { success ->
+                Spacer(Modifier.height(8.dp))
+                val analysis = success.analysis
+                val macros = buildList {
+                    analysis.carbsGramsInt?.let {
+                        add(stringResource(R.string.meal_photo_macro_carbs, it))
+                    }
+                    analysis.fiberGramsInt?.let {
+                        add(stringResource(R.string.meal_photo_macro_fiber, it))
+                    }
+                    analysis.proteinGramsInt?.let {
+                        add(stringResource(R.string.meal_photo_macro_protein, it))
+                    }
+                    analysis.fatGramsInt?.let {
+                        add(stringResource(R.string.meal_photo_macro_fat, it))
+                    }
+                }
+                if (macros.isNotEmpty()) {
+                    Text(
+                        macros.joinToString(" · "),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Text("Photo meal", style = MaterialTheme.typography.labelLarge)
+                }
+                if (analysis.fatDelaysCarbAbsorption == true ||
+                    (analysis.fatGrams ?: 0.0) >= 15.0
+                ) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        analysis.lateSpikeNote?.trim()?.takeIf { it.isNotBlank() }
+                            ?: stringResource(R.string.meal_photo_fat_delay),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
     }
 
     val message = when {
-        denied -> "Camera permission needed to photograph your meal."
+        denied -> stringResource(R.string.meal_photo_camera_denied)
         state is MealPhotoState.Failed -> state.message
         else -> null
     }
@@ -691,5 +818,98 @@ private fun MealPhotoCaptureRow(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.error,
         )
+    }
+}
+
+@Composable
+private fun QuickLogRow(
+    text: String,
+    state: QuickLogState,
+    speechDenied: Boolean,
+    speechUnavailable: Boolean,
+    onTextChange: (String) -> Unit,
+    onMicClick: () -> Unit,
+    onParse: () -> Unit,
+) {
+    val parsing = state is QuickLogState.Parsing
+    OutlinedTextField(
+        value = text,
+        onValueChange = onTextChange,
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text(stringResource(R.string.quick_log_placeholder)) },
+        enabled = !parsing,
+        trailingIcon = {
+            if (parsing) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            } else {
+                IconButton(onClick = onMicClick) {
+                    Icon(
+                        imageVector = Icons.Filled.Mic,
+                        contentDescription = stringResource(R.string.quick_log_mic_cd),
+                    )
+                }
+            }
+        },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { onParse() }),
+        minLines = 1,
+        maxLines = 3,
+    )
+    Spacer(Modifier.height(4.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextButton(onClick = onParse, enabled = !parsing && text.isNotBlank()) {
+            Text(stringResource(R.string.quick_log_fill))
+        }
+    }
+    val helper = when {
+        speechDenied -> stringResource(R.string.quick_log_mic_denied)
+        speechUnavailable -> stringResource(R.string.quick_log_mic_unavailable)
+        state is QuickLogState.Failed -> state.message
+        state is QuickLogState.Filled && state.onDeviceFallback ->
+            stringResource(R.string.quick_log_on_device)
+        state is QuickLogState.Filled -> stringResource(R.string.quick_log_filled)
+        else -> null
+    }
+    if (helper != null) {
+        Text(
+            helper,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (state is QuickLogState.Failed || speechDenied || speechUnavailable) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}
+
+private fun launchSpeechRecognizer(
+    context: android.content.Context,
+    launcher: (Intent) -> Unit,
+) {
+    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+        )
+        putExtra(
+            RecognizerIntent.EXTRA_PROMPT,
+            context.getString(R.string.quick_log_speech_prompt),
+        )
+    }
+    launcher(intent)
+}
+
+@Composable
+private fun occurredAtCaption(occurredAtMillis: Long): String {
+    val minutes = ((System.currentTimeMillis() - occurredAtMillis) / 60_000L).toInt().coerceAtLeast(0)
+    return if (minutes < 60) {
+        stringResource(R.string.quick_log_minutes_ago, minutes)
+    } else {
+        val hours = minutes / 60
+        stringResource(R.string.quick_log_hours_ago, hours)
     }
 }

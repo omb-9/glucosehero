@@ -169,7 +169,7 @@ class ChatViewModel @Inject constructor(
         _streamingText.value = null
         when (error) {
             is ProviderHttpException -> chatRepository.appendAssistantMessage(
-                "Your AI provider returned an error — double-check the base URL, " +
+                error.message ?: "Your AI provider returned an error. Double-check the base URL, " +
                     "model, and API key under Settings → Hero AI, then try again."
             )
 

@@ -23,6 +23,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import com.omb9.glucosehero.clinical.ClinicalTestScreen
+import com.omb9.glucosehero.crisis.EmergencySosSettingsScreen
 import com.omb9.glucosehero.ui.chat.ChatScreen
 import com.omb9.glucosehero.ui.entrydetail.EntryDetailScreen
 import com.omb9.glucosehero.ui.foods.FoodLibraryScreen
@@ -58,6 +60,8 @@ object Routes {
     const val HEALTH_CONNECT_SETTINGS = "health_connect_settings"
     const val BACKUP_SETTINGS = "backup_settings"
     const val APPEARANCE_SETTINGS = "appearance_settings"
+    const val CLINICAL_TESTS = "clinical_tests"
+    const val EMERGENCY_SOS = "emergency_sos"
 
     fun entryDetail(entryId: Long) = "entry/$entryId"
 }
@@ -164,6 +168,8 @@ fun GlucoseHeroNavHost(
                     onHealthConnect = { navController.navigate(Routes.HEALTH_CONNECT_SETTINGS) },
                     onBackup = { navController.navigate(Routes.BACKUP_SETTINGS) },
                     onAppearance = { navController.navigate(Routes.APPEARANCE_SETTINGS) },
+                    onClinicalTests = { navController.navigate(Routes.CLINICAL_TESTS) },
+                    onEmergencySos = { navController.navigate(Routes.EMERGENCY_SOS) },
                 )
             }
             composable(Routes.AI_SETTINGS) {
@@ -186,6 +192,12 @@ fun GlucoseHeroNavHost(
             }
             composable(Routes.APPEARANCE_SETTINGS) {
                 AppearanceSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.CLINICAL_TESTS) {
+                ClinicalTestScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.EMERGENCY_SOS) {
+                EmergencySosSettingsScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.FOOD_LIBRARY) {
                 FoodLibraryScreen(onBack = { navController.popBackStack() })

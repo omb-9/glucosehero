@@ -22,6 +22,7 @@ import com.omb9.glucosehero.data.local.datastore.InitialImportRange
 import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.db.GlucoseSampleDao
 import com.omb9.glucosehero.domain.model.GlucosePointRow
+import com.omb9.glucosehero.domain.model.GlucoseReadingBounds
 import com.omb9.glucosehero.data.local.db.HourlyGlucoseAverageRow
 import com.omb9.glucosehero.data.local.db.HourlyGlucoseVarianceRow
 import com.omb9.glucosehero.data.local.db.LoggedDayRow
@@ -597,6 +598,31 @@ private class FakeGlucoseSampleDao : GlucoseSampleDao {
     override suspend fun pageForExport(limit: Int, offset: Int): List<GlucoseSampleEntity> = emptyList()
     override suspend fun getAll(): List<GlucoseSampleEntity> = inserted
     override suspend fun insertAll(samples: List<GlucoseSampleEntity>): List<Long> = upsertAll(samples)
+
+    override fun observeReadingsSince(since: Long): Flow<List<GlucosePointRow>> =
+        kotlinx.coroutines.flow.flowOf(emptyList())
+
+    override fun observeBucketedReadingsSince(
+        since: Long,
+        bucketMillis: Long,
+    ): Flow<List<GlucosePointRow>> = kotlinx.coroutines.flow.flowOf(emptyList())
+
+    override fun observeBucketedSamplesSince(
+        since: Long,
+        bucketMillis: Long,
+    ): Flow<List<GlucosePointRow>> = kotlinx.coroutines.flow.flowOf(emptyList())
+
+    override suspend fun bucketedReadingsSince(
+        since: Long,
+        bucketMillis: Long,
+    ): List<GlucosePointRow> = emptyList()
+
+    override suspend fun readingBoundsSince(since: Long) = GlucoseReadingBounds(
+        minMgdl = null,
+        maxMgdl = null,
+        avgMgdl = null,
+        count = 0,
+    )
 }
 
 private class FakeEntryDao : EntryDao {

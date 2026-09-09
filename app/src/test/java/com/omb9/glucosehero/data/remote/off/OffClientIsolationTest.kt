@@ -20,22 +20,23 @@ class OffClientIsolationTest {
 
     @Test
     fun `off client does not carry the dynamic api interceptor`() {
-        val client = NetworkModule.provideOffOkHttpClient()
+        val client = NetworkModule.provideOpenFoodFactsOkHttpClient()
 
         assertTrue(client.interceptors.none { it is DynamicApiInterceptor })
         assertTrue(client.networkInterceptors.none { it is DynamicApiInterceptor })
     }
 
     @Test
-    fun `off client carries user agent interceptor`() {
-        val client = NetworkModule.provideOffOkHttpClient()
+    fun `off client carries user agent and throttle interceptors`() {
+        val client = NetworkModule.provideOpenFoodFactsOkHttpClient()
 
         assertTrue(client.interceptors.any { it is OpenFoodFactsUserAgentInterceptor })
+        assertTrue(client.interceptors.any { it is OpenFoodFactsThrottleInterceptor })
     }
 
     @Test
     fun `off retrofit has real open food facts base url`() {
-        val client = NetworkModule.provideOffOkHttpClient()
+        val client = NetworkModule.provideOpenFoodFactsOkHttpClient()
         val retrofit = NetworkModule.provideOffRetrofit(client)
 
         assertEquals("https://world.openfoodfacts.org/", retrofit.baseUrl().toString())
@@ -43,7 +44,7 @@ class OffClientIsolationTest {
 
     @Test
     fun `off retrofit uses provided okhttp client`() {
-        val client = NetworkModule.provideOffOkHttpClient()
+        val client = NetworkModule.provideOpenFoodFactsOkHttpClient()
         val retrofit = NetworkModule.provideOffRetrofit(client)
 
         assertEquals(client, retrofit.callFactory())
@@ -52,7 +53,7 @@ class OffClientIsolationTest {
     @Test
     fun `off client attaches required user agent header`() {
         var recordedUserAgent: String? = null
-        val client = NetworkModule.provideOffOkHttpClient().newBuilder()
+        val client = NetworkModule.provideOpenFoodFactsOkHttpClient().newBuilder()
             .addInterceptor { chain ->
                 recordedUserAgent = chain.request().header("User-Agent")
                 Response.Builder()
@@ -76,7 +77,9 @@ class OffClientIsolationTest {
 
     @Test
     fun `provideOffOkHttpClient has Named openfoodfacts qualifier`() {
-        val method = NetworkModule::class.java.methods.first { it.name == "provideOffOkHttpClient" }
+        val method = NetworkModule::class.java.methods.first {
+            it.name == "provideOffOkHttpClient" && it.parameterCount == 2
+        }
         val named = method.getAnnotation(Named::class.java)
         assertNotNull(named)
         assertEquals("openfoodfacts", named.value)
@@ -108,7 +111,7 @@ class OffClientIsolationTest {
 
     @Test
     fun `provideOpenFoodFactsApi creates api instance`() {
-        val client = NetworkModule.provideOffOkHttpClient()
+        val client = NetworkModule.provideOpenFoodFactsOkHttpClient()
         val retrofit = NetworkModule.provideOffRetrofit(client)
         val api = NetworkModule.provideOpenFoodFactsApi(retrofit)
 

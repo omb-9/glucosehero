@@ -1,5 +1,8 @@
 package com.omb9.glucosehero.data.remote.sse
 
+import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.data.remote.AcknowledgedHostsTag
+import com.omb9.glucosehero.data.remote.AiEndpointGuard
 import com.omb9.glucosehero.data.remote.dto.ApiChatMessage
 import com.omb9.glucosehero.data.remote.dto.ApiTool
 import com.omb9.glucosehero.data.remote.dto.ChatCompletionChunk
@@ -18,6 +21,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -39,6 +43,7 @@ import okhttp3.sse.EventSources
 @Singleton
 class SseChatClient @Inject constructor(
     @Named("sse") private val client: OkHttpClient,
+    private val settingsDataStore: SettingsDataStore,
 ) {
 
     fun stream(
@@ -48,6 +53,22 @@ class SseChatClient @Inject constructor(
         maxTokens: Int? = null,
         openRouterDataCollectionDeny: Boolean = false,
     ): Flow<StreamEvent> = callbackFlow {
+        val completionsUrl = config.baseUrl.trimEnd('/') + "/chat/completions"
+        val parsedUrl = completionsUrl.toHttpUrlOrNull()
+            ?: throw ProviderHttpException("Invalid AI base URL: ${config.baseUrl}")
+        val acknowledged = settingsDataStore.acknowledgedAiHostsSnapshot()
+        when (val status = AiEndpointGuard.evaluate(parsedUrl, acknowledged)) {
+            AiEndpointGuard.Status.InvalidUrl ->
+                throw ProviderHttpException("Invalid AI base URL: ${config.baseUrl}")
+            AiEndpointGuard.Status.HttpsRequired ->
+                throw ProviderHttpException("AI endpoint must use HTTPS: ${parsedUrl.host}")
+            is AiEndpointGuard.Status.NeedsAcknowledgment ->
+                throw ProviderHttpException(
+                    "Untrusted AI host ${status.host}. Acknowledge it in Settings → Hero AI.",
+                )
+            AiEndpointGuard.Status.Allowed -> Unit
+        }
+
         val body = AppJson.encodeToString(
             ChatCompletionRequest.serializer(),
             ChatCompletionRequest(
@@ -61,9 +82,10 @@ class SseChatClient @Inject constructor(
         ).toRequestBody("application/json".toMediaType())
 
         val builder = Request.Builder()
-            .url(config.baseUrl.trimEnd('/') + "/chat/completions")
+            .url(completionsUrl)
             .header("Authorization", "Bearer ${config.apiKey}")
             .header("Accept", "text/event-stream")
+            .tag(AcknowledgedHostsTag::class.java, AcknowledgedHostsTag(acknowledged))
             .post(body)
 
         if (config.baseUrl.contains("openrouter.ai")) {

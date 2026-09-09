@@ -18,11 +18,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -38,13 +40,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.omb9.glucosehero.R
+import com.omb9.glucosehero.data.backup.CloudBackupProvider
+import com.omb9.glucosehero.data.backup.EncryptedBackupCipher
 import com.omb9.glucosehero.data.export.BackupCounts
 import com.omb9.glucosehero.data.export.BackupPreview
 import com.omb9.glucosehero.data.export.ImportMode
 import com.omb9.glucosehero.data.export.suggestedBackupFileName
+import com.omb9.glucosehero.data.export.suggestedEncryptedBackupFileName
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -82,6 +90,7 @@ fun BackupSettingsScreen(
         BackupSection(
             state = backupState,
             onBackupNow = viewModel::exportBackup,
+            onExportEncrypted = viewModel::exportEncryptedBackup,
             onExportMarkdown = viewModel::exportMarkdown,
             onImportPicked = viewModel::previewImport,
             onChooseFolder = viewModel::setBackupFolder,
@@ -89,6 +98,12 @@ fun BackupSettingsScreen(
             onImport = viewModel::importBackup,
             onAutoBackupToggle = viewModel::setAutoBackupEnabled,
             onRestoreSnapshot = viewModel::restoreLatestSnapshot,
+            onCloudProvider = viewModel::setCloudProvider,
+            onSaveWebDav = viewModel::saveWebDav,
+            onSaveDriveToken = viewModel::saveDriveToken,
+            onUploadCloud = viewModel::uploadEncryptedCloudBackup,
+            onRestoreCloud = viewModel::restoreEncryptedCloudBackup,
+            onClearCloud = viewModel::clearCloudCredentials,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -103,6 +118,7 @@ fun BackupSettingsScreen(
 fun BackupSection(
     state: BackupUiState,
     onBackupNow: (Uri) -> Unit,
+    onExportEncrypted: (Uri) -> Unit,
     onExportMarkdown: (Uri) -> Unit,
     onImportPicked: (Uri) -> Unit,
     onChooseFolder: (Uri?) -> Unit,
@@ -110,6 +126,12 @@ fun BackupSection(
     onImport: (Uri, ImportMode) -> Unit,
     onAutoBackupToggle: (Boolean) -> Unit,
     onRestoreSnapshot: () -> Unit,
+    onCloudProvider: (CloudBackupProvider) -> Unit,
+    onSaveWebDav: (String, String, String) -> Unit,
+    onSaveDriveToken: (String) -> Unit,
+    onUploadCloud: () -> Unit,
+    onRestoreCloud: () -> Unit,
+    onClearCloud: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var importUri by remember { mutableStateOf<Uri?>(null) }
@@ -135,6 +157,10 @@ fun BackupSection(
     val markdownLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri -> uri?.let(onExportMarkdown) }
+
+    val encryptedLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(EncryptedBackupCipher.ENCRYPTED_MIME),
+    ) { uri -> uri?.let(onExportEncrypted) }
 
     Column(modifier = modifier) {
         Text(
@@ -188,7 +214,15 @@ fun BackupSection(
 
         Spacer(Modifier.height(8.dp))
         OutlinedButton(
-            onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+            onClick = { encryptedLauncher.launch(suggestedEncryptedBackupFileName()) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.backup_encrypted_now))
+        }
+
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*")) },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Restore from backup")
@@ -219,6 +253,17 @@ fun BackupSection(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+
+        Spacer(Modifier.height(24.dp))
+        EncryptedCloudBackupSection(
+            state = state,
+            onCloudProvider = onCloudProvider,
+            onSaveWebDav = onSaveWebDav,
+            onSaveDriveToken = onSaveDriveToken,
+            onUploadCloud = onUploadCloud,
+            onRestoreCloud = onRestoreCloud,
+            onClearCloud = onClearCloud,
+        )
     }
 
     val preview = state.preview
@@ -263,6 +308,205 @@ fun BackupSection(
             dismissButton = {
                 TextButton(onClick = { confirmRestoreSnapshot = false }) {
                     Text("Cancel")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun EncryptedCloudBackupSection(
+    state: BackupUiState,
+    onCloudProvider: (CloudBackupProvider) -> Unit,
+    onSaveWebDav: (String, String, String) -> Unit,
+    onSaveDriveToken: (String) -> Unit,
+    onUploadCloud: () -> Unit,
+    onRestoreCloud: () -> Unit,
+    onClearCloud: () -> Unit,
+) {
+    var webDavUrl by remember(state.webDavUrl) { mutableStateOf(state.webDavUrl) }
+    var webDavUser by remember(state.webDavUsername) { mutableStateOf(state.webDavUsername) }
+    var webDavPassword by remember { mutableStateOf("") }
+    var driveToken by remember { mutableStateOf("") }
+    var confirmCloudRestore by remember { mutableStateOf(false) }
+
+    Text(
+        text = stringResource(R.string.backup_cloud_title),
+        style = MaterialTheme.typography.titleMedium,
+    )
+    Spacer(Modifier.height(8.dp))
+    Text(
+        text = stringResource(R.string.backup_cloud_body),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(8.dp))
+    Text(
+        text = if (state.lastCloudBackup != null) {
+            stringResource(R.string.backup_cloud_last, relativeTime(state.lastCloudBackup))
+        } else {
+            stringResource(R.string.backup_cloud_never)
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    Spacer(Modifier.height(12.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            selected = state.cloudProvider == CloudBackupProvider.WEBDAV,
+            onClick = { onCloudProvider(CloudBackupProvider.WEBDAV) },
+            label = { Text(stringResource(R.string.backup_provider_webdav)) },
+        )
+        FilterChip(
+            selected = state.cloudProvider == CloudBackupProvider.GOOGLE_DRIVE,
+            onClick = { onCloudProvider(CloudBackupProvider.GOOGLE_DRIVE) },
+            label = { Text(stringResource(R.string.backup_provider_drive)) },
+        )
+    }
+
+    when (state.cloudProvider) {
+        CloudBackupProvider.WEBDAV -> {
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = webDavUrl,
+                onValueChange = { webDavUrl = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.backup_webdav_url)) },
+                placeholder = { Text("https://cloud.example.com/remote.php/dav/files/user/GlucoseHero") },
+                singleLine = true,
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = webDavUser,
+                onValueChange = { webDavUser = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.backup_webdav_username)) },
+                singleLine = true,
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = webDavPassword,
+                onValueChange = { webDavPassword = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text(
+                        if (state.hasWebDavPassword) {
+                            stringResource(R.string.backup_webdav_password_replace)
+                        } else {
+                            stringResource(R.string.backup_webdav_password)
+                        },
+                    )
+                },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { onSaveWebDav(webDavUrl, webDavUser, webDavPassword) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.backup_webdav_save))
+            }
+        }
+        CloudBackupProvider.GOOGLE_DRIVE -> {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.backup_drive_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = driveToken,
+                onValueChange = { driveToken = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = {
+                    Text(
+                        if (state.hasDriveToken) {
+                            stringResource(R.string.backup_drive_token_replace)
+                        } else {
+                            stringResource(R.string.backup_drive_token)
+                        },
+                    )
+                },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    onSaveDriveToken(driveToken)
+                    driveToken = ""
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.backup_drive_save))
+            }
+        }
+        CloudBackupProvider.NONE -> {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.backup_cloud_choose),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+
+    val cloudReady = when (state.cloudProvider) {
+        CloudBackupProvider.WEBDAV ->
+            state.webDavUrl.isNotBlank() && state.webDavUsername.isNotBlank() && state.hasWebDavPassword
+        CloudBackupProvider.GOOGLE_DRIVE -> state.hasDriveToken
+        CloudBackupProvider.NONE -> false
+    }
+
+    Spacer(Modifier.height(12.dp))
+    Button(
+        onClick = onUploadCloud,
+        enabled = cloudReady && !state.isWorking,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.backup_cloud_upload))
+    }
+    Spacer(Modifier.height(8.dp))
+    OutlinedButton(
+        onClick = { confirmCloudRestore = true },
+        enabled = cloudReady && !state.isWorking,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.backup_cloud_restore))
+    }
+    Spacer(Modifier.height(8.dp))
+    TextButton(
+        onClick = onClearCloud,
+        enabled = !state.isWorking,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.backup_cloud_clear))
+    }
+
+    if (confirmCloudRestore) {
+        AlertDialog(
+            onDismissRequest = { confirmCloudRestore = false },
+            title = { Text(stringResource(R.string.backup_cloud_restore_title)) },
+            text = { Text(stringResource(R.string.backup_cloud_restore_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmCloudRestore = false
+                        onRestoreCloud()
+                    },
+                ) {
+                    Text(
+                        stringResource(R.string.backup_cloud_restore_confirm),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmCloudRestore = false }) {
+                    Text(stringResource(R.string.backup_cancel))
                 }
             },
         )

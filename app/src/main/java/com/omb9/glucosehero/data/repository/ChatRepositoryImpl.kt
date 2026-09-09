@@ -13,6 +13,7 @@ import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.db.PendingAiQueryDao
 import com.omb9.glucosehero.data.local.entity.ChatMessageEntity
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
+import com.omb9.glucosehero.data.local.entity.PendingAiQueryTtl
 import com.omb9.glucosehero.data.local.entity.toDomain
 import com.omb9.glucosehero.data.remote.AiApi
 import com.omb9.glucosehero.data.remote.dto.ApiChatMessage
@@ -20,21 +21,25 @@ import com.omb9.glucosehero.data.remote.dto.ApiFunction
 import com.omb9.glucosehero.data.remote.dto.ApiTool
 import com.omb9.glucosehero.data.remote.dto.ChatCompletionRequest
 import com.omb9.glucosehero.data.remote.dto.OpenRouterProviderConfig
+import com.omb9.glucosehero.data.nlp.QuickLogNlp
 import com.omb9.glucosehero.data.remote.sse.SseChatClient
+import com.omb9.glucosehero.data.vision.MealPhotoCapture
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
+import com.omb9.glucosehero.domain.model.ApiKeyMissingException
 import com.omb9.glucosehero.domain.model.ChatRole
 import com.omb9.glucosehero.domain.model.ChatTurn
 import com.omb9.glucosehero.domain.model.MealPhotoAnalysis
 import com.omb9.glucosehero.domain.model.ProfileTarget
+import com.omb9.glucosehero.domain.model.ProviderHttpException
 import com.omb9.glucosehero.domain.model.QuotaExhaustedException
+import com.omb9.glucosehero.domain.model.QuickLogParseResult
 import com.omb9.glucosehero.domain.model.StreamEvent
 import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.util.AiQuota
 import com.omb9.glucosehero.util.AiTier
-import com.omb9.glucosehero.util.AppJson
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.TagImpactCopy
 import com.omb9.glucosehero.work.PendingQueryWorker
@@ -53,6 +58,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import retrofit2.HttpException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -161,73 +167,98 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override suspend fun analyzeMealPhoto(imageDataUri: String): MealPhotoAnalysis {
+        val raw = completeStructured(
+            systemPrompt = MealPhotoCapture.SYSTEM_PROMPT,
+            userMessage = ApiChatMessage.multimodal(
+                role = "user",
+                prompt = MealPhotoCapture.USER_PROMPT,
+                imageDataUri = imageDataUri,
+            ),
+        )
+        return MealPhotoCapture.parseAnalysis(raw)
+    }
+
+    override suspend fun parseQuickLog(utterance: String): QuickLogParseResult {
+        val raw = completeStructured(
+            systemPrompt = QuickLogNlp.SYSTEM_PROMPT,
+            userMessage = ApiChatMessage.text(
+                role = "user",
+                content = QuickLogNlp.USER_PROMPT_PREFIX + utterance.trim(),
+            ),
+        )
+        return QuickLogNlp.parseResponse(raw)
+    }
+
+    /**
+     * Shared path for meal-photo and quick-log: quota, missing-key, HTTP, and
+     * empty-body handling. Callers parse the returned text with their own
+     * strict JSON decoder.
+     */
+    private suspend fun completeStructured(
+        systemPrompt: String,
+        userMessage: ApiChatMessage,
+    ): String {
         val aiConfig = settingsRepository.aiConfigSnapshot()
         val tier = resolveTier(aiConfig)
+        ensureStructuredCallAllowed(aiConfig, tier)
 
+        val response = try {
+            aiApi.complete(
+                ChatCompletionRequest(
+                    model = aiConfig.model,
+                    messages = listOf(
+                        ApiChatMessage.text(role = "system", content = systemPrompt),
+                        userMessage,
+                    ),
+                    stream = false,
+                    temperature = 0.0,
+                    maxTokens = structuredMaxTokens(tier),
+                    provider = if (aiConfig.provider == AiProvider.OPENROUTER) {
+                        OpenRouterProviderConfig()
+                    } else {
+                        null
+                    },
+                ),
+            )
+        } catch (e: ApiKeyMissingException) {
+            throw e
+        } catch (e: HttpException) {
+            val detail = e.message().orEmpty()
+            throw ProviderHttpException(
+                if (detail.isBlank()) "HTTP ${e.code()}" else "HTTP ${e.code()}: $detail",
+            )
+        }
+
+        val raw = response.choices.firstOrNull()?.message?.contentText()
+            ?.takeIf { it.isNotBlank() }
+            ?: throw ProviderHttpException("Empty completion response")
+
+        if (tier != AiTier.BYOK) {
+            settingsDataStore.incrementAiQuota()
+        }
+        return raw
+    }
+
+    private suspend fun ensureStructuredCallAllowed(aiConfig: AiConfig, tier: AiTier) {
         if (tier != AiTier.BYOK) {
             val used = settingsDataStore.aiQuotaUsedTodaySnapshot()
             if (AiQuota.isExhausted(tier, used)) {
                 throw QuotaExhaustedException(quotaExhaustedMessage(tier))
             }
+            return
         }
-
-        val system = ApiChatMessage.text(
-            role = "system",
-            content = MEAL_PHOTO_SYSTEM_PROMPT,
-        )
-        val user = ApiChatMessage.multimodal(
-            role = "user",
-            prompt = "Estimate the nutrition in this meal photo.",
-            imageDataUri = imageDataUri,
-        )
-
-        val response = aiApi.complete(
-            ChatCompletionRequest(
-                model = aiConfig.model,
-                messages = listOf(system, user),
-                stream = false,
-                temperature = 0.0,
-                maxTokens = managedMaxTokens(tier),
-                provider = if (aiConfig.provider == AiProvider.OPENROUTER) OpenRouterProviderConfig() else null,
-            )
-        )
-        val raw = response.choices.firstOrNull()?.message?.contentText()
-            ?: error("Empty meal-photo response")
-
-        if (tier != AiTier.BYOK) {
-            settingsDataStore.incrementAiQuota()
+        if (aiConfig.provider != AiProvider.CUSTOM && !aiConfig.hasApiKey) {
+            throw ApiKeyMissingException()
         }
-
-        return parseMealPhotoAnalysis(raw)
     }
 
-    /** Parses the model's JSON estimate, tolerating prose around the object. */
-    private fun parseMealPhotoAnalysis(raw: String): MealPhotoAnalysis {
-        val trimmed = raw.trim()
-        // Try the whole body first, then fall back to the first {...} block so
-        // a model that wraps the JSON in an explanation still parses.
-        val candidates = buildList {
-            add(trimmed)
-            val start = trimmed.indexOf('{')
-            val end = trimmed.lastIndexOf('}')
-            if (start >= 0 && end > start) add(trimmed.substring(start, end + 1))
-        }
-        for (candidate in candidates) {
-            val parsed = runCatching {
-                AppJson.decodeFromString(MealPhotoAnalysis.serializer(), candidate)
-            }.getOrNull()
-            if (parsed != null) return parsed
-        }
-        // No valid JSON: still surface whatever free-text description we got.
-        return MealPhotoAnalysis(description = trimmed.takeIf { it.isNotBlank() })
-    }
-
-    override suspend fun queueOffline(userMessageId: Long, prompt: String) {
+    override suspend fun queueOffline(userMessageId: Long, prompt: String, ttlSeconds: Int) {
         pendingAiQueryDao.insert(
             PendingAiQueryEntity(
                 userMessageId = userMessageId,
                 prompt = prompt,
                 createdAt = System.currentTimeMillis(),
+                ttlSeconds = PendingAiQueryTtl.normalizeForInsert(ttlSeconds),
             )
         )
         val request = OneTimeWorkRequestBuilder<PendingQueryWorker>()
@@ -253,6 +284,9 @@ class ChatRepositoryImpl @Inject constructor(
 
     private fun managedMaxTokens(tier: AiTier): Int? =
         if (tier == AiTier.BYOK) null else MAX_MANAGED_REPLY_TOKENS
+
+    private fun structuredMaxTokens(tier: AiTier): Int? =
+        if (tier == AiTier.BYOK) STRUCTURED_MAX_TOKENS else STRUCTURED_MANAGED_MAX_TOKENS
 
     private fun quotaExhaustedMessage(tier: AiTier): String = when (tier) {
         AiTier.FREE -> "You've used all 10 free AI calls today. They reset at midnight. " +
@@ -537,12 +571,7 @@ class ChatRepositoryImpl @Inject constructor(
     private companion object {
         const val MAX_HISTORY_TURNS = 20
         const val MAX_MANAGED_REPLY_TOKENS = 200
-
-        const val MEAL_PHOTO_SYSTEM_PROMPT =
-            "You are Hero, the nutrition assistant inside GlucoseHero. Estimate the " +
-                "nutritional macros of the meal in the photo. Return ONLY a JSON object " +
-                "with exactly these keys: \"carbs_grams\" (integer), \"protein_grams\" " +
-                "(integer), \"fat_grams\" (integer), and \"description\" (a short phrase " +
-                "naming the meal). Do not add any text outside the JSON object."
+        const val STRUCTURED_MAX_TOKENS = 800
+        const val STRUCTURED_MANAGED_MAX_TOKENS = 700
     }
 }

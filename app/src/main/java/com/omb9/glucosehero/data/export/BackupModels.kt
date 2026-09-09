@@ -19,6 +19,7 @@ import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.ThemeMode
+import com.omb9.glucosehero.domain.model.ExportWhitelist
 import com.omb9.glucosehero.util.AppJson
 import java.io.InputStream
 import java.io.OutputStream
@@ -26,9 +27,24 @@ import java.io.Writer
 import java.time.LocalDate
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
+
+/**
+ * Strict Json for backup restore. Unknown keys are errors so extra fields
+ * cannot be injected into Room. Encode still uses [AppJson] for stable
+ * field names; both share encodeDefaults so round-trips stay complete.
+ */
+val BackupJson: Json = Json {
+    ignoreUnknownKeys = false
+    encodeDefaults = true
+    explicitNulls = false
+    classDiscriminator = "kind"
+}
 
 /** Discriminator for the self-owned backup format. */
 const val BACKUP_FORMAT = "glucosehero.backup"
@@ -78,28 +94,21 @@ fun requireSupportedBackup(format: String, formatVersion: Int) {
 fun suggestedBackupFileName(date: LocalDate = LocalDate.now()): String =
     "glucosehero-backup-$date.json"
 
-/**
- * Keys that must never appear in a settings object written to a backup.
- * Matched against both camelCase and the DataStore name so a later field
- * added "for completeness" is still stripped at encode time.
- */
-private val NON_EXPORTABLE_SETTINGS_KEYS = setOf(
-    "aiApiKeyEnc",
-    "ai_api_key_enc",
-    "encryptedApiKey",
-    "apiKey",
-    "api_key",
-)
+fun suggestedEncryptedBackupFileName(date: LocalDate = LocalDate.now()): String =
+    "glucosehero-backup-$date.ghzk"
 
 /**
- * Encodes [settings] for the backup envelope after dropping any API-key
- * material. Callers that somehow added a key field still cannot leak it.
+ * Encodes [settings] for the backup envelope after keeping only the
+ * [ExportWhitelist] settings keys and dropping secret material. Callers that
+ * somehow added a token field still cannot leak it.
  *
  * PERMANENT SECURITY BOUNDARY: the KeyStore-encrypted API key blob
  * (`ai_api_key_enc`) is wrapped by a hardware-backed, non-exportable key.
  * The ciphertext is worthless on any other device, which is the same
  * reasoning already documented in `backup_rules.xml`. Do not add the blob
- * to this JSON "for completeness."
+ * to this JSON "for completeness." WebDAV passwords, Drive tokens, OAuth
+ * material, and Keystore aliases are stripped the same way, before any
+ * `.ghzk` encryption wraps the JSON.
  */
 fun encodeSettingsForBackup(settings: BackupSettings): String {
     val encoded = AppJson.encodeToJsonElement(BackupSettings.serializer(), settings).jsonObject
@@ -107,7 +116,51 @@ fun encodeSettingsForBackup(settings: BackupSettings): String {
 }
 
 fun stripNonExportableSettings(obj: JsonObject): JsonObject =
-    JsonObject(obj.filterKeys { it !in NON_EXPORTABLE_SETTINGS_KEYS })
+    ExportWhitelist.sanitizeObject(obj, ExportWhitelist.settingsKeys)
+
+fun validateBackupJsonText(text: String) {
+    try {
+        ExportWhitelist.requireNoForbiddenKeys(text)
+    } catch (e: IllegalArgumentException) {
+        throw BackupFormatException(e.message ?: "Backup contains a blocked field.")
+    }
+    val root = try {
+        AppJson.parseToJsonElement(text)
+    } catch (_: Exception) {
+        throw BackupFormatException("Backup JSON is not valid.")
+    }
+    val obj = root as? JsonObject
+        ?: throw BackupFormatException("Backup root must be an object.")
+    try {
+        ExportWhitelist.validateRestoreObject(obj, ExportWhitelist.envelopeKeys, "envelope")
+        for ((key, value) in obj) {
+            ExportWhitelist.validateRestoreElement(key, value)
+        }
+    } catch (e: IllegalArgumentException) {
+        throw BackupFormatException(e.message ?: "Backup failed schema validation.")
+    }
+}
+
+fun <T> decodeWhitelisted(
+    serializer: KSerializer<T>,
+    json: String,
+    fieldName: String,
+): T {
+    try {
+        ExportWhitelist.requireNoForbiddenKeys(json)
+        val element: JsonElement = AppJson.parseToJsonElement(json)
+        ExportWhitelist.validateRestoreElement(fieldName, element)
+        return BackupJson.decodeFromString(serializer, json)
+    } catch (e: BackupFormatException) {
+        throw e
+    } catch (e: IllegalArgumentException) {
+        throw BackupFormatException(e.message ?: "Backup failed schema validation.")
+    } catch (e: SerializationException) {
+        throw BackupFormatException(
+            "Backup field '$fieldName' failed schema validation: ${e.message}",
+        )
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Profile & settings (DataStore-backed, never the KeyStore-wrapped API key)
@@ -242,6 +295,8 @@ data class BackupPendingQuery(
     val userMessageId: Long,
     val prompt: String,
     val createdAt: Long,
+    /** 0 = unknown age, expired on restore. FEATURE: pending-query-ttl */
+    val ttlSeconds: Int = 0,
 )
 
 @Serializable
@@ -333,11 +388,26 @@ fun verifyCounts(expected: BackupCounts, actual: BackupCounts) {
 // ---------------------------------------------------------------------------
 
 fun encodeEnvelope(envelope: BackupEnvelope, output: OutputStream) {
-    output.write(AppJson.encodeToString(BackupEnvelope.serializer(), envelope).toByteArray(Charsets.UTF_8))
+    val json = AppJson.encodeToString(BackupEnvelope.serializer(), envelope)
+    try {
+        ExportWhitelist.requireNoForbiddenKeys(json)
+    } catch (e: IllegalArgumentException) {
+        throw BackupFormatException(e.message ?: "Backup export contained a blocked field.")
+    }
+    output.write(json.toByteArray(Charsets.UTF_8))
 }
 
-fun decodeEnvelope(input: InputStream): BackupEnvelope =
-    AppJson.decodeFromString(BackupEnvelope.serializer(), input.readBytes().toString(Charsets.UTF_8))
+fun decodeEnvelope(input: InputStream): BackupEnvelope {
+    val text = input.readBytes().toString(Charsets.UTF_8)
+    validateBackupJsonText(text)
+    return try {
+        BackupJson.decodeFromString(BackupEnvelope.serializer(), text)
+    } catch (e: BackupFormatException) {
+        throw e
+    } catch (e: SerializationException) {
+        throw BackupFormatException("Backup failed schema validation: ${e.message}")
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Streaming writer
@@ -712,6 +782,7 @@ fun PendingAiQueryEntity.toBackup() = BackupPendingQuery(
     userMessageId = userMessageId,
     prompt = prompt,
     createdAt = createdAt,
+    ttlSeconds = ttlSeconds,
 )
 
 fun BackupPendingQuery.toEntity() = PendingAiQueryEntity(
@@ -719,6 +790,7 @@ fun BackupPendingQuery.toEntity() = PendingAiQueryEntity(
     userMessageId = userMessageId,
     prompt = prompt,
     createdAt = createdAt,
+    ttlSeconds = ttlSeconds,
 )
 
 fun GlucoseSampleEntity.toBackup() = BackupGlucoseSample(

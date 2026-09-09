@@ -1,5 +1,7 @@
 package com.omb9.glucosehero.ui.settings
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -20,6 +23,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -32,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -39,10 +44,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.omb9.glucosehero.domain.model.DiabetesType
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.UnitSystem
 import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.util.Formatters
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,12 +60,26 @@ fun ProfileSettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val profile by viewModel.profile.collectAsStateWithLifecycle()
 
+    val scope = rememberCoroutineScope()
+    var backInFlight by remember { mutableStateOf(false) }
+
+    fun handleBack() {
+        if (backInFlight) return
+        backInFlight = true
+        scope.launch {
+            runCatching { viewModel.savePendingChanges() }
+            onBack()
+        }
+    }
+
+    BackHandler { handleBack() }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { handleBack() }) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
@@ -171,22 +192,59 @@ internal fun ProfileSection(
 
         Spacer(Modifier.height(12.dp))
 
-        var diabetesTypeText by remember(profile.diabetesType) {
-            mutableStateOf(profile.diabetesType.orEmpty())
+        val accent = MaterialTheme.colorScheme.primary
+        var diabetesTypeExpanded by remember { mutableStateOf(false) }
+        val diabetesType = DiabetesType.fromStored(profile.diabetesType)
+        ExposedDropdownMenuBox(
+            expanded = diabetesTypeExpanded,
+            onExpandedChange = { diabetesTypeExpanded = it },
+        ) {
+            OutlinedTextField(
+                value = diabetesType?.label ?: profile.diabetesType.orEmpty(),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Diabetes Type") },
+                placeholder = { Text("Select diabetes type") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = diabetesTypeExpanded)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+            )
+            ExposedDropdownMenu(
+                expanded = diabetesTypeExpanded,
+                onDismissRequest = { diabetesTypeExpanded = false },
+                containerColor = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                DiabetesType.entries.forEach { type ->
+                    val selected = type == diabetesType
+                    DropdownMenuItem(
+                        text = { Text(type.label) },
+                        onClick = {
+                            onDiabetesTypeChange(type.label)
+                            diabetesTypeExpanded = false
+                        },
+                        leadingIcon = if (selected) {
+                            {
+                                Icon(
+                                    Icons.Filled.Check,
+                                    contentDescription = "Selected",
+                                    tint = accent,
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        colors = MenuDefaults.itemColors(
+                            textColor = if (selected) accent else MaterialTheme.colorScheme.onSurface,
+                            leadingIconColor = accent,
+                        ),
+                    )
+                }
+            }
         }
-        OutlinedTextField(
-            value = diabetesTypeText,
-            onValueChange = {
-                diabetesTypeText = it
-                onDiabetesTypeChange(it)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Diabetes Type") },
-            singleLine = true,
-            supportingText = {
-                Text("e.g. Type 1, Type 2, Gestational, LADA, Prediabetes")
-            },
-        )
 
         Spacer(Modifier.height(12.dp))
 
@@ -251,14 +309,14 @@ internal fun ProfileSection(
             ) {
                 OutlinedTextField(
                     value = heightFeetText,
-                    onValueChange = { heightFeetText = it },
+                    onValueChange = {
+                        heightFeetText = it
+                        onHeightImperialChange(it, heightInchesText)
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .onFocusChanged { state ->
                             feetFocused = state.isFocused
-                            if (!state.isFocused) {
-                                onHeightImperialChange(heightFeetText, heightInchesText)
-                            }
                         },
                     label = { Text("Height (ft)") },
                     singleLine = true,
@@ -266,14 +324,14 @@ internal fun ProfileSection(
                 )
                 OutlinedTextField(
                     value = heightInchesText,
-                    onValueChange = { heightInchesText = it },
+                    onValueChange = {
+                        heightInchesText = it
+                        onHeightImperialChange(heightFeetText, it)
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .onFocusChanged { state ->
                             inchesFocused = state.isFocused
-                            if (!state.isFocused) {
-                                onHeightImperialChange(heightFeetText, heightInchesText)
-                            }
                         },
                     label = { Text("Height (in)") },
                     singleLine = true,

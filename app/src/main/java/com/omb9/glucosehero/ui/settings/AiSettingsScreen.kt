@@ -1,5 +1,6 @@
 package com.omb9.glucosehero.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,21 +28,28 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.omb9.glucosehero.R
+import com.omb9.glucosehero.data.remote.AiEndpointGuard
+import com.omb9.glucosehero.data.remote.TrustedHosts
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
+import kotlinx.coroutines.launch
 
 /**
  * Dedicated screen for configuring Hero AI (issue 103). Reached from the
@@ -57,6 +66,8 @@ fun AiSettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val aiConfig by viewModel.aiConfig.collectAsStateWithLifecycle()
     val heroAiRemainingCalls by viewModel.heroAiRemainingCalls.collectAsStateWithLifecycle()
+    val aiEndpointNeedsAck by viewModel.aiEndpointNeedsAck.collectAsStateWithLifecycle()
+    val aiEndpointStatus by viewModel.aiEndpointStatus.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
     var apiKeyInput by remember { mutableStateOf("") }
@@ -73,12 +84,26 @@ fun AiSettingsScreen(
         }
     }
 
+    val scope = rememberCoroutineScope()
+    var backInFlight by remember { mutableStateOf(false) }
+
+    fun handleBack() {
+        if (backInFlight) return
+        backInFlight = true
+        scope.launch {
+            runCatching { viewModel.savePendingChanges() }
+            onBack()
+        }
+    }
+
+    BackHandler { handleBack() }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Hero AI") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { handleBack() }) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
@@ -134,6 +159,9 @@ fun AiSettingsScreen(
                 // Local text state avoids cursor jumps; DataStore follows each edit,
                 // and the dynamic interceptor reads the latest value per request.
                 var baseUrl by remember(aiConfig.provider) { mutableStateOf(aiConfig.baseUrl) }
+                var ackDialogDismissed by remember(TrustedHosts.hostOf(baseUrl) ?: baseUrl) {
+                    mutableStateOf(false)
+                }
                 OutlinedTextField(
                     value = baseUrl,
                     onValueChange = {
@@ -150,6 +178,63 @@ fun AiSettingsScreen(
                         null
                     },
                 )
+
+                when (val status = aiEndpointStatus) {
+                    AiEndpointGuard.Status.HttpsRequired -> {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.ai_endpoint_https_required, baseUrl),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    is AiEndpointGuard.Status.NeedsAcknowledgment -> {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.ai_endpoint_untrusted, status.host),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = viewModel::acknowledgeAiEndpoint,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.ai_endpoint_ack_confirm))
+                        }
+                    }
+                    AiEndpointGuard.Status.InvalidUrl -> {
+                        if (aiConfig.provider == AiProvider.CUSTOM && baseUrl.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.ai_endpoint_invalid, baseUrl),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                    AiEndpointGuard.Status.Allowed -> Unit
+                }
+
+                if (aiEndpointNeedsAck && !ackDialogDismissed) {
+                    AlertDialog(
+                        onDismissRequest = { ackDialogDismissed = true },
+                        title = { Text(stringResource(R.string.ai_endpoint_ack_title)) },
+                        text = {
+                            Text(stringResource(R.string.ai_endpoint_ack_body, baseUrl))
+                        },
+                        confirmButton = {
+                            TextButton(onClick = viewModel::acknowledgeAiEndpoint) {
+                                Text(stringResource(R.string.ai_endpoint_ack_confirm))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { ackDialogDismissed = true }) {
+                                Text(stringResource(R.string.ai_endpoint_ack_cancel))
+                            }
+                        },
+                    )
+                }
 
                 Spacer(Modifier.height(12.dp))
 

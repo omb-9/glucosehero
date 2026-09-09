@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.omb9.glucosehero.R
 import com.omb9.glucosehero.data.local.db.ChatMessageDao
 import com.omb9.glucosehero.data.local.db.PendingAiQueryDao
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
@@ -23,6 +24,8 @@ import kotlinx.coroutines.CancellationException
  * every pending query is replayed against the AI endpoint (with a *fresh*
  * SQL-assembled context), the reply is persisted to chat history, and a
  * system notification announces that the insight is ready.
+ *
+ * Expired rows (FEATURE: pending-query-ttl) are never sent to the backend.
  */
 @HiltWorker
 class PendingQueryWorker @AssistedInject constructor(
@@ -46,6 +49,14 @@ class PendingQueryWorker @AssistedInject constructor(
 
             for (query in pending) {
                 try {
+                    if (query.isExpired(System.currentTimeMillis())) {
+                        chatRepository.appendAssistantMessage(
+                            applicationContext.getString(R.string.pending_ai_query_expired),
+                        )
+                        pendingAiQueryDao.deleteById(query.id)
+                        continue
+                    }
+
                     val history = resolveHistoryForDispatch(query)
 
                     val reply = chatRepository.completeReply(history)

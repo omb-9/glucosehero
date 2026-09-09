@@ -80,3 +80,12 @@ class QuotaExhaustedException(
     message: String,
 ) : Exception(message)
 
+/**
+ * Raised when a structured AI call (meal photo, quick-log) returned text that
+ * is not the JSON object the prompt required. Callers should surface this as
+ * a parse failure rather than treating the raw prose as a meal name.
+ */
+class InvalidAiJsonException(
+    message: String = "The AI returned data that could not be parsed.",
+) : Exception(message)
+

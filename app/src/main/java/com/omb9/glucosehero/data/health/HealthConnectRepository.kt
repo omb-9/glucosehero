@@ -5,12 +5,17 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.changes.DeletionChange
 import androidx.health.connect.client.changes.UpsertionChange
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.BloodGlucoseRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.MenstruationPeriodRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.SleepSessionRecord
+import com.omb9.glucosehero.exercise.LiveActiveCalories
+import com.omb9.glucosehero.exercise.LiveExerciseSession
+import com.omb9.glucosehero.exercise.LiveHeartRateSample
 import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -74,16 +79,101 @@ class HealthConnectRepository(
         HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND,
     )
 
+    /** Optional reads for exercise-fueling alerts. Not required for "connected". */
+    val exerciseFuelingPermissions = setOf(
+        HealthPermission.getReadPermission(HeartRateRecord::class),
+        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+    )
+
     val writePermissions = setOf(
         HealthPermission.getWritePermission(BloodGlucoseRecord::class),
         HealthPermission.getWritePermission(NutritionRecord::class),
         HealthPermission.getWritePermission(ExerciseSessionRecord::class),
     )
 
-    val allPermissions = readPermissions + writePermissions
+    val allPermissions = readPermissions + writePermissions + exerciseFuelingPermissions
 
     suspend fun grantedPermissions(): Set<String> =
         client?.permissionController?.getGrantedPermissions().orEmpty()
+
+    /**
+     * Recent heart-rate samples from Health Connect. Empty when the client is
+     * missing, permission is denied, or no records exist.
+     */
+    suspend fun readRecentHeartRate(since: Instant): List<LiveHeartRateSample> {
+        val hc = client ?: return emptyList()
+        return try {
+            readAllRecords<HeartRateRecord>(hc, TimeRangeFilter.after(since)).flatMap { record ->
+                record.samples.map { sample ->
+                    LiveHeartRateSample(
+                        timestampMillis = sample.time.toEpochMilli(),
+                        beatsPerMinute = sample.beatsPerMinute.toLong(),
+                    )
+                }
+            }
+        } catch (_: SecurityException) {
+            emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /** Recent exercise sessions overlapping [since]. Empty on missing data or permission. */
+    suspend fun readRecentExerciseSessions(since: Instant): List<LiveExerciseSession> {
+        val hc = client ?: return emptyList()
+        return try {
+            readAllRecords<ExerciseSessionRecord>(hc, TimeRangeFilter.after(since)).map { record ->
+                LiveExerciseSession(
+                    startMillis = record.startTime.toEpochMilli(),
+                    endMillis = record.endTime.toEpochMilli(),
+                    title = record.title,
+                )
+            }
+        } catch (_: SecurityException) {
+            emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /** Active calories burned since [since]. Empty on missing data or permission. */
+    suspend fun readRecentActiveCalories(since: Instant): List<LiveActiveCalories> {
+        val hc = client ?: return emptyList()
+        return try {
+            readAllRecords<ActiveCaloriesBurnedRecord>(hc, TimeRangeFilter.after(since)).map { record ->
+                LiveActiveCalories(
+                    startMillis = record.startTime.toEpochMilli(),
+                    endMillis = record.endTime.toEpochMilli(),
+                    kcal = record.energy.inKilocalories,
+                )
+            }
+        } catch (_: SecurityException) {
+            emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private suspend inline fun <reified T : Record> readAllRecords(
+        hc: HealthConnectClient,
+        filter: TimeRangeFilter,
+    ): List<T> {
+        var pageToken: String? = null
+        val out = ArrayList<T>()
+        do {
+            val response = hc.readRecords(
+                ReadRecordsRequest(
+                    recordType = T::class,
+                    timeRangeFilter = filter,
+                    pageSize = 1_000,
+                    pageToken = pageToken,
+                )
+            )
+            out.addAll(response.records)
+            pageToken = response.pageToken
+        } while (pageToken != null)
+        return out
+    }
 
     suspend fun importGlucose(since: Instant): Int =
         importGlucose(TimeRangeFilter.after(since))

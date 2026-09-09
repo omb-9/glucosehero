@@ -79,6 +79,8 @@ fun FoodImpactScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(16.dp))
+                FoodSwapsSection(swaps = state.swaps)
+                Spacer(Modifier.height(16.dp))
 
                 when {
                     state.tags.isNotEmpty() -> {

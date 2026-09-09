@@ -2,10 +2,13 @@ package com.omb9.glucosehero.ui.glance
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.action.Action
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -22,6 +25,7 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
@@ -32,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.omb9.glucosehero.MainActivity
 import com.omb9.glucosehero.R
+import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.repository.SettingsRepository
@@ -54,6 +59,7 @@ import kotlinx.coroutines.withContext
 interface GlucoseHeroWidgetEntryPoint {
     fun entryRepository(): EntryRepository
     fun settingsRepository(): SettingsRepository
+    fun entryDao(): EntryDao
 }
 
 // Strict AMOLED black background per the app's minimalist aesthetic.
@@ -69,17 +75,27 @@ private data class GlucoseWidgetSnapshot(
     val unitLabel: String,
     val timeText: String?,
     val emptyText: String,
+    val trendPng: ByteArray?,
 )
 
 /**
- * Home-screen widget that surfaces the most recent glucose reading. The whole
- * surface deep-links into the Add Entry sheet with the Glucose tab selected,
- * exactly like the post-meal reminder notification.
+ * Home-screen widget that surfaces the most recent glucose reading plus a
+ * 1-hour mini-trend. The trend is a fixed [WidgetTrendBitmap] PNG so the
+ * Glance / RemoteViews payload stays well under Binder's 1 MB limit. The
+ * whole surface deep-links into the Add Entry sheet with the Glucose tab
+ * selected, exactly like the post-meal reminder notification.
+ *
+ * @param omitTrendBitmap set by [WidgetRefresher] when a previous update hit
+ *   [android.os.TransactionTooLargeException]; the retry is text-only.
  */
-class GlucoseHeroGlanceWidget : GlanceAppWidget() {
+class GlucoseHeroGlanceWidget(
+    private val omitTrendBitmap: Boolean = false,
+) : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val snapshot = withContext(Dispatchers.IO) { loadSnapshot(context) }
+        val snapshot = withContext(Dispatchers.IO) {
+            loadSnapshot(context, omitTrendBitmap = omitTrendBitmap)
+        }
         val openGlucose = addGlucoseIntent(context)
         val openMeal = addMealIntent(context)
         val openBolus = addBolusIntent(context)
@@ -166,6 +182,23 @@ private fun GlucoseHeroWidgetContent(
                         ),
                     )
                 }
+
+                val png = snapshot.trendPng
+                val trendBitmap = if (png != null && png.isNotEmpty()) {
+                    BitmapFactory.decodeByteArray(png, 0, png.size)
+                } else {
+                    null
+                }
+                if (trendBitmap != null) {
+                    Image(
+                        provider = ImageProvider(trendBitmap),
+                        contentDescription = "One hour glucose trend",
+                        modifier = GlanceModifier
+                            .padding(top = 4.dp)
+                            .fillMaxWidth()
+                            .height(24.dp),
+                    )
+                }
             }
 
             Spacer(GlanceModifier.height(6.dp))
@@ -218,7 +251,10 @@ private fun GlucoseHeroWidgetContent(
     }
 }
 
-private suspend fun loadSnapshot(context: Context): GlucoseWidgetSnapshot {
+private suspend fun loadSnapshot(
+    context: Context,
+    omitTrendBitmap: Boolean,
+): GlucoseWidgetSnapshot {
     val appContext = context.applicationContext
     val entryPoint = EntryPointAccessors.fromApplication(
         appContext,
@@ -234,12 +270,25 @@ private suspend fun loadSnapshot(context: Context): GlucoseWidgetSnapshot {
         "$day · $time"
     }
 
+    val trendPng = if (omitTrendBitmap) {
+        null
+    } else {
+        val now = System.currentTimeMillis()
+        val raw = entryPoint.entryDao().glucoseReadingPointsSince(
+            now - WidgetTrendBitmap.TREND_WINDOW_MS,
+        )
+        val points = WidgetTrendBitmap.limitReadings(raw, now)
+        val png = WidgetTrendBitmap.encodePng(points)
+        png.takeIf { it.isNotEmpty() && WidgetTrendBitmap.isWithinBinderBudget(it.size) }
+    }
+
     return GlucoseWidgetSnapshot(
         title = appContext.getString(R.string.glucose_widget_label_glucose),
         valueText = valueText,
         unitLabel = settings.unit.label,
         timeText = timeText,
         emptyText = appContext.getString(R.string.glucose_widget_empty),
+        trendPng = trendPng,
     )
 }
 

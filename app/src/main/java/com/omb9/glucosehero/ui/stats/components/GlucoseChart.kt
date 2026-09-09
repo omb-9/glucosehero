@@ -1,6 +1,7 @@
 package com.omb9.glucosehero.ui.stats.components
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,11 +11,15 @@ import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,9 +27,11 @@ import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.ui.stats.GlucoseChartPoint
 import com.omb9.glucosehero.ui.stats.GlucoseMarker
 import com.omb9.glucosehero.ui.stats.MarkerCategory
+import com.omb9.glucosehero.util.ChartDownsample
 import com.omb9.glucosehero.util.ChartRevealTier
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.GlucoseRangeColor
+import com.omb9.glucosehero.util.Lttb
 import com.omb9.glucosehero.util.RangeCategory
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
@@ -65,10 +72,24 @@ private val MarkerPointSize = 8.dp
 private val DayPointSpacing = 32.dp
 private val SingleDayPointSpacing = 288.dp
 
+private val ChartHeight = 220.dp
+private val ChartLayerPadding = 16.dp
+private val CaptionSpacing = 8.dp
+
 private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
+private const val RangeBandAlpha = 0.14f
+private const val VerticalAxisTickCount = 5
 
 /** Identifies a foreground marker series so taps can be mapped back to an entry id. */
 private data class MarkerSeriesKey(val entryId: Long)
+
+@Immutable
+private data class ChartLineGeometry(
+    val xs: List<Double>,
+    val ys: List<Float>,
+    val mean: Float?,
+    val inRangeShare: Float?,
+)
 
 private val HighTriangleShape = GenericShape { size, _ ->
     moveTo(size.width / 2f, 0f)
@@ -88,10 +109,12 @@ private val LowTriangleShape = GenericShape { size, _ ->
  * The glucose trend line chart, with interactive foreground markers layered on top.
  *
  * The background line is the continuous trend sourced from the `glucose_readings` view (CGM
- * samples plus manual entries). The foreground layer is a set of sparse, tappable markers sourced
- * only from user-authored `entries`. Marker detail is gated by the selected range (24h/7d = value
- * labels, 14d = dots, 30d/90d = line only), and both the background range bands and markers use
- * the fixed five-band range palette.
+ * samples plus manual entries), already bucketed and LTTB-reduced before it reaches composition.
+ * Pixel-width LTTB runs again here, keyed on data + range (the zoom proxy), so Vico never sees a
+ * raw CGM stream. The foreground layer is a set of sparse, tappable markers sourced only from
+ * user-authored `entries`. Marker detail is gated by the selected range (24h/7d = value labels,
+ * 14d = dots, 30d/90d = line only), and both the background range bands and markers use the
+ * fixed five-band range palette.
  */
 @Composable
 fun GlucoseChart(
@@ -110,6 +133,60 @@ fun GlucoseChart(
     use24Hour: Boolean,
     onMarkerClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
+) {
+    BoxWithConstraints(modifier = modifier) {
+        val pixelThreshold = remember(maxWidth, rangeDays) {
+            ChartDownsample.pixelThreshold(maxWidth.value, rangeDays)
+        }
+        val sampledPoints = remember(points, pixelThreshold, rangeDays) {
+            Lttb.downsample(points, pixelThreshold, { it.x }, { it.y.toDouble() })
+        }
+        val lineGeometry by remember(sampledPoints, targetLow, targetHigh) {
+            derivedStateOf {
+                ChartLineGeometry(
+                    xs = sampledPoints.map { it.x },
+                    ys = sampledPoints.map { it.y },
+                    mean = chartMean(sampledPoints),
+                    inRangeShare = chartInRangeShare(sampledPoints, targetLow, targetHigh),
+                )
+            }
+        }
+
+        GlucoseChartPlot(
+            lineGeometry = lineGeometry,
+            markers = markers,
+            enabledCategories = enabledCategories,
+            targetLow = targetLow,
+            targetHigh = targetHigh,
+            veryLowThreshold = veryLowThreshold,
+            veryHighThreshold = veryHighThreshold,
+            minY = minY,
+            maxY = maxY,
+            rangeDays = rangeDays,
+            rangeStartMillis = rangeStartMillis,
+            themeMode = themeMode,
+            use24Hour = use24Hour,
+            onMarkerClick = onMarkerClick,
+        )
+    }
+}
+
+@Composable
+private fun GlucoseChartPlot(
+    lineGeometry: ChartLineGeometry,
+    markers: List<GlucoseMarker>,
+    enabledCategories: Set<MarkerCategory>,
+    targetLow: Float,
+    targetHigh: Float,
+    veryLowThreshold: Float,
+    veryHighThreshold: Float,
+    minY: Float,
+    maxY: Float,
+    rangeDays: Int,
+    rangeStartMillis: Long,
+    themeMode: ThemeMode,
+    use24Hour: Boolean,
+    onMarkerClick: (Long) -> Unit,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     val labelColor = MaterialTheme.colorScheme.onSurface
@@ -142,13 +219,11 @@ fun GlucoseChart(
         }
     }
 
-    LaunchedEffect(points, markersByCategory, visibleCategories) {
+    LaunchedEffect(lineGeometry.xs, lineGeometry.ys, lineGeometry.mean, lineGeometry.inRangeShare, markersByCategory, visibleCategories) {
         modelProducer.runTransaction {
-            // Background continuous line.
             lineModel {
-                series(points.map { it.x }, points.map { it.y })
+                series(lineGeometry.xs, lineGeometry.ys)
             }
-            // One foreground series per marker, so each marker can render its own dot + label.
             visibleCategories.forEach { category ->
                 val categoryMarkers = markersByCategory.getValue(category)
                 lineModel {
@@ -242,7 +317,6 @@ fun GlucoseChart(
         },
     )
 
-    val rangeBandAlpha = 0.14f
     val decorations = remember(
         minY,
         maxY,
@@ -252,31 +326,15 @@ fun GlucoseChart(
         veryHighThreshold,
         effectiveThemeMode,
     ) {
-        buildList {
-            fun band(category: RangeCategory, from: Double, to: Double) {
-                val clampedFrom = from.coerceAtLeast(minY.toDouble())
-                val clampedTo = to.coerceAtMost(maxY.toDouble())
-                if (clampedTo > clampedFrom) {
-                    add(
-                        HorizontalBox(
-                            y = { clampedFrom..clampedTo },
-                            box = ShapeComponent(
-                                fill = Fill(
-                                    GlucoseRangeColor.colorFor(category, effectiveThemeMode)
-                                        .copy(alpha = rangeBandAlpha),
-                                ),
-                            ),
-                        ),
-                    )
-                }
-            }
-
-            band(RangeCategory.VERY_LOW, minY.toDouble(), veryLowThreshold.toDouble())
-            band(RangeCategory.LOW, veryLowThreshold.toDouble(), targetLow.toDouble())
-            band(RangeCategory.IN_RANGE, targetLow.toDouble(), targetHigh.toDouble())
-            band(RangeCategory.HIGH, targetHigh.toDouble(), veryHighThreshold.toDouble())
-            band(RangeCategory.VERY_HIGH, veryHighThreshold.toDouble(), maxY.toDouble())
-        }
+        buildRangeDecorations(
+            minY = minY,
+            maxY = maxY,
+            targetLow = targetLow,
+            targetHigh = targetHigh,
+            veryLowThreshold = veryLowThreshold,
+            veryHighThreshold = veryHighThreshold,
+            themeMode = effectiveThemeMode,
+        )
     }
 
     val invisibleMarker = remember { object : CartesianMarker {} }
@@ -313,33 +371,88 @@ fun GlucoseChart(
     val chart = rememberCartesianChart(
         *allLayers.toTypedArray(),
         startAxis = VerticalAxis.rememberStart(
-            itemPlacer = remember { VerticalAxis.ItemPlacer.count(count = { 5 }) },
+            itemPlacer = remember { VerticalAxis.ItemPlacer.count(count = { VerticalAxisTickCount }) },
         ),
         bottomAxis = bottomAxis,
         decorations = decorations,
         marker = invisibleMarker,
         markerController = markerController,
         getXStep = { _, _, _ -> if (isHourAxis) 0.25 else 1.0 },
-        layerPadding = { CartesianLayerPadding(scalableStart = 16.dp, scalableEnd = 16.dp) },
+        layerPadding = { CartesianLayerPadding(scalableStart = ChartLayerPadding, scalableEnd = ChartLayerPadding) },
     )
 
-    Column(modifier = modifier) {
+    Column {
         CartesianChartHost(
             chart = chart,
             modelProducer = modelProducer,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp),
+                .height(ChartHeight)
+                .graphicsLayer(),
             scrollState = scrollState,
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(CaptionSpacing))
         Text(
             "Tap a marker to open it",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+private fun chartMean(points: List<GlucoseChartPoint>): Float? {
+    if (points.isEmpty()) return null
+    var sum = 0.0
+    for (point in points) sum += point.y
+    return (sum / points.size).toFloat()
+}
+
+private fun chartInRangeShare(
+    points: List<GlucoseChartPoint>,
+    targetLow: Float,
+    targetHigh: Float,
+): Float? {
+    if (points.isEmpty()) return null
+    var inRange = 0
+    for (point in points) {
+        if (point.y in targetLow..targetHigh) inRange++
+    }
+    return inRange.toFloat() / points.size
+}
+
+private fun buildRangeDecorations(
+    minY: Float,
+    maxY: Float,
+    targetLow: Float,
+    targetHigh: Float,
+    veryLowThreshold: Float,
+    veryHighThreshold: Float,
+    themeMode: ThemeMode,
+): List<HorizontalBox> = buildList {
+    fun band(category: RangeCategory, from: Double, to: Double) {
+        val clampedFrom = from.coerceAtLeast(minY.toDouble())
+        val clampedTo = to.coerceAtMost(maxY.toDouble())
+        if (clampedTo > clampedFrom) {
+            add(
+                HorizontalBox(
+                    y = { clampedFrom..clampedTo },
+                    box = ShapeComponent(
+                        fill = Fill(
+                            GlucoseRangeColor.colorFor(category, themeMode)
+                                .copy(alpha = RangeBandAlpha),
+                        ),
+                    ),
+                ),
+            )
+        }
+    }
+
+    band(RangeCategory.VERY_LOW, minY.toDouble(), veryLowThreshold.toDouble())
+    band(RangeCategory.LOW, veryLowThreshold.toDouble(), targetLow.toDouble())
+    band(RangeCategory.IN_RANGE, targetLow.toDouble(), targetHigh.toDouble())
+    band(RangeCategory.HIGH, targetHigh.toDouble(), veryHighThreshold.toDouble())
+    band(RangeCategory.VERY_HIGH, veryHighThreshold.toDouble(), maxY.toDouble())
 }
 
 private fun buildMarkerLine(

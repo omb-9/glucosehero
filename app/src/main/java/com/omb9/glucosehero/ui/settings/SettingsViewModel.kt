@@ -10,6 +10,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import com.omb9.glucosehero.data.billing.BillingRepository
+import com.omb9.glucosehero.data.backup.CloudBackupProvider
+import com.omb9.glucosehero.data.backup.EncryptedCloudBackupManager
 import com.omb9.glucosehero.data.export.BackupManager
 import com.omb9.glucosehero.data.export.BackupPreview
 import com.omb9.glucosehero.data.export.ImportMode
@@ -20,6 +22,8 @@ import com.omb9.glucosehero.data.health.HealthConnectStatus
 import com.omb9.glucosehero.data.local.datastore.InitialImportRange
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.GlucoseSampleDao
+import com.omb9.glucosehero.data.remote.AiEndpointGuard
+import com.omb9.glucosehero.data.remote.TrustedHosts
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
@@ -65,6 +69,12 @@ data class BackupUiState(
     val preview: BackupPreview? = null,
     val message: String? = null,
     val hasSnapshot: Boolean = false,
+    val cloudProvider: CloudBackupProvider = CloudBackupProvider.NONE,
+    val webDavUrl: String = "",
+    val webDavUsername: String = "",
+    val hasWebDavPassword: Boolean = false,
+    val hasDriveToken: Boolean = false,
+    val lastCloudBackup: Long? = null,
 )
 
 /** One-shot snackbar feedback for API key save attempts. */
@@ -83,6 +93,7 @@ class SettingsViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val glucoseSampleDao: GlucoseSampleDao,
     private val backupManager: BackupManager,
+    private val encryptedCloudBackupManager: EncryptedCloudBackupManager,
     private val markdownExporter: MarkdownExporter,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
@@ -103,6 +114,28 @@ class SettingsViewModel @Inject constructor(
 
     val aiConfig: StateFlow<AiConfig> = settingsRepository.aiConfig
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AiConfig())
+
+    /**
+     * True when the current Hero AI base URL is not on the built-in HTTPS
+     * allowlist and the user has not acknowledged this host yet.
+     */
+    val aiEndpointNeedsAck: StateFlow<Boolean> = combine(
+        settingsRepository.aiConfig,
+        settingsDataStore.acknowledgedAiHosts,
+    ) { config, hosts ->
+        AiEndpointGuard.needsAcknowledgment(config.baseUrl, hosts)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val aiEndpointStatus: StateFlow<AiEndpointGuard.Status> = combine(
+        settingsRepository.aiConfig,
+        settingsDataStore.acknowledgedAiHosts,
+    ) { config, hosts ->
+        AiEndpointGuard.evaluate(config.baseUrl, hosts)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        AiEndpointGuard.Status.InvalidUrl,
+    )
 
     val profile: StateFlow<UserProfile> = settingsRepository.profile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserProfile())
@@ -194,13 +227,45 @@ class SettingsViewModel @Inject constructor(
         )
     }
 
+    private val cloudCore = combine(
+        combine(
+            settingsDataStore.cloudBackupProvider,
+            settingsDataStore.webDavUrl,
+            settingsDataStore.webDavUsername,
+            settingsDataStore.hasWebDavPassword,
+            settingsDataStore.hasDriveAccessToken,
+        ) { provider, url, username, hasPassword, hasDrive ->
+            BackupUiState(
+                cloudProvider = provider,
+                webDavUrl = url,
+                webDavUsername = username,
+                hasWebDavPassword = hasPassword,
+                hasDriveToken = hasDrive,
+            )
+        },
+        settingsDataStore.cloudBackupLastRun,
+    ) { slice, lastCloud ->
+        slice.copy(lastCloudBackup = lastCloud)
+    }
+
     val backupState: StateFlow<BackupUiState> = combine(
         backupCore,
+        cloudCore,
         _backupPreview,
         _backupMessage,
         backupManager.hasPreImportSnapshot,
-    ) { core, preview, message, hasSnapshot ->
-        core.copy(preview = preview, message = message, hasSnapshot = hasSnapshot)
+    ) { core, cloud, preview, message, hasSnapshot ->
+        core.copy(
+            preview = preview,
+            message = message,
+            hasSnapshot = hasSnapshot,
+            cloudProvider = cloud.cloudProvider,
+            webDavUrl = cloud.webDavUrl,
+            webDavUsername = cloud.webDavUsername,
+            hasWebDavPassword = cloud.hasWebDavPassword,
+            hasDriveToken = cloud.hasDriveToken,
+            lastCloudBackup = cloud.lastCloudBackup,
+        )
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BackupUiState())
 
@@ -352,8 +417,31 @@ class SettingsViewModel @Inject constructor(
         baseUrlInput.value = url
     }
 
+    fun acknowledgeAiEndpoint() {
+        val host = TrustedHosts.hostOf(aiConfig.value.baseUrl) ?: return
+        viewModelScope.launch { settingsDataStore.acknowledgeAiHost(host) }
+    }
+
     fun setAiModel(model: String) {
         modelInput.value = model
+    }
+
+    /**
+     * Immediately persists inputs that are otherwise debounced. Settings screens
+     * call this from their back navigation so an in-progress edit is not lost
+     * when the screen's ViewModel is cleared.
+     */
+    suspend fun savePendingChanges() {
+        nameInput.value?.let { settingsRepository.setProfileName(it) }
+        diabetesTypeInput.value?.let { settingsRepository.setProfileDiabetesType(it) }
+        heightInput.value?.let {
+            settingsRepository.setProfileHeightCm(Formatters.parseDecimal(it)?.toFloat())
+        }
+        weightInput.value?.let {
+            settingsRepository.setProfileWeightKg(Formatters.parseDecimal(it)?.toFloat())
+        }
+        baseUrlInput.value?.let { settingsRepository.setAiBaseUrl(it) }
+        modelInput.value?.let { settingsRepository.setAiModel(it) }
     }
 
     fun saveApiKey(plainKey: String) {
@@ -520,6 +608,66 @@ class SettingsViewModel @Inject constructor(
             runCatching { backupManager.restoreLatestPreImportSnapshot() }
                 .onSuccess { _backupMessage.value = "Last snapshot restored." }
                 .onFailure { _backupMessage.value = it.message ?: "Couldn't restore snapshot." }
+        }
+    }
+
+    fun exportEncryptedBackup(uri: Uri) {
+        viewModelScope.launch {
+            _backupMessage.value = null
+            persistUriPermission(uri)
+            runCatching { backupManager.exportEncryptedTo(uri) }
+                .onSuccess { summary ->
+                    _backupMessage.value = "Encrypted backup saved (${summary.counts.entries} entries)."
+                }
+                .onFailure { _backupMessage.value = it.message ?: "Encrypted backup failed." }
+        }
+    }
+
+    fun uploadEncryptedCloudBackup() {
+        viewModelScope.launch {
+            _backupMessage.value = null
+            runCatching { encryptedCloudBackupManager.uploadEncrypted() }
+                .onSuccess { file ->
+                    _backupMessage.value = "Uploaded encrypted backup ${file.name}."
+                }
+                .onFailure { _backupMessage.value = it.message ?: "Cloud upload failed." }
+        }
+    }
+
+    fun restoreEncryptedCloudBackup() {
+        viewModelScope.launch {
+            _backupPreview.value = null
+            _backupMessage.value = null
+            runCatching { encryptedCloudBackupManager.restoreLatest(ImportMode.REPLACE) }
+                .onSuccess { _backupMessage.value = "Encrypted cloud backup restored." }
+                .onFailure { _backupMessage.value = it.message ?: "Cloud restore failed." }
+        }
+    }
+
+    fun setCloudProvider(provider: CloudBackupProvider) {
+        viewModelScope.launch { encryptedCloudBackupManager.setProvider(provider) }
+    }
+
+    fun saveWebDav(url: String, username: String, password: String) {
+        viewModelScope.launch {
+            runCatching { encryptedCloudBackupManager.saveWebDav(url, username, password) }
+                .onSuccess { _backupMessage.value = "WebDAV settings saved." }
+                .onFailure { _backupMessage.value = it.message ?: "Couldn't save WebDAV settings." }
+        }
+    }
+
+    fun saveDriveToken(token: String) {
+        viewModelScope.launch {
+            runCatching { encryptedCloudBackupManager.saveDriveAccessToken(token) }
+                .onSuccess { _backupMessage.value = "Drive token saved on this device." }
+                .onFailure { _backupMessage.value = it.message ?: "Couldn't save Drive token." }
+        }
+    }
+
+    fun clearCloudCredentials() {
+        viewModelScope.launch {
+            encryptedCloudBackupManager.clearCloudCredentials()
+            _backupMessage.value = "Cloud backup credentials cleared."
         }
     }
 

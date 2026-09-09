@@ -12,3 +12,7 @@
 -dontwarn okio.**
 -dontwarn javax.annotation.**
 -keepattributes Signature, Exceptions
+
+# FEATURE: sqlcipher-migrations
+-keep class net.zetetic.** { *; }
+-dontwarn net.zetetic.**

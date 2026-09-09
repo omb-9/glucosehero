@@ -57,5 +57,15 @@ class MarkdownExporterTest {
         assertFalse(markdown.contains("apiKey"))
         assertFalse(markdown.contains("ai_api_key"))
         assertFalse(markdown.contains("ai_api_key_enc"))
+        assertFalse(markdown.contains("oauthToken"))
+        assertFalse(markdown.contains("webdavPassword"))
+        assertFalse(markdown.contains("driveAccessToken"))
+        assertFalse(markdown.contains("keystoreAlias"))
+        assertFalse(markdown.contains("webhookUrl"))
+        val header = markdown.lineSequence().first { it.startsWith("| Timestamp") }
+        assertEquals(
+            "| " + com.omb9.glucosehero.domain.model.ExportWhitelist.markdownColumns.joinToString(" | ") + " |",
+            header,
+        )
     }
 }

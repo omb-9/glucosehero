@@ -2,11 +2,13 @@ package com.omb9.glucosehero.di
 
 import com.omb9.glucosehero.BuildConfig
 import com.omb9.glucosehero.data.remote.AiApi
+import com.omb9.glucosehero.data.remote.AuthRedirectSanitizer
 import com.omb9.glucosehero.data.remote.CleartextGuardInterceptor
 import com.omb9.glucosehero.data.remote.DynamicApiInterceptor
 import com.omb9.glucosehero.data.remote.off.OffHttpClient
 import com.omb9.glucosehero.data.remote.off.OffRetrofit
 import com.omb9.glucosehero.data.remote.off.OpenFoodFactsApi
+import com.omb9.glucosehero.data.remote.off.OpenFoodFactsThrottleInterceptor
 import com.omb9.glucosehero.data.remote.off.OpenFoodFactsUserAgentInterceptor
 import com.omb9.glucosehero.util.AppJson
 import dagger.Module
@@ -42,6 +44,7 @@ object NetworkModule {
         OkHttpClient.Builder()
             .addInterceptor(dynamicApiInterceptor)
             .addInterceptor(CleartextGuardInterceptor())
+            .addNetworkInterceptor(AuthRedirectSanitizer())
             .apply {
                 if (BuildConfig.DEBUG) {
                     // BASIC = method/URL/status only; auth headers are never logged.
@@ -63,6 +66,7 @@ object NetworkModule {
     fun provideSseOkHttpClient(): OkHttpClient =
         OkHttpClient.Builder()
             .addInterceptor(CleartextGuardInterceptor())
+            .addNetworkInterceptor(AuthRedirectSanitizer())
             .connectTimeout(Duration.ofSeconds(20))
             .readTimeout(Duration.ZERO)
             .build()
@@ -83,6 +87,23 @@ object NetworkModule {
             .readTimeout(Duration.ofSeconds(5))
             .build()
 
+    /**
+     * Isolated WebDAV / Drive backup client. Never attached to
+     * [DynamicApiInterceptor], so encrypted blobs are not rewritten to the AI
+     * provider or tagged with a bearer token. Logging is omitted even in debug
+     * so ciphertext and credentials never hit logcat.
+     */
+    @Provides
+    @Singleton
+    @Named("webdav")
+    fun provideWebDavOkHttpClient(): OkHttpClient =
+        OkHttpClient.Builder()
+            .addInterceptor(CleartextGuardInterceptor())
+            .connectTimeout(Duration.ofSeconds(20))
+            .readTimeout(Duration.ofSeconds(120))
+            .writeTimeout(Duration.ofSeconds(120))
+            .build()
+
     @Provides
     @Singleton
     fun provideRetrofit(client: OkHttpClient): Retrofit =
@@ -101,6 +122,11 @@ object NetworkModule {
     fun provideOpenFoodFactsUserAgentInterceptor(): OpenFoodFactsUserAgentInterceptor =
         OpenFoodFactsUserAgentInterceptor()
 
+    @Provides
+    @Singleton
+    fun provideOpenFoodFactsThrottleInterceptor(): OpenFoodFactsThrottleInterceptor =
+        OpenFoodFactsThrottleInterceptor()
+
     /**
      * Isolated Open Food Facts client. Deliberately built on a fresh
      * [OkHttpClient.Builder] that never sees [DynamicApiInterceptor], so
@@ -110,14 +136,22 @@ object NetworkModule {
     @Provides
     @Singleton
     @Named("openfoodfacts")
-    fun provideOffOkHttpClient(): OkHttpClient =
+    fun provideOffOkHttpClient(
+        userAgent: OpenFoodFactsUserAgentInterceptor,
+        throttle: OpenFoodFactsThrottleInterceptor,
+    ): OkHttpClient =
         OkHttpClient.Builder()
-            .addInterceptor(OpenFoodFactsUserAgentInterceptor())
+            .addInterceptor(userAgent)
+            .addInterceptor(throttle)
             .connectTimeout(Duration.ofSeconds(10))
             .readTimeout(Duration.ofSeconds(15))
             .build()
 
-    fun provideOpenFoodFactsOkHttpClient(): OkHttpClient = provideOffOkHttpClient()
+    fun provideOpenFoodFactsOkHttpClient(): OkHttpClient =
+        provideOffOkHttpClient(
+            OpenFoodFactsUserAgentInterceptor(),
+            OpenFoodFactsThrottleInterceptor(),
+        )
 
     @Provides
     @Singleton

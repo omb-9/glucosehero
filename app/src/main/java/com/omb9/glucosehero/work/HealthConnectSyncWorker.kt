@@ -12,9 +12,11 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.omb9.glucosehero.crisis.HypoSosManager
 import com.omb9.glucosehero.data.health.HealthConnectRepository
 import com.omb9.glucosehero.data.health.SyncResult
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.forecast.GlucoseForecastRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
@@ -51,6 +53,8 @@ class HealthConnectSyncWorker @AssistedInject constructor(
     @Assisted workerParams: WorkerParameters,
     private val repository: HealthConnectRepository,
     private val settingsDataStore: SettingsDataStore,
+    private val hypoSosManager: HypoSosManager,
+    private val forecastRepository: GlucoseForecastRepository,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -71,6 +75,8 @@ class HealthConnectSyncWorker @AssistedInject constructor(
                 SyncResult.Success -> {
                     repository.writeBack()
                     settingsDataStore.setHealthConnectLastSync(System.currentTimeMillis())
+                    runCatching { forecastRepository.refresh() }
+                    runCatching { hypoSosManager.evaluateLatest() }
                     Result.success()
                 }
                 SyncResult.NeedsFullResync -> {
@@ -84,6 +90,8 @@ class HealthConnectSyncWorker @AssistedInject constructor(
                         SyncResult.Success -> {
                             repository.writeBack()
                             settingsDataStore.setHealthConnectLastSync(System.currentTimeMillis())
+                            runCatching { forecastRepository.refresh() }
+                            runCatching { hypoSosManager.evaluateLatest() }
                             Result.success()
                         }
                         else -> Result.retry()

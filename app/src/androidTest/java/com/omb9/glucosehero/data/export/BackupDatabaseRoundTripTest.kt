@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import androidx.room.Room
 import androidx.test.platform.app.InstrumentationRegistry
+import com.omb9.glucosehero.data.backup.EncryptedBackupCipher
+import com.omb9.glucosehero.data.backup.KeystoreDataKeyWrapper
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
 import com.omb9.glucosehero.data.local.entity.ChatMessageEntity
@@ -13,6 +15,7 @@ import com.omb9.glucosehero.data.local.entity.GlucoseSampleEntity
 import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
 import com.omb9.glucosehero.data.local.entity.SupplyEntity
+import com.omb9.glucosehero.data.security.KeystoreManager
 import com.omb9.glucosehero.domain.model.ActivityIntensity
 import com.omb9.glucosehero.domain.model.ChatRole
 import com.omb9.glucosehero.domain.model.EntrySource
@@ -41,7 +44,12 @@ class BackupDatabaseRoundTripTest {
         context = InstrumentationRegistry.getInstrumentation().targetContext
         File(context.filesDir, "backups").deleteRecursively()
         db = Room.inMemoryDatabaseBuilder(context, GlucoseHeroDatabase::class.java).build()
-        backupManager = BackupManager(context, db, SettingsDataStore(context))
+        backupManager = BackupManager(
+            context,
+            db,
+            SettingsDataStore(context),
+            EncryptedBackupCipher(KeystoreDataKeyWrapper(KeystoreManager())),
+        )
     }
 
     @After
@@ -74,6 +82,31 @@ class BackupDatabaseRoundTripTest {
         assertEquals(listOf(seed.chat), db.chatMessageDao().getAll())
         assertEquals(listOf(seed.pending), db.pendingAiQueryDao().getAll())
         assertEquals(listOf(seed.insight), db.insightDao().getAll())
+    }
+
+    @Test
+    fun encryptedRoundTrip_decryptsOnThisDeviceAndRestoresRows() = runBlocking {
+        val seed = seed()
+        val bytes = ByteArrayOutputStream().also { backupManager.exportEncryptedTo(it) }.toByteArray()
+        assertTrue(bytes.size >= 4)
+        assertEquals('G'.code.toByte(), bytes[0])
+        assertEquals('H'.code.toByte(), bytes[1])
+        assertEquals('Z'.code.toByte(), bytes[2])
+        assertEquals('K'.code.toByte(), bytes[3])
+
+        db.entryDao().clear()
+        db.foodDao().clear()
+        db.supplyDao().clear()
+        db.glucoseSampleDao().clear()
+        db.chatMessageDao().clear()
+        db.pendingAiQueryDao().clear()
+        db.insightDao().clear()
+
+        backupManager.importFrom(ByteArrayInputStream(bytes), ImportMode.REPLACE)
+
+        assertEquals(listOf(seed.entry), db.entryDao().getAll())
+        assertEquals(listOf(seed.food), db.foodDao().getAll())
+        assertEquals(listOf(seed.sample), db.glucoseSampleDao().getAll())
     }
 
     @Test

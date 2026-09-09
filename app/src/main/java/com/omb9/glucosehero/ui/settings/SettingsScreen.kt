@@ -50,6 +50,8 @@ fun SettingsScreen(
     onHealthConnect: () -> Unit,
     onBackup: () -> Unit,
     onAppearance: () -> Unit,
+    onClinicalTests: () -> Unit,
+    onEmergencySos: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -111,6 +113,8 @@ fun SettingsScreen(
                 onClick = onHealthConnect,
             )
             Spacer(Modifier.height(12.dp))
+            WearOsSettingsSection()
+            Spacer(Modifier.height(12.dp))
             var webhookInput by remember(webhookUrl) { mutableStateOf(webhookUrl) }
             OutlinedTextField(
                 value = webhookInput,
@@ -125,6 +129,17 @@ fun SettingsScreen(
                 supportingText = {
                     Text("A JSON payload is POSTed here whenever a new glucose entry is saved.")
                 },
+            )
+
+            SectionHeader("Clinical tools")
+            NavigationRow(
+                title = "Basal and carb-ratio tests",
+                onClick = onClinicalTests,
+            )
+            Spacer(Modifier.height(8.dp))
+            NavigationRow(
+                title = "Emergency hypo SOS",
+                onClick = onEmergencySos,
             )
 
             SectionHeader("Data & Backup")

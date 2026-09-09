@@ -74,17 +74,20 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.omb9.glucosehero.R
 import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.domain.model.Ea1cConfidence
 import com.omb9.glucosehero.domain.model.ExportFormat
 import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.TimeRange
+import com.omb9.glucosehero.forecast.GlucoseForecastCard
 import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
 import com.omb9.glucosehero.ui.insights.MoodImpactSection
 import com.omb9.glucosehero.ui.insights.TagImpactCard
@@ -115,6 +118,7 @@ fun StatsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val enabledCategories by viewModel.enabledMarkerCategories.collectAsStateWithLifecycle()
     val streak by viewModel.currentStreakDays.collectAsStateWithLifecycle()
+    val glucoseForecast by viewModel.glucoseForecast.collectAsStateWithLifecycle()
     val supplies by viewModel.activeSupplies.collectAsStateWithLifecycle()
     val insights by viewModel.insights.collectAsStateWithLifecycle()
     val weeklySummaryState by viewModel.weeklySummaryState.collectAsStateWithLifecycle()
@@ -145,7 +149,7 @@ fun StatsScreen(
                         putExtra(Intent.EXTRA_STREAM, uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    context.startActivity(Intent.createChooser(sendIntent, "Share clinical report"))
+                    context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.agp_share_title)))
                 }
                 is ExportEvent.Failed -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
@@ -163,7 +167,7 @@ fun StatsScreen(
                     IconButton(onClick = { showExportSheet = true }) {
                         Icon(
                             imageVector = Icons.Filled.Share,
-                            contentDescription = "Share clinical report",
+                            contentDescription = stringResource(R.string.agp_share_title),
                         )
                     }
                 },
@@ -279,6 +283,11 @@ fun StatsScreen(
                     RangePresetRow(
                         selected = state.range,
                         onSelect = viewModel::selectRange,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    GlucoseForecastCard(
+                        snapshot = glucoseForecast,
+                        unit = state.unit,
                     )
                     Spacer(Modifier.height(12.dp))
                     if (state.hasData) {
@@ -1166,7 +1175,7 @@ private fun ExportFormatSheet(
                 .padding(bottom = 24.dp),
         ) {
             Text(
-                text = "Share clinical report",
+                text = stringResource(R.string.agp_share_title),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
@@ -1180,16 +1189,16 @@ private fun ExportFormatSheet(
                         strokeWidth = 2.dp,
                     )
                     Spacer(Modifier.width(12.dp))
-                    Text("Preparing report…")
+                    Text(stringResource(R.string.agp_share_preparing))
                 }
             }
             ExportOptionRow(
-                title = "Clinical report (PDF)",
+                title = stringResource(R.string.agp_export_pdf),
                 enabled = !isExporting,
                 onClick = { onSelect(ExportFormat.PDF) },
             )
             ExportOptionRow(
-                title = "Clinical report (CSV)",
+                title = stringResource(R.string.agp_export_csv),
                 enabled = !isExporting,
                 onClick = { onSelect(ExportFormat.CSV) },
             )

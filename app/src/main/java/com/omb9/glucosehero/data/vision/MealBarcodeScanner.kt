@@ -9,6 +9,11 @@ import android.content.Context
  * allowing callers (e.g. Compose UI, ViewModels) to remain completely agnostic
  * of the underlying implementation (Google Play services code scanner, ML Kit,
  * or test doubles).
+ *
+ * Product lookup is not performed here. After a successful scan, callers must
+ * resolve the barcode through [com.omb9.glucosehero.data.remote.off.OffBarcodeLookup],
+ * which queries [com.omb9.glucosehero.data.local.db.FoodDao] before any Open
+ * Food Facts request.
  */
 interface MealBarcodeScanner {
 

@@ -11,6 +11,7 @@ import com.omb9.glucosehero.data.local.db.migration.Migration9To10
 import com.omb9.glucosehero.data.local.db.migration.Migration10To11
 import com.omb9.glucosehero.data.local.db.migration.Migration11To12
 import com.omb9.glucosehero.data.local.db.migration.Migration12To13
+import com.omb9.glucosehero.data.local.db.migration.MigrationPendingAiTtl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -1276,6 +1277,26 @@ class MigrationTest {
         db.query("SELECT end_time FROM entries WHERE timestamp = 3000000").use { c ->
             assertTrue(c.moveToFirst())
             assertEquals(3_000_000L + 28_800_000L, c.getLong(0))
+        }
+    }
+
+    @Test
+    fun migrate13To14_addsTtlSecondsAndExpiresExistingQueuedRows() {
+        helper.createDatabase(testDb, 13).use { db ->
+            db.execSQL(
+                "INSERT INTO pending_ai_queries (user_message_id, prompt, created_at) VALUES (?, ?, ?)",
+                arrayOf<Any?>(7L, "sugar is 65", 1_000L),
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 14, true, MigrationPendingAiTtl)
+
+        db.query("SELECT user_message_id, prompt, created_at, ttl_seconds FROM pending_ai_queries").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(7L, c.getLong(c.getColumnIndexOrThrow("user_message_id")))
+            assertEquals("sugar is 65", c.getString(c.getColumnIndexOrThrow("prompt")))
+            assertEquals(1_000L, c.getLong(c.getColumnIndexOrThrow("created_at")))
+            assertEquals(0, c.getInt(c.getColumnIndexOrThrow("ttl_seconds")))
         }
     }
 

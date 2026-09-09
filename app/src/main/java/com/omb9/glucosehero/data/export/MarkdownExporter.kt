@@ -6,6 +6,7 @@ import android.os.Environment
 import android.provider.DocumentsContract
 import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
 import com.omb9.glucosehero.data.local.entity.EntryEntity
+import com.omb9.glucosehero.domain.model.ExportWhitelist
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
@@ -29,8 +30,9 @@ import kotlinx.coroutines.withContext
  * YAML front matter summarising that period, followed by a table of entries.
  * Output file names are strictly lowercase kebab-case
  * (e.g. `glucose-log-2026-09.md`). Paging keeps a CGM-sized history from
- * being accumulated in memory all at once. Only log-entry fields are written;
- * API keys and other secrets never appear.
+ * being accumulated in memory all at once. Only [ExportWhitelist] log-entry
+ * columns are written; API keys, OAuth tokens, WebDAV passwords, Drive tokens,
+ * and Keystore aliases never appear.
  */
 @Singleton
 class MarkdownExporter @Inject constructor(
@@ -193,8 +195,7 @@ internal fun writeVaultFrontMatter(
 
 private fun writeVaultTable(writer: Writer, entries: List<EntryEntity>) {
     writer.write(
-        "| Timestamp | Glucose (mg/dL) | Basal | Bolus | Carbs | Protein | Fat | " +
-            "Meal | Context | Exercise | Intensity | Notes |\n",
+        "| " + ExportWhitelist.markdownColumns.joinToString(" | ") + " |\n",
     )
     writer.write(
         "|---|---|---|---|---|---|---|---|---|---|---|---|\n"

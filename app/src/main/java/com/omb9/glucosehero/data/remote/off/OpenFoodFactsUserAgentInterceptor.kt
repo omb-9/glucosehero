@@ -12,6 +12,9 @@ import javax.inject.Singleton
  * Open Food Facts requires applications to identify themselves with their app name, version,
  * and contact email/URL to prevent API bans and ensure compliance:
  * `User-Agent: GlucoseHero/${BuildConfig.VERSION_NAME} (outreach@chromagrid.com)`
+ *
+ * Contact email: outreach@chromagrid.com is the project outreach mailbox used
+ * because the repo does not publish a dedicated Open Food Facts contact address.
  */
 @Singleton
 class OpenFoodFactsUserAgentInterceptor(

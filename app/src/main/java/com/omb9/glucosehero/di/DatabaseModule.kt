@@ -1,7 +1,6 @@
 package com.omb9.glucosehero.di
 
 import android.content.Context
-import androidx.room.Room
 import com.omb9.glucosehero.data.local.db.ChatMessageDao
 import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
@@ -10,18 +9,8 @@ import com.omb9.glucosehero.data.local.db.InsightDao
 import com.omb9.glucosehero.data.local.db.PendingAiQueryDao
 import com.omb9.glucosehero.data.local.db.SupplyDao
 import com.omb9.glucosehero.data.local.db.TagAnalyticDao
-import com.omb9.glucosehero.data.local.db.migration.Migration1To2
-import com.omb9.glucosehero.data.local.db.migration.Migration2To3
-import com.omb9.glucosehero.data.local.db.migration.Migration3To4
-import com.omb9.glucosehero.data.local.db.migration.Migration4To5
-import com.omb9.glucosehero.data.local.db.migration.Migration5To6
-import com.omb9.glucosehero.data.local.db.migration.Migration6To7
-import com.omb9.glucosehero.data.local.db.migration.Migration7To8
-import com.omb9.glucosehero.data.local.db.migration.Migration8To9
-import com.omb9.glucosehero.data.local.db.migration.Migration9To10
-import com.omb9.glucosehero.data.local.db.migration.Migration10To11
-import com.omb9.glucosehero.data.local.db.migration.Migration11To12
-import com.omb9.glucosehero.data.local.db.migration.Migration12To13
+import com.omb9.glucosehero.data.local.db.sqlcipher.SqlCipherPassphraseStore
+import com.omb9.glucosehero.data.local.db.sqlcipher.SqlCipherRoomFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,20 +18,34 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+/**
+ * Provides the SQLCipher-backed Room database.
+ *
+ * Step-by-step (implemented in [SqlCipherRoomFactory.open]):
+ * 1. Load libsqlcipher.
+ * 2. Unwrap or create a 256-bit raw key via [SqlCipherPassphraseStore]
+ *    (Keystore wrap, file in no-backup storage).
+ * 3. Copy-then-encrypt a leftover plaintext `glucosehero.db` if its header
+ *    is still `SQLite format 3`. Fail closed: the plaintext file is kept
+ *    unless the encrypted copy verifies.
+ * 4. Open Room with `SupportOpenHelperFactory` and
+ *    [GlucoseHeroDatabase.ALL_MIGRATIONS] (including pending-query TTL).
+ * 5. Do not call `fallbackToDestructiveMigration`. New installs skip every
+ *    legacy Migration object and create the current schema from the
+ *    entities. Uninstall still loses Keystore keys.
+ *
+ * Passphrases are never logged.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): GlucoseHeroDatabase =
-        Room.databaseBuilder(
-            context,
-            GlucoseHeroDatabase::class.java,
-            "glucosehero.db",
-        )
-            .addMigrations(Migration1To2, Migration2To3, Migration3To4, Migration4To5, Migration5To6, Migration6To7, Migration7To8, Migration8To9, Migration9To10, Migration10To11, Migration11To12, Migration12To13)
-            .build()
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+        passphraseStore: SqlCipherPassphraseStore,
+    ): GlucoseHeroDatabase = SqlCipherRoomFactory.open(context, passphraseStore)
 
     @Provides
     fun provideEntryDao(db: GlucoseHeroDatabase): EntryDao = db.entryDao()

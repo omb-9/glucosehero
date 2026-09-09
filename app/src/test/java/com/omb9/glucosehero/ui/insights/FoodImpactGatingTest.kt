@@ -107,6 +107,31 @@ class FoodImpactGatingTest {
     }
 
     @Test
+    fun `food swaps stay empty when tags are still building`() {
+        val state = foodImpactUiState(
+            entities = listOf(entity(tag = "oatmeal", kind = TagKind.FOOD, occurrences = 2, median = 40.0)),
+            unit = GlucoseUnit.MGDL,
+            dismissed = emptySet(),
+        )
+        assertTrue(state.swaps.isEmpty())
+    }
+
+    @Test
+    fun `food swaps appear when two foods have five 2h readings and a clear gap`() {
+        val state = foodImpactUiState(
+            entities = listOf(
+                entity(tag = "pizza", kind = TagKind.FOOD, occurrences = 8, median = 80.0),
+                entity(tag = "oatmeal", kind = TagKind.FOOD, occurrences = 6, median = 12.0),
+            ),
+            unit = GlucoseUnit.MGDL,
+            dismissed = emptySet(),
+        )
+        assertEquals(1, state.swaps.size)
+        assertEquals("pizza", state.swaps.single().fromTag)
+        assertEquals("oatmeal", state.swaps.single().toTag)
+    }
+
+    @Test
     fun `n less than three is computed but never shown as a delta card`() {
         val visible = listOf(
             entity(tag = "keep", kind = TagKind.FOOD, occurrences = 1),

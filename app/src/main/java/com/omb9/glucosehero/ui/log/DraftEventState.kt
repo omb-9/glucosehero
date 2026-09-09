@@ -28,6 +28,8 @@ data class DraftEventState(
     val moodLabel: String? = null,
     val postMealReminderEnabled: Boolean = true,
     val isSaving: Boolean = false,
+    /** When set, Save writes this timestamp instead of now (from "15 minutes ago"). */
+    val occurredAtMillis: Long? = null,
 )
 
 /**

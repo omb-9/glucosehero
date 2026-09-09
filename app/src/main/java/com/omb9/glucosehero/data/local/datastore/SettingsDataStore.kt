@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.omb9.glucosehero.data.backup.CloudBackupProvider
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
@@ -19,9 +20,14 @@ import com.omb9.glucosehero.domain.model.BolusSettings
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ThemeMode
+import com.omb9.glucosehero.crisis.CaregiverContact
+import com.omb9.glucosehero.crisis.HypoSosPending
 import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.util.AiQuota
+import com.omb9.glucosehero.util.AppJson
+import com.omb9.glucosehero.util.CrisisDetector
+import kotlinx.serialization.encodeToString
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -76,11 +82,30 @@ class SettingsDataStore @Inject constructor(
         val CYCLE_IMPORT_ENABLED = booleanPreferencesKey("cycle_import_enabled")
         val HEALTH_CONNECT_INITIAL_IMPORT_RANGE = stringPreferencesKey("health_connect_initial_import_range")
         val BARCODE_LOOKUP_ENABLED = booleanPreferencesKey("barcode_lookup_enabled")
+        val AI_ACKNOWLEDGED_HOSTS = stringSetPreferencesKey("ai_acknowledged_hosts")
         val DISMISSED_FOOD_TAGS = stringSetPreferencesKey("dismissed_food_tags")
         val BACKUP_DIR_URI = stringPreferencesKey("backup_dir_uri")
         val BACKUP_ENABLED = booleanPreferencesKey("backup_enabled")
         val BACKUP_LAST_RUN = longPreferencesKey("backup_last_run")
         val WEBHOOK_URL = stringPreferencesKey("webhook_url")
+        val CLOUD_BACKUP_PROVIDER = stringPreferencesKey("cloud_backup_provider")
+        val WEBDAV_URL = stringPreferencesKey("webdav_url")
+        val WEBDAV_USERNAME = stringPreferencesKey("webdav_username")
+        val WEBDAV_PASSWORD_ENC = stringPreferencesKey("webdav_password_enc")
+        val DRIVE_ACCESS_TOKEN_ENC = stringPreferencesKey("drive_access_token_enc")
+        val CLOUD_BACKUP_LAST_RUN = longPreferencesKey("cloud_backup_last_run")
+        val CLOUD_BACKUP_REMOTE_NAME = stringPreferencesKey("cloud_backup_remote_name")
+        val CLOUD_BACKUP_REMOTE_ID = stringPreferencesKey("cloud_backup_remote_id")
+        val GLUCOSE_FORECAST_JSON = stringPreferencesKey("glucose_forecast_json")
+        val EXERCISE_FUELING_ALERTS_ENABLED = booleanPreferencesKey("exercise_fueling_alerts_enabled")
+        val EXERCISE_FUELING_LAST_ALERT = longPreferencesKey("exercise_fueling_last_alert")
+        val HYPO_SOS_ENABLED = booleanPreferencesKey("hypo_sos_enabled")
+        val HYPO_SOS_TIMEOUT_MINUTES = intPreferencesKey("hypo_sos_timeout_minutes")
+        val HYPO_SOS_PENDING_JSON = stringPreferencesKey("hypo_sos_pending_json")
+        val HYPO_SOS_LAST_DISMISS = longPreferencesKey("hypo_sos_last_dismiss")
+        val HYPO_SOS_LAST_SENT = longPreferencesKey("hypo_sos_last_sent")
+        val CAREGIVER_CONTACTS_JSON = stringPreferencesKey("caregiver_contacts_json")
+        val CLINICAL_TEST_SESSION_JSON = stringPreferencesKey("clinical_test_session_json")
     }
 
     /**
@@ -130,6 +155,14 @@ class SettingsDataStore @Inject constructor(
     val barcodeLookupEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.BARCODE_LOOKUP_ENABLED] }.getOrNull() ?: true
     }
+
+    /** Hosts the user explicitly trusted for a custom OpenAI-compatible endpoint. */
+    val acknowledgedAiHosts: Flow<Set<String>> = safeData.map { p ->
+        runCatching { p[Keys.AI_ACKNOWLEDGED_HOSTS] }.getOrNull() ?: emptySet()
+    }
+
+    suspend fun acknowledgedAiHostsSnapshot(): Set<String> =
+        runCatching { safeData.first()[Keys.AI_ACKNOWLEDGED_HOSTS] }.getOrNull() ?: emptySet()
 
     /** Tags dismissed on the Food impact screen; persists across nightly recomputation. */
     val dismissedFoodTags: Flow<Set<String>> = safeData.map { p ->
@@ -203,6 +236,93 @@ class SettingsDataStore @Inject constructor(
 
     val webhookUrl: Flow<String> = safeData.map { p ->
         runCatching { p[Keys.WEBHOOK_URL] }.getOrNull().orEmpty()
+    }
+
+    val cloudBackupProvider: Flow<CloudBackupProvider> = safeData.map { p ->
+        runCatching { p[Keys.CLOUD_BACKUP_PROVIDER] }.getOrNull().toEnum(CloudBackupProvider.NONE)
+    }
+
+    val webDavUrl: Flow<String> = safeData.map { p ->
+        runCatching { p[Keys.WEBDAV_URL] }.getOrNull().orEmpty()
+    }
+
+    val webDavUsername: Flow<String> = safeData.map { p ->
+        runCatching { p[Keys.WEBDAV_USERNAME] }.getOrNull().orEmpty()
+    }
+
+    val webDavPasswordEnc: Flow<String?> = safeData.map { p ->
+        runCatching { p[Keys.WEBDAV_PASSWORD_ENC] }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
+
+    val hasWebDavPassword: Flow<Boolean> = webDavPasswordEnc.map { !it.isNullOrBlank() }
+
+    val driveAccessTokenEnc: Flow<String?> = safeData.map { p ->
+        runCatching { p[Keys.DRIVE_ACCESS_TOKEN_ENC] }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
+
+    val hasDriveAccessToken: Flow<Boolean> = driveAccessTokenEnc.map { !it.isNullOrBlank() }
+
+    val cloudBackupLastRun: Flow<Long?> = safeData.map { p ->
+        runCatching { p[Keys.CLOUD_BACKUP_LAST_RUN] }.getOrNull()
+    }
+
+    val cloudBackupRemoteName: Flow<String?> = safeData.map { p ->
+        runCatching { p[Keys.CLOUD_BACKUP_REMOTE_NAME] }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
+
+    val cloudBackupRemoteId: Flow<String?> = safeData.map { p ->
+        runCatching { p[Keys.CLOUD_BACKUP_REMOTE_ID] }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
+
+    val glucoseForecastJson: Flow<String?> = safeData.map { p ->
+        runCatching { p[Keys.GLUCOSE_FORECAST_JSON] }.getOrNull()
+    }
+
+    val exerciseFuelingAlertsEnabled: Flow<Boolean> = safeData.map { p ->
+        runCatching { p[Keys.EXERCISE_FUELING_ALERTS_ENABLED] }.getOrNull() ?: true
+    }
+
+    val exerciseFuelingLastAlertMillis: Flow<Long?> = safeData.map { p ->
+        runCatching { p[Keys.EXERCISE_FUELING_LAST_ALERT] }.getOrNull()
+    }
+
+    val hypoSosEnabled: Flow<Boolean> = safeData.map { p ->
+        runCatching { p[Keys.HYPO_SOS_ENABLED] }.getOrNull() ?: false
+    }
+
+    val hypoSosTimeoutMinutes: Flow<Int> = safeData.map { p ->
+        CrisisDetector.clampSosTimeoutMinutes(
+            runCatching { p[Keys.HYPO_SOS_TIMEOUT_MINUTES] }.getOrNull()
+                ?: CrisisDetector.DEFAULT_SOS_TIMEOUT_MINUTES,
+        )
+    }
+
+    val hypoSosPendingJson: Flow<String?> = safeData.map { p ->
+        runCatching { p[Keys.HYPO_SOS_PENDING_JSON] }.getOrNull()
+    }
+
+    val hypoSosPending: Flow<HypoSosPending?> = hypoSosPendingJson.map { raw ->
+        if (raw.isNullOrBlank()) null
+        else runCatching { AppJson.decodeFromString<HypoSosPending>(raw) }.getOrNull()
+    }
+
+    val hypoSosLastDismissMillis: Flow<Long?> = safeData.map { p ->
+        runCatching { p[Keys.HYPO_SOS_LAST_DISMISS] }.getOrNull()
+    }
+
+    val hypoSosLastSentMillis: Flow<Long?> = safeData.map { p ->
+        runCatching { p[Keys.HYPO_SOS_LAST_SENT] }.getOrNull()
+    }
+
+    val caregiverContacts: Flow<List<CaregiverContact>> = safeData.map { p ->
+        val raw = runCatching { p[Keys.CAREGIVER_CONTACTS_JSON] }.getOrNull()
+        if (raw.isNullOrBlank()) emptyList()
+        else runCatching { AppJson.decodeFromString<List<CaregiverContact>>(raw) }.getOrNull()
+            ?: emptyList()
+    }
+
+    val clinicalTestSessionJson: Flow<String?> = safeData.map { p ->
+        runCatching { p[Keys.CLINICAL_TEST_SESSION_JSON] }.getOrNull()
     }
 
     /** Single fresh snapshot used by the export utility when assembling a report. */
@@ -280,6 +400,15 @@ class SettingsDataStore @Inject constructor(
     suspend fun setBarcodeLookupEnabled(enabled: Boolean) =
         edit { it[Keys.BARCODE_LOOKUP_ENABLED] = enabled }
 
+    suspend fun acknowledgeAiHost(host: String) {
+        val normalized = host.trim().lowercase().removePrefix("[").removeSuffix("]")
+        if (normalized.isBlank()) return
+        edit {
+            val current = it[Keys.AI_ACKNOWLEDGED_HOSTS] ?: emptySet()
+            it[Keys.AI_ACKNOWLEDGED_HOSTS] = current + normalized
+        }
+    }
+
     suspend fun dismissFoodTag(tag: String) = edit {
         val current = it[Keys.DISMISSED_FOOD_TAGS] ?: emptySet()
         it[Keys.DISMISSED_FOOD_TAGS] = current + tag
@@ -333,6 +462,85 @@ class SettingsDataStore @Inject constructor(
     suspend fun setWebhookUrl(url: String) = edit {
         val trimmed = url.trim()
         if (trimmed.isEmpty()) it.remove(Keys.WEBHOOK_URL) else it[Keys.WEBHOOK_URL] = trimmed
+    }
+
+    suspend fun setCloudBackupProvider(provider: CloudBackupProvider) = edit {
+        it[Keys.CLOUD_BACKUP_PROVIDER] = provider.name
+    }
+
+    suspend fun setWebDavUrl(url: String) = edit {
+        val trimmed = url.trim()
+        if (trimmed.isEmpty()) it.remove(Keys.WEBDAV_URL) else it[Keys.WEBDAV_URL] = trimmed
+    }
+
+    suspend fun setWebDavUsername(username: String) = edit {
+        val trimmed = username.trim()
+        if (trimmed.isEmpty()) it.remove(Keys.WEBDAV_USERNAME) else it[Keys.WEBDAV_USERNAME] = trimmed
+    }
+
+    suspend fun setWebDavPasswordEnc(encrypted: String?) = edit {
+        if (encrypted.isNullOrBlank()) it.remove(Keys.WEBDAV_PASSWORD_ENC)
+        else it[Keys.WEBDAV_PASSWORD_ENC] = encrypted
+    }
+
+    suspend fun setDriveAccessTokenEnc(encrypted: String?) = edit {
+        if (encrypted.isNullOrBlank()) it.remove(Keys.DRIVE_ACCESS_TOKEN_ENC)
+        else it[Keys.DRIVE_ACCESS_TOKEN_ENC] = encrypted
+    }
+
+    suspend fun setCloudBackupLastRun(timestamp: Long) = edit {
+        it[Keys.CLOUD_BACKUP_LAST_RUN] = timestamp
+    }
+
+    suspend fun setCloudBackupRemoteName(name: String?) = edit {
+        if (name.isNullOrBlank()) it.remove(Keys.CLOUD_BACKUP_REMOTE_NAME)
+        else it[Keys.CLOUD_BACKUP_REMOTE_NAME] = name
+    }
+
+    suspend fun setCloudBackupRemoteId(id: String?) = edit {
+        if (id.isNullOrBlank()) it.remove(Keys.CLOUD_BACKUP_REMOTE_ID)
+        else it[Keys.CLOUD_BACKUP_REMOTE_ID] = id
+    }
+
+    suspend fun setGlucoseForecastJson(json: String?) = edit {
+        if (json.isNullOrBlank()) it.remove(Keys.GLUCOSE_FORECAST_JSON)
+        else it[Keys.GLUCOSE_FORECAST_JSON] = json
+    }
+
+    suspend fun setExerciseFuelingAlertsEnabled(enabled: Boolean) =
+        edit { it[Keys.EXERCISE_FUELING_ALERTS_ENABLED] = enabled }
+
+    suspend fun setExerciseFuelingLastAlertMillis(timestamp: Long) =
+        edit { it[Keys.EXERCISE_FUELING_LAST_ALERT] = timestamp }
+
+    suspend fun setHypoSosEnabled(enabled: Boolean) =
+        edit { it[Keys.HYPO_SOS_ENABLED] = enabled }
+
+    suspend fun setHypoSosTimeoutMinutes(minutes: Int) =
+        edit { it[Keys.HYPO_SOS_TIMEOUT_MINUTES] = CrisisDetector.clampSosTimeoutMinutes(minutes) }
+
+    suspend fun setHypoSosPendingJson(json: String?) = edit {
+        if (json.isNullOrBlank()) it.remove(Keys.HYPO_SOS_PENDING_JSON)
+        else it[Keys.HYPO_SOS_PENDING_JSON] = json
+    }
+
+    suspend fun setHypoSosLastDismissMillis(timestamp: Long) =
+        edit { it[Keys.HYPO_SOS_LAST_DISMISS] = timestamp }
+
+    suspend fun setHypoSosLastSentMillis(timestamp: Long) =
+        edit { it[Keys.HYPO_SOS_LAST_SENT] = timestamp }
+
+    suspend fun caregiverContactsSnapshot(): List<CaregiverContact> =
+        caregiverContacts.first()
+
+    suspend fun setCaregiverContacts(contacts: List<CaregiverContact>) = edit {
+        if (contacts.isEmpty()) it.remove(Keys.CAREGIVER_CONTACTS_JSON)
+        else it[Keys.CAREGIVER_CONTACTS_JSON] = AppJson.encodeToString(contacts)
+    }
+
+    suspend fun setClinicalTestSessionJson(json: String?) = edit {
+        if (json.isNullOrBlank()) it.remove(Keys.CLINICAL_TEST_SESSION_JSON)
+        else it[Keys.CLINICAL_TEST_SESSION_JSON] = json
     }
 
     suspend fun setProfileTarget(target: ProfileTarget) =

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Vaccines
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -51,6 +52,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,17 +61,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.omb9.glucosehero.R
 import com.omb9.glucosehero.util.Formatters
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.EntryType
+import com.omb9.glucosehero.domain.model.GlucoseUnit
+import com.omb9.glucosehero.crisis.HypoSosPending
+import com.omb9.glucosehero.forecast.GlucoseForecastCard
+import com.omb9.glucosehero.forecast.GlucoseForecastSnapshot
 import com.omb9.glucosehero.ui.components.AddEntrySheet
 import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
 import com.omb9.glucosehero.ui.theme.GlucoseHigh
@@ -91,6 +99,8 @@ fun LogScreen(
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val canSave by viewModel.canSave.collectAsStateWithLifecycle()
     val activeInsulin by viewModel.activeInsulin.collectAsStateWithLifecycle()
+    val glucoseForecast by viewModel.glucoseForecast.collectAsStateWithLifecycle()
+    val pendingHypoSos by viewModel.pendingHypoSos.collectAsStateWithLifecycle()
     val suggestedBolus by viewModel.suggestedBolus.collectAsStateWithLifecycle()
     var showSheet by rememberSaveable { mutableStateOf(false) }
     val streakReward by viewModel.streakReward.collectAsStateWithLifecycle()
@@ -260,6 +270,20 @@ fun LogScreen(
 
                 ActiveInsulinBar(activeInsulinUnits = activeInsulin)
 
+                pendingHypoSos?.let { sos ->
+                    HypoSosBanner(
+                        pending = sos,
+                        onDismiss = viewModel::dismissHypoSos,
+                    )
+                }
+
+                val forecastUnit by remember { derivedStateOf { settings.unit } }
+                LogForecastSlot(
+                    snapshot = glucoseForecast,
+                    unit = forecastUnit,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+
                 when {
                     state.isLoading -> Box(
                         modifier = Modifier
@@ -405,6 +429,19 @@ private fun EntryType.icon(): ImageVector = when (this) {
     EntryType.NOTE -> Icons.Filled.Notes
 }
 
+@Composable
+private fun LogForecastSlot(
+    snapshot: GlucoseForecastSnapshot?,
+    unit: GlucoseUnit,
+    modifier: Modifier = Modifier,
+) {
+    GlucoseForecastCard(
+        snapshot = snapshot,
+        unit = unit,
+        modifier = modifier,
+    )
+}
+
 /**
  * Prominent, glanceable insulin-on-board readout pinned above the log list.
  * Uses the clinical true-black/true-white palette with the accent for the
@@ -449,6 +486,42 @@ private fun ActiveInsulinBar(activeInsulinUnits: Double) {
 
 private fun formatInsulinUnits(value: Double): String =
     if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+
+@Composable
+private fun HypoSosBanner(
+    pending: HypoSosPending,
+    onDismiss: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.errorContainer,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.hypo_sos_banner_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(
+                    R.string.hypo_sos_prompt_body,
+                    pending.glucoseMgdl.toInt(),
+                    pending.trendLabel,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = onDismiss) {
+                Text(stringResource(R.string.hypo_sos_banner_action))
+            }
+        }
+    }
+}
 
 /**
  * Compact filter affordance showing the active single-day filter with a

@@ -1,5 +1,7 @@
 package com.omb9.glucosehero.data.remote.off
 
+import com.omb9.glucosehero.data.local.entity.FoodEntity
+import com.omb9.glucosehero.domain.model.FoodSource
 import com.omb9.glucosehero.util.PortionCalculator
 
 /** True when OFF supplied any carbohydrate figure (per-serving or per-100g). */
@@ -17,6 +19,27 @@ fun OffProduct.resolvedServingLabel(): String {
     val grams = resolvedServingGrams()
     return servingSize?.trim()?.takeIf { it.isNotBlank() }
         ?: if (grams != null) "${formatNumber(grams)} g" else "100 g"
+}
+
+/** Maps an OFF product into the local foods table for indefinite Room caching. */
+fun OffProduct.toFoodEntity(barcode: String, now: Long = System.currentTimeMillis()): FoodEntity {
+    val servingGrams = resolvedServingGrams()
+    return FoodEntity(
+        name = productName?.trim().orEmpty().ifBlank { "Unknown product" },
+        brand = brands?.trim()?.takeIf { it.isNotBlank() },
+        barcode = barcode.trim(),
+        carbsGrams = scaledCarbs() ?: FoodEntity.CARBS_MISSING,
+        proteinGrams = scaledProtein(),
+        fatGrams = scaledFat(),
+        kcal = scaledKcal(),
+        servingGrams = servingGrams,
+        servingLabel = servingSize?.trim()?.takeIf { it.isNotBlank() }
+            ?: servingGrams?.let { "${formatNumber(it)} g" },
+        source = FoodSource.OPEN_FOOD_FACTS,
+        offFetchedAt = now,
+        userCorrected = false,
+        createdAt = now,
+    )
 }
 
 /**

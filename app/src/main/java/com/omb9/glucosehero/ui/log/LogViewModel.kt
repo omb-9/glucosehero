@@ -14,27 +14,40 @@ import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
 import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.FoodEntity
 import com.omb9.glucosehero.data.local.entity.toDomain
+import com.omb9.glucosehero.data.remote.off.OffBarcodeLookup
+import com.omb9.glucosehero.data.remote.off.OffBarcodeLookupResult
 import com.omb9.glucosehero.data.remote.off.OffProduct
-import com.omb9.glucosehero.data.remote.off.OpenFoodFactsApi
 import com.omb9.glucosehero.data.remote.off.resolvedServingGrams
 import com.omb9.glucosehero.data.remote.off.resolvedServingLabel
 import com.omb9.glucosehero.data.remote.off.scaledCarbs
 import com.omb9.glucosehero.data.remote.off.scaledFat
 import com.omb9.glucosehero.data.remote.off.scaledKcal
 import com.omb9.glucosehero.data.remote.off.scaledProtein
+import com.omb9.glucosehero.crisis.HypoSosManager
+import com.omb9.glucosehero.crisis.HypoSosPending
+import com.omb9.glucosehero.R
+import com.omb9.glucosehero.data.nlp.NaturalLanguageLogParser
+import com.omb9.glucosehero.data.vision.MealPhotoCapture
 import com.omb9.glucosehero.domain.model.ActivityIntensity
+import com.omb9.glucosehero.domain.model.ApiKeyMissingException
 import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.domain.model.FoodSource
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.HeroAiPrefill
+import com.omb9.glucosehero.domain.model.InvalidAiJsonException
 import com.omb9.glucosehero.domain.model.LogEvent
 import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.domain.model.MealPhotoAnalysis
+import com.omb9.glucosehero.domain.model.ProviderHttpException
+import com.omb9.glucosehero.domain.model.QuotaExhaustedException
+import com.omb9.glucosehero.domain.model.QuickLogParseResult
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
+import com.omb9.glucosehero.forecast.GlucoseForecastRepository
+import com.omb9.glucosehero.forecast.GlucoseForecastSnapshot
 import com.omb9.glucosehero.ui.glance.WidgetRefresher
 import com.omb9.glucosehero.util.BolusCalculator
 import com.omb9.glucosehero.util.CrisisDetector
@@ -119,7 +132,16 @@ data class StreakReward(
 sealed interface MealPhotoState {
     data object Idle : MealPhotoState
     data object Analyzing : MealPhotoState
+    data class Success(val analysis: MealPhotoAnalysis) : MealPhotoState
     data class Failed(val message: String) : MealPhotoState
+}
+
+/** State of the natural-language / voice quick-log parser. */
+sealed interface QuickLogState {
+    data object Idle : QuickLogState
+    data object Parsing : QuickLogState
+    data class Filled(val onDeviceFallback: Boolean) : QuickLogState
+    data class Failed(val message: String) : QuickLogState
 }
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
@@ -135,7 +157,9 @@ class LogViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsDataStore: SettingsDataStore,
     private val database: GlucoseHeroDatabase,
-    private val openFoodFactsApi: OpenFoodFactsApi,
+    private val offBarcodeLookup: OffBarcodeLookup,
+    private val forecastRepository: GlucoseForecastRepository,
+    private val hypoSosManager: HypoSosManager,
 ) : ViewModel() {
 
     private val foodDao = database.foodDao()
@@ -173,12 +197,29 @@ class LogViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
+    val glucoseForecast: StateFlow<GlucoseForecastSnapshot?> =
+        forecastRepository.observeForecast()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val pendingHypoSos: StateFlow<HypoSosPending?> = hypoSosManager.pending
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun dismissHypoSos() {
+        viewModelScope.launch { hypoSosManager.dismissPrompt() }
+    }
+
     private val _draft = MutableStateFlow(DraftEventState())
     val draft: StateFlow<DraftEventState> = _draft.asStateFlow()
 
     private val _mealPhotoState = MutableStateFlow<MealPhotoState>(MealPhotoState.Idle)
     /** Progress of the in-flight meal-photo analysis, surfaced to the sheet. */
     val mealPhotoState: StateFlow<MealPhotoState> = _mealPhotoState.asStateFlow()
+
+    private val _quickLogText = MutableStateFlow("")
+    val quickLogText: StateFlow<String> = _quickLogText.asStateFlow()
+
+    private val _quickLogState = MutableStateFlow<QuickLogState>(QuickLogState.Idle)
+    val quickLogState: StateFlow<QuickLogState> = _quickLogState.asStateFlow()
 
     /** Food currently backing the draft, or null when the meal was typed by hand. */
     private val _selectedFood = MutableStateFlow<FoodEntity?>(null)
@@ -404,44 +445,25 @@ class LogViewModel @Inject constructor(
         val code = barcode?.trim()?.takeIf { it.isNotBlank() } ?: return
         viewModelScope.launch {
             _foodLookupState.value = FoodLookupState.Loading
-            try {
-                // Cache first: a known barcode resolves fully offline.
-                val cached = foodDao.getByBarcode(code)
-                if (cached != null) {
-                    presentCachedFood(cached)
-                    return@launch
-                }
-
-                // Cache miss: never contact Open Food Facts when the privacy toggle is off.
-                if (!settingsDataStore.barcodeLookupEnabled.first()) {
-                    _foodLookupState.value = FoodLookupState.ManualEntry(code)
-                    return@launch
-                }
-
-                val response = openFoodFactsApi.product(code)
-                if (response.code() == 404) {
-                    _foodLookupState.value = FoodLookupState.NotFound(code)
-                    return@launch
-                }
-
-                val body = response.body()
-                val product = body?.product
-                when {
-                    response.isSuccessful && body != null && body.status == 1 && product != null -> {
-                        val saved = foodDao.cacheOffProduct(product.toFoodEntity(code))
-                        presentFetchedFood(saved, product.toOffFoodDraft(code))
-                    }
-
-                    response.isSuccessful && (body == null || body.status == 0 || product == null) ->
-                        _foodLookupState.value = FoodLookupState.NotFound(code)
-
-                    else ->
-                        _foodLookupState.value = FoodLookupState.Error("Couldn't look up that barcode.")
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _foodLookupState.value = FoodLookupState.Error("Couldn't reach Open Food Facts.")
+            when (val result = offBarcodeLookup.lookup(code)) {
+                OffBarcodeLookupResult.Empty ->
+                    _foodLookupState.value = FoodLookupState.Idle
+                is OffBarcodeLookupResult.Cached ->
+                    presentCachedFood(result.food)
+                is OffBarcodeLookupResult.Fetched ->
+                    presentFetchedFood(result.food, result.product.toOffFoodDraft(code))
+                is OffBarcodeLookupResult.NotFound ->
+                    _foodLookupState.value = FoodLookupState.NotFound(result.barcode)
+                is OffBarcodeLookupResult.Disabled ->
+                    _foodLookupState.value = FoodLookupState.ManualEntry(result.barcode)
+                is OffBarcodeLookupResult.HttpError ->
+                    _foodLookupState.value = FoodLookupState.Error(
+                        context.getString(R.string.food_lookup_error_generic),
+                    )
+                is OffBarcodeLookupResult.NetworkError ->
+                    _foodLookupState.value = FoodLookupState.Error(
+                        context.getString(R.string.food_lookup_error_network),
+                    )
             }
         }
     }
@@ -596,26 +618,6 @@ class LogViewModel @Inject constructor(
         kcal = scaledKcal(),
     )
 
-    private fun OffProduct.toFoodEntity(barcode: String): FoodEntity {
-        val servingGrams = resolvedServingGrams()
-        return FoodEntity(
-            name = productName?.trim().orEmpty().ifBlank { "Unknown product" },
-            brand = brands?.trim()?.takeIf { it.isNotBlank() },
-            barcode = barcode,
-            carbsGrams = scaledCarbs() ?: FoodEntity.CARBS_MISSING,
-            proteinGrams = scaledProtein(),
-            fatGrams = scaledFat(),
-            kcal = scaledKcal(),
-            servingGrams = servingGrams,
-            servingLabel = servingSize?.trim()?.takeIf { it.isNotBlank() }
-                ?: servingGrams?.let { "${trim(it)} g" },
-            source = FoodSource.OPEN_FOOD_FACTS,
-            offFetchedAt = System.currentTimeMillis(),
-            userCorrected = false,
-            createdAt = System.currentTimeMillis(),
-        )
-    }
-
     private fun FoodEntity.toOffFoodDraft(): OffFoodDraft = OffFoodDraft(
         barcode = barcode.orEmpty(),
         name = name,
@@ -656,6 +658,9 @@ class LogViewModel @Inject constructor(
         _selectedFood.value = null
         _foodLookupState.value = FoodLookupState.Idle
         _foodSearchQuery.value = ""
+        _mealPhotoState.value = MealPhotoState.Idle
+        _quickLogState.value = QuickLogState.Idle
+        _quickLogText.value = ""
         _draft.value = DraftEventState(postMealReminderEnabled = postMealReminderEnabled)
     }
 
@@ -699,13 +704,11 @@ class LogViewModel @Inject constructor(
             try {
                 val analysis = chatRepository.analyzeMealPhoto(imageDataUri)
                 applyMealPhotoAnalysis(analysis)
-                _mealPhotoState.value = MealPhotoState.Idle
+                _mealPhotoState.value = MealPhotoState.Success(analysis)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _mealPhotoState.value = MealPhotoState.Failed(
-                    e.message ?: "Couldn't estimate this meal."
-                )
+                _mealPhotoState.value = MealPhotoState.Failed(structuredAiErrorMessage(e))
             }
         }
     }
@@ -714,14 +717,14 @@ class LogViewModel @Inject constructor(
     private fun applyMealPhotoAnalysis(analysis: MealPhotoAnalysis) {
         _selectedFood.value = null
         _foodLookupState.value = FoodLookupState.Idle
+        val description = MealPhotoCapture.draftMealDescription(analysis)
         _draft.update { current ->
             current.copy(
                 activeCategory = EntryType.MEAL,
-                carbsGrams = analysis.carbsGrams?.toString() ?: current.carbsGrams,
-                proteinGrams = analysis.proteinGrams?.toString() ?: current.proteinGrams,
-                fatGrams = analysis.fatGrams?.toString() ?: current.fatGrams,
-                mealDescription = analysis.description?.trim()?.takeIf { it.isNotBlank() }
-                    ?: current.mealDescription,
+                carbsGrams = analysis.carbsGrams?.let(::trim) ?: current.carbsGrams,
+                proteinGrams = analysis.proteinGrams?.let(::trim) ?: current.proteinGrams,
+                fatGrams = analysis.fatGrams?.let(::trim) ?: current.fatGrams,
+                mealDescription = description ?: current.mealDescription,
             )
         }
     }
@@ -731,12 +734,132 @@ class LogViewModel @Inject constructor(
         _mealPhotoState.value = MealPhotoState.Idle
     }
 
+    fun onQuickLogTextChange(value: String) {
+        _quickLogText.value = value
+        if (_quickLogState.value !is QuickLogState.Parsing) {
+            _quickLogState.value = QuickLogState.Idle
+        }
+    }
+
+    /**
+     * Parses [utterance] (typed or spoken) into the Add Entry draft. Tries Hero
+     * AI first; if that fails, [NaturalLanguageLogParser] fills simple patterns.
+     */
+    fun parseQuickLog(utterance: String = _quickLogText.value) {
+        val text = utterance.trim()
+        if (text.isBlank() || _quickLogState.value is QuickLogState.Parsing) return
+        _quickLogText.value = text
+        _quickLogState.value = QuickLogState.Parsing
+        viewModelScope.launch {
+            val llmResult = runCatching { chatRepository.parseQuickLog(text) }
+            val parsed = llmResult.getOrNull()
+            if (parsed != null && !parsed.isEmpty) {
+                applyQuickLog(parsed)
+                _quickLogState.value = QuickLogState.Filled(onDeviceFallback = false)
+                return@launch
+            }
+            val fallback = NaturalLanguageLogParser.parse(text)
+            if (!fallback.isEmpty) {
+                applyQuickLog(fallback)
+                _quickLogState.value = QuickLogState.Filled(onDeviceFallback = true)
+                return@launch
+            }
+            val error = llmResult.exceptionOrNull()
+            _quickLogState.value = QuickLogState.Failed(
+                if (error != null) structuredAiErrorMessage(error) else {
+                    context.getString(R.string.quick_log_error_empty)
+                },
+            )
+        }
+    }
+
+    private suspend fun applyQuickLog(result: QuickLogParseResult) {
+        val unit = settings.value.unit
+        val prefill = result.toHeroAiPrefill().toCanonical(unit)
+        val now = System.currentTimeMillis()
+        val occurredAt = result.minutesAgo
+            ?.takeIf { it > 0 }
+            ?.let { now - it * 60_000L }
+        val description = result.mealDescription?.trim().orEmpty().ifBlank {
+            result.foods.joinToString(", ") { food ->
+                food.portionLabel?.trim()?.takeIf { it.isNotBlank() } ?: food.name
+            }
+        }
+        val matchedFood = matchLibraryFood(result)
+        val activeCategory = when {
+            prefill.glucoseMgdl != null -> EntryType.GLUCOSE
+            result.carbsGrams != null || result.proteinGrams != null || result.fatGrams != null ||
+                description.isNotBlank() || result.foods.isNotEmpty() -> EntryType.MEAL
+            prefill.insulinBasalUnits != null || prefill.insulinBolusUnits != null -> EntryType.INSULIN
+            prefill.exerciseMinutes != null -> EntryType.ACTIVITY
+            !result.note.isNullOrBlank() -> EntryType.NOTE
+            else -> _draft.value.activeCategory
+        }
+        _selectedFood.value = matchedFood
+        _foodLookupState.value = FoodLookupState.Idle
+        _draft.update { current ->
+            current.copy(
+                activeCategory = activeCategory,
+                glucose = prefill.glucoseMgdl?.let { Formatters.glucose(it, unit) } ?: current.glucose,
+                insulinBasal = prefill.insulinBasalUnits?.let(::trim) ?: current.insulinBasal,
+                insulinBolus = prefill.insulinBolusUnits?.let(::trim) ?: current.insulinBolus,
+                carbsGrams = result.carbsGrams?.let(::trim) ?: current.carbsGrams,
+                proteinGrams = result.proteinGrams?.let(::trim) ?: current.proteinGrams,
+                fatGrams = result.fatGrams?.let(::trim) ?: current.fatGrams,
+                mealDescription = description.ifBlank { current.mealDescription },
+                exerciseMinutes = prefill.exerciseMinutes?.toString() ?: current.exerciseMinutes,
+                note = result.note?.trim()?.takeIf { it.isNotBlank() } ?: current.note,
+                occurredAtMillis = occurredAt ?: current.occurredAtMillis,
+                postMealReminderEnabled = current.postMealReminderEnabled,
+            )
+        }
+    }
+
+    private suspend fun matchLibraryFood(result: QuickLogParseResult): FoodEntity? {
+        val names = result.foods.map { it.name.trim() }.filter { it.isNotBlank() }
+            .ifEmpty { result.mealDescription?.split(',', '&')?.map { it.trim() }.orEmpty() }
+        for (name in names) {
+            if (name.length < 2) continue
+            val matches = foodDao.search(name)
+            val exact = matches.firstOrNull { it.name.equals(name, ignoreCase = true) }
+            if (exact != null) return exact
+            val contains = matches.firstOrNull {
+                it.name.contains(name, ignoreCase = true) || name.contains(it.name, ignoreCase = true)
+            }
+            if (contains != null && matches.size == 1) return contains
+        }
+        return null
+    }
+
+    private fun structuredAiErrorMessage(error: Throwable): String {
+        val mapped = generateSequence(error) { it.cause }.firstOrNull {
+            it is ApiKeyMissingException ||
+                it is QuotaExhaustedException ||
+                it is InvalidAiJsonException ||
+                it is ProviderHttpException
+        } ?: error
+        return when (mapped) {
+            is ApiKeyMissingException ->
+                mapped.message ?: context.getString(R.string.ai_error_missing_key)
+            is QuotaExhaustedException ->
+                mapped.message ?: context.getString(R.string.ai_error_quota)
+            is InvalidAiJsonException ->
+                mapped.message ?: context.getString(R.string.ai_error_invalid_json)
+            is ProviderHttpException ->
+                context.getString(R.string.ai_error_http)
+            is java.io.IOException ->
+                context.getString(R.string.ai_error_network)
+            else -> mapped.message ?: context.getString(R.string.ai_error_generic)
+        }
+    }
+
     fun saveDraft(onSaved: () -> Unit) {
         if (_draft.value.isSaving) return
         _showCrisisSupport.value = false
         _draft.update { it.copy(isSaving = true) }
+        val timestamp = _draft.value.occurredAtMillis ?: System.currentTimeMillis()
         val foodId = _selectedFood.value?.id?.takeIf { it > 0L }
-        val event = _draft.value.toLogEvent(settings.value, System.currentTimeMillis())
+        val event = _draft.value.toLogEvent(settings.value, timestamp)
             ?.copy(foodId = foodId)
         if (event == null) {
             _draft.update { it.copy(isSaving = false) }
@@ -771,6 +894,9 @@ class LogViewModel @Inject constructor(
                 )
                 _selectedFood.value = null
                 _foodLookupState.value = FoodLookupState.Idle
+                _mealPhotoState.value = MealPhotoState.Idle
+                _quickLogState.value = QuickLogState.Idle
+                _quickLogText.value = ""
                 if (isCrisis) {
                     _showCrisisSupport.value = true
                 } else if (after > before) {
@@ -787,7 +913,11 @@ class LogViewModel @Inject constructor(
             } finally {
                 _draft.update { it.copy(isSaving = false) }
             }
-            if (saved) widgetRefresher.refresh()
+            if (saved) {
+                widgetRefresher.refresh()
+                runCatching { forecastRepository.refresh() }
+                runCatching { hypoSosManager.evaluateLatest() }
+            }
         }
     }
 
@@ -801,6 +931,9 @@ class LogViewModel @Inject constructor(
         _selectedFood.value = null
         _foodLookupState.value = FoodLookupState.Idle
         _foodSearchQuery.value = ""
+        _mealPhotoState.value = MealPhotoState.Idle
+        _quickLogState.value = QuickLogState.Idle
+        _quickLogText.value = ""
         _draft.value = DraftEventState(
             postMealReminderEnabled = settings.value.postMealRemindersEnabled,
         )

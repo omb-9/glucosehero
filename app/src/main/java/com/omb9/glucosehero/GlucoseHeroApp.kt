@@ -12,12 +12,19 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.crisis.HypoSosManager
+import com.omb9.glucosehero.crisis.HypoSosNotifier
+import com.omb9.glucosehero.exercise.ExerciseFuelingNotifier
+import com.omb9.glucosehero.exercise.ExerciseFuelingWorker
 import com.omb9.glucosehero.work.AutoBackupWorker
 import com.omb9.glucosehero.work.DailyMarkdownWorker
+import com.omb9.glucosehero.work.ForecastRefreshWorker
 import com.omb9.glucosehero.work.HealthConnectSyncWorker
+import com.omb9.glucosehero.work.HypoSosMonitorWorker
 import com.omb9.glucosehero.work.InsightNotifier
 import com.omb9.glucosehero.work.PatternRecognitionWorker
 import com.omb9.glucosehero.work.PostMealReminderNotifier
+import com.omb9.glucosehero.wear.WearGlucosePushController
 import dagger.hilt.android.HiltAndroidApp
 import java.time.Duration
 import java.time.LocalTime
@@ -43,7 +50,20 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
     lateinit var postMealReminderNotifier: PostMealReminderNotifier
 
     @Inject
+    lateinit var exerciseFuelingNotifier: ExerciseFuelingNotifier
+
+    @Inject
+    lateinit var hypoSosNotifier: HypoSosNotifier
+
+    @Inject
+    lateinit var hypoSosManager: HypoSosManager
+
+    @Inject
     lateinit var settingsDataStore: SettingsDataStore
+
+    // FEATURE: wear-os-companion
+    @Inject
+    lateinit var wearGlucosePushController: WearGlucosePushController
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -51,11 +71,24 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
         super.onCreate()
         insightNotifier.createChannel()
         postMealReminderNotifier.createChannel()
+        exerciseFuelingNotifier.createChannel()
+        hypoSosNotifier.createChannel()
         schedulePatternRecognition()
         scheduleHealthConnectSync()
         observeForegroundHealthConnectSync()
         scheduleAutoBackup()
         scheduleDailyMarkdownExport()
+        ForecastRefreshWorker.schedulePeriodic(this)
+        ExerciseFuelingWorker.schedulePeriodic(this)
+        HypoSosMonitorWorker.schedulePeriodic(this)
+        // FEATURE: wear-os-companion
+        wearGlucosePushController.start(applicationScope)
+        applicationScope.launch {
+            hypoSosManager.hydrate()
+            if (settingsDataStore.hypoSosEnabled.first()) {
+                hypoSosManager.evaluateLatest()
+            }
+        }
     }
 
     /**
