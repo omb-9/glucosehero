@@ -7,6 +7,7 @@ import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
 import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.FoodEntity
 import com.omb9.glucosehero.data.local.entity.GlucoseSampleEntity
+import com.omb9.glucosehero.data.local.entity.GlucoseSampleSource
 import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.FoodSource
 import com.omb9.glucosehero.domain.model.TagKind
@@ -175,6 +176,8 @@ class AnalyticsRepositoryTest {
                     // ±30-minute follow-up window used by tagAnalyticsRows.
                     timestamp = 1_000_000L + 7_200_000L,
                     glucoseMgdl = glucoseMgdl,
+                    source = GlucoseSampleSource.HEALTH_CONNECT,
+                    externalId = recordId,
                     hcRecordId = recordId,
                     sourcePackage = null,
                     recordingMethod = 1,
@@ -190,6 +193,8 @@ class AnalyticsRepositoryTest {
                 GlucoseSampleEntity(
                     timestamp = timestamp,
                     glucoseMgdl = glucoseMgdl,
+                    source = GlucoseSampleSource.HEALTH_CONNECT,
+                    externalId = recordId,
                     hcRecordId = recordId,
                     sourcePackage = null,
                     recordingMethod = 1,

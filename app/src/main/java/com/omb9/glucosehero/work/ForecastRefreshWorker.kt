@@ -10,26 +10,44 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.omb9.glucosehero.forecast.GlucoseForecastRepository
+import com.omb9.glucosehero.ui.glance.WidgetRefresher
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 
-/** Refreshes the persisted 30-60 minute glucose forecast while the app is idle. */
+/**
+ * Refreshes the persisted 30-60 minute glucose forecast while the app is idle.
+ *
+ * Also redraws the Glance widget. WorkManager will not run this more often
+ * than 15 minutes, so this job is the backstop for coarse freshness buckets
+ * (hours, days), not the Fresh-to-Stale flip. That boundary is a one-shot
+ * in [WidgetFreshnessRefreshWorker], scheduled from [WidgetRefresher].
+ * Skipping an unchanged caption is [WidgetRefresher]'s job so this wake
+ * does not rewrite RemoteViews every 15 minutes when the label is still
+ * "2 h ago".
+ *
+ * FEATURE: cgm-direct-ingest
+ */
 @HiltWorker
 class ForecastRefreshWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val forecastRepository: GlucoseForecastRepository,
+    private val widgetRefresher: WidgetRefresher,
 ) : CoroutineWorker(appContext, workerParams) {
 
-    override suspend fun doWork(): Result = try {
-        forecastRepository.refresh()
-        Result.success()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (_: Exception) {
-        Result.retry()
+    override suspend fun doWork(): Result {
+        val forecastResult = try {
+            forecastRepository.refresh()
+            Result.success()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            Result.retry()
+        }
+        runCatching { widgetRefresher.refresh() }
+        return forecastResult
     }
 
     companion object {

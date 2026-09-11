@@ -12,6 +12,7 @@ import com.omb9.glucosehero.data.local.entity.ChatMessageEntity
 import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.FoodEntity
 import com.omb9.glucosehero.data.local.entity.GlucoseSampleEntity
+import com.omb9.glucosehero.data.local.entity.GlucoseSampleSource
 import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
 import com.omb9.glucosehero.data.local.entity.SupplyEntity
@@ -461,6 +462,8 @@ class BackupDatabaseRoundTripTest {
                 GlucoseSampleEntity(
                     timestamp = 1_000L,
                     glucoseMgdl = 96.0,
+                    source = GlucoseSampleSource.HEALTH_CONNECT,
+                    externalId = "hc-1",
                     hcRecordId = "hc-1",
                     sourcePackage = null,
                     recordingMethod = 1,
@@ -531,6 +534,8 @@ class BackupDatabaseRoundTripTest {
                 id = sampleId,
                 timestamp = 1_000L,
                 glucoseMgdl = 96.0,
+                source = GlucoseSampleSource.HEALTH_CONNECT,
+                externalId = "hc-1",
                 hcRecordId = "hc-1",
                 sourcePackage = null,
                 recordingMethod = 1,

@@ -13,7 +13,23 @@ data class GlucoseForecastPoint(
 )
 
 /**
+ * ISF/CIR actually applied on some 5-minute step of the horizon.
+ * [startHhmm] is local wall-clock `"HH:mm"`.
+ */
+@Serializable
+data class ForecastDosingSegmentUsed(
+    val startHhmm: String,
+    val isfMgdl: Double,
+    val cirRatio: Double,
+)
+
+/**
  * On-device 30-60 minute glucose projection snapshot persisted for UI.
+ *
+ * Contribution fields are the engine's own decomposition over the 30- and
+ * 60-minute highlights, not values the UI should reverse-engineer from
+ * [points]. New fields default so DataStore JSON written before this feature
+ * still decodes.
  */
 @Serializable
 data class GlucoseForecastSnapshot(
@@ -26,12 +42,32 @@ data class GlucoseForecastSnapshot(
     val points: List<GlucoseForecastPoint>,
     val sampleCount: Int,
     val insufficientData: Boolean = false,
+    /** True when the stored dosing profile is invalid; UI must not show numbers as a recommendation. FEATURE: dosing-profiles */
+    val dosingProfileInvalid: Boolean = false,
+    val trendEffectMgdl30: Double = 0.0,
+    val insulinEffectMgdl30: Double = 0.0,
+    val carbEffectMgdl30: Double = 0.0,
+    val unclampedMgdl30: Double = 0.0,
+    val clampMin30: Boolean = false,
+    val clampMax30: Boolean = false,
+    val trendEffectMgdl60: Double = 0.0,
+    val insulinEffectMgdl60: Double = 0.0,
+    val carbEffectMgdl60: Double = 0.0,
+    val unclampedMgdl60: Double = 0.0,
+    val clampMin60: Boolean = false,
+    val clampMax60: Boolean = false,
+    val horizonCrossedSegmentBoundary: Boolean = false,
+    val dosingSegmentsUsed: List<ForecastDosingSegmentUsed> = emptyList(),
 ) {
     fun pointAt(minutesAhead: Int): GlucoseForecastPoint? =
         points.minByOrNull { kotlin.math.abs(it.minutesAhead - minutesAhead) }
 
     val at30Min: GlucoseForecastPoint? get() = pointAt(30)
     val at60Min: GlucoseForecastPoint? get() = pointAt(60)
+
+    /** True when a single ISF was used for every step of the horizon. */
+    val claimsSingleIsf: Boolean
+        get() = !horizonCrossedSegmentBoundary && dosingSegmentsUsed.size <= 1
 }
 
 /**
@@ -46,6 +82,13 @@ data class GlucoseForecastInput(
     val cirRatio: Double,
     val isfMgdl: Double,
     val carbActionHours: Double = com.omb9.glucosehero.util.CarbAbsorptionCalculator.DEFAULT_ACTION_HOURS,
+    /**
+     * When non-null, ISF/CIR at each horizon step come from this profile.
+     * Null keeps the historical scalar path so existing tests stay bit-identical.
+     * FEATURE: dosing-profiles
+     */
+    val dosingProfile: com.omb9.glucosehero.domain.model.DosingProfile? = null,
+    val zoneId: java.time.ZoneId? = null,
 ) {
     data class GlucoseSample(
         val timestampMillis: Long,

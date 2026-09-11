@@ -7,6 +7,8 @@ import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
 import com.omb9.glucosehero.domain.model.ApiKeyMissingException
 import com.omb9.glucosehero.domain.model.BolusSettings
+import com.omb9.glucosehero.domain.model.DosingProfile
+import com.omb9.glucosehero.domain.model.DosingProfileLoad
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ResolvedAiConfig
@@ -29,12 +31,16 @@ class SettingsRepositoryImpl @Inject constructor(
     override val aiConfig: Flow<AiConfig> = dataStore.aiConfig
     override val profile: Flow<UserProfile> = dataStore.profile
     override val bolusSettings: Flow<BolusSettings> = dataStore.bolusSettings
+    override val dosingProfile: Flow<DosingProfileLoad> = dataStore.dosingProfile
 
     override suspend fun profileSnapshot(): UserProfile = dataStore.profileSnapshot()
 
     override suspend fun aiConfigSnapshot(): AiConfig = dataStore.aiConfigSnapshot()
 
     override suspend fun bolusSettingsSnapshot(): BolusSettings = dataStore.bolusSettingsSnapshot()
+
+    override suspend fun dosingProfileSnapshot(): DosingProfileLoad =
+        dataStore.dosingProfileSnapshot()
 
     override suspend fun setThemeMode(mode: ThemeMode) = dataStore.setThemeMode(mode)
     override suspend fun setAccent(accent: AccentColor) = dataStore.setAccent(accent)
@@ -44,6 +50,9 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun setShowAdvancedMacros(enabled: Boolean) = dataStore.setShowAdvancedMacros(enabled)
     override suspend fun setPostMealRemindersEnabled(enabled: Boolean) =
         dataStore.setPostMealRemindersEnabled(enabled)
+
+    override suspend fun setNotificationsEnabled(enabled: Boolean) =
+        dataStore.setNotificationsEnabled(enabled)
 
     override suspend fun setSendMealPhotosToHeroAi(enabled: Boolean) =
         dataStore.setSendMealPhotosToHeroAi(enabled)
@@ -71,6 +80,7 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun setCirRatio(ratio: Float) = dataStore.setCirRatio(ratio)
     override suspend fun setIsfMgdl(isf: Float) = dataStore.setIsfMgdl(isf)
     override suspend fun setTargetGlucoseMgdl(target: Float) = dataStore.setTargetGlucoseMgdl(target)
+    override suspend fun setDosingProfile(profile: DosingProfile) = dataStore.setDosingProfile(profile)
 
     override suspend fun setAiProvider(provider: AiProvider) = dataStore.setAiProvider(provider)
     override suspend fun setAiBaseUrl(url: String) = dataStore.setAiBaseUrl(url)

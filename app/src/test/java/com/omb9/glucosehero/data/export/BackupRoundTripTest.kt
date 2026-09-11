@@ -1,6 +1,7 @@
 package com.omb9.glucosehero.data.export
 
 import com.omb9.glucosehero.data.local.datastore.InitialImportRange
+import com.omb9.glucosehero.data.local.entity.GlucoseSampleSource
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.ActivityIntensity
 import com.omb9.glucosehero.domain.model.AiProvider
@@ -13,6 +14,7 @@ import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.domain.model.ExportWhitelist
+import com.omb9.glucosehero.domain.model.toRecord
 import com.omb9.glucosehero.util.AppJson
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -114,6 +116,8 @@ class BackupRoundTripTest {
                 id = 30L,
                 timestamp = 1_000L,
                 glucoseMgdl = 96.0,
+                source = GlucoseSampleSource.HEALTH_CONNECT,
+                externalId = "hc-1",
                 hcRecordId = "hc-1",
                 sourcePackage = null,
                 recordingMethod = 1,
@@ -243,8 +247,8 @@ class BackupRoundTripTest {
 
     @Test
     fun formatVersion_isIndependentOfDatabaseVersion() {
-        assertEquals(2, BACKUP_FORMAT_VERSION)
-        assertEquals(13, DATABASE_VERSION)
+        assertEquals(4, BACKUP_FORMAT_VERSION)
+        assertEquals(15, DATABASE_VERSION)
         assertTrue(BACKUP_FORMAT_VERSION != DATABASE_VERSION)
     }
 
@@ -321,6 +325,9 @@ class BackupRoundTripTest {
             "keystoreAlias",
             "androidId",
             "webhookUrl",
+            "nightscoutCredentialEnc",
+            "cgm_nightscout_credential_enc",
+            "apiSecret",
         )) {
             assertFalse("exported JSON contained $key", json.contains("\"$key\""))
         }
@@ -524,6 +531,78 @@ class BackupRoundTripTest {
         } finally {
             dir.deleteRecursively()
         }
+    }
+
+    @Test
+    fun restore_v14GlucoseSample_mapsSourceAndExternalIdFromHcRecordId() {
+        val json = """
+            {
+              "timestamp": 1000,
+              "glucoseMgdl": 96.0,
+              "hcRecordId": "hc-1",
+              "recordingMethod": 1,
+              "importedAt": 2000
+            }
+        """.trimIndent()
+        val sample = BackupJson.decodeFromString(BackupGlucoseSample.serializer(), json)
+        val entity = sample.toEntity()
+        assertEquals(GlucoseSampleSource.HEALTH_CONNECT, entity.source)
+        assertEquals("hc-1", entity.externalId)
+        assertEquals("hc-1", entity.hcRecordId)
+        assertEquals(null, entity.trendArrow)
+    }
+
+    @Test
+    fun v3Settings_withoutProfile_deserializesAndRestoresSingleSegment() {
+        val json = """
+            {
+              "themeMode": "LIGHT",
+              "accent": "LIGHT_RED",
+              "unit": "MGDL",
+              "use24HourTime": false,
+              "targetLowMgdl": 70.0,
+              "targetHighMgdl": 180.0,
+              "isHeroAiEnabled": true,
+              "showAdvancedMacros": false,
+              "postMealRemindersEnabled": true,
+              "aiProvider": "GEMINI",
+              "aiBaseUrl": "https://placeholder.invalid/",
+              "aiModel": "x",
+              "diaHours": 5.0,
+              "cirRatio": 8.0,
+              "isfMgdl": 40.0,
+              "targetGlucoseMgdl": 110.0,
+              "barcodeLookupEnabled": true,
+              "healthConnectSyncEnabled": false,
+              "glucoseImportEnabled": true,
+              "nutritionImportEnabled": false,
+              "exerciseImportEnabled": false,
+              "sleepImportEnabled": false,
+              "cycleImportEnabled": false,
+              "healthConnectInitialImportRange": "DAYS_90"
+            }
+        """.trimIndent()
+        val v3 = BackupJson.decodeFromString(BackupSettings.serializer(), json)
+        assertEquals(null, v3.dosingProfile)
+        val restored = v3.restoredDosingProfile()
+        assertEquals(1, restored.segments.size)
+        assertEquals(java.time.LocalTime.MIDNIGHT, restored.segments.first().start)
+        assertEquals(5f, restored.diaHours)
+        assertEquals(8f, restored.segments.first().cirRatio)
+        assertEquals(40f, restored.segments.first().isfMgdl)
+        assertEquals(110f, restored.segments.first().targetGlucoseMgdl)
+
+        val v4 = v3.copy(dosingProfile = restored.toRecord())
+        val encoded = AppJson.encodeToString(BackupSettings.serializer(), v4)
+        val decodedV4 = BackupJson.decodeFromString(BackupSettings.serializer(), encoded)
+        assertEquals(v4.dosingProfile, decodedV4.dosingProfile)
+        val backToFlat = decodedV4.copy(dosingProfile = null)
+        assertEquals(5f, backToFlat.diaHours)
+        assertEquals(8f, backToFlat.cirRatio)
+        assertEquals(40f, backToFlat.isfMgdl)
+        assertEquals(110f, backToFlat.targetGlucoseMgdl)
+        val v3Again = backToFlat.restoredDosingProfile()
+        assertEquals(restored, v3Again)
     }
 
     private fun <T> page(list: List<T>, offset: Int, limit: Int): List<T> =

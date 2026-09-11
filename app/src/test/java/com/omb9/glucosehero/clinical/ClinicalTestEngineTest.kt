@@ -3,6 +3,7 @@ package com.omb9.glucosehero.clinical
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ClinicalTestEngineTest {
@@ -66,6 +67,35 @@ class ClinicalTestEngineTest {
             mealBolusUnits = 4.0,
         )
         assertEquals(ClinicalCalibrationHint.ICR_MAY_BE_HIGH, result!!.hint)
+    }
+
+    @Test
+    fun `multi segment window marks attribution inconclusive`() {
+        val start = java.time.Instant.parse("2026-06-15T04:00:00Z").toEpochMilli()
+        val end = start + 4 * 3_600_000L
+        val observations = (0..8).map { i ->
+            GlucoseObservation(start + i * 30 * 60_000L, 110.0)
+        }
+        val profile = com.omb9.glucosehero.domain.model.DosingProfile(
+            diaHours = 4f,
+            segments = listOf(
+                com.omb9.glucosehero.domain.model.DosingSegment(
+                    java.time.LocalTime.MIDNIGHT, 50f, 10f, 100f,
+                ),
+                com.omb9.glucosehero.domain.model.DosingSegment(
+                    java.time.LocalTime.of(6, 0), 30f, 8f, 100f,
+                ),
+            ),
+        )
+        val result = ClinicalTestEngine.analyzeBasal(
+            observations,
+            start,
+            end,
+            dosingProfile = profile,
+            zoneId = java.time.ZoneOffset.UTC,
+        )
+        assertTrue(result!!.attributionInconclusive)
+        assertTrue(result.coveredSegmentStarts.size >= 2)
     }
 
     @Test

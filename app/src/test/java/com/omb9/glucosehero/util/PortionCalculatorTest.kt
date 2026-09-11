@@ -237,7 +237,7 @@ class PortionCalculatorTest {
             insulinSensitivityMgdl = 40.0,
             insulinOnBoard = 0.5,
         )
-        assertEquals(4.5175, dose, 1e-9)
+        assertEquals(4.5175, dose.units, 1e-9)
 
         // Round once at display:
         val display = PortionCalculator.roundForDisplay(scaled.carbsGrams)

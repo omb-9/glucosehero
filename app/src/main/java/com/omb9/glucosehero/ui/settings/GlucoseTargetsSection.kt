@@ -47,6 +47,8 @@ fun GlucoseTargetsSettingsScreen(
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val bolus by viewModel.bolusSettings.collectAsStateWithLifecycle()
+    val dosingLoad by viewModel.dosingProfile.collectAsStateWithLifecycle()
+    val explainerSeen by viewModel.dosingProfileExplainerSeen.collectAsStateWithLifecycle()
 
     val scope = rememberCoroutineScope()
     var backInFlight by remember { mutableStateOf(false) }
@@ -85,9 +87,13 @@ fun GlucoseTargetsSettingsScreen(
             onUnitChange = viewModel::setUnit,
             onTargetRangeChange = viewModel::setTargetRange,
             onDiaChange = viewModel::setDiaHours,
-            onCirChange = viewModel::setCirRatio,
-            onIsfChange = viewModel::setIsfMgdl,
-            onTargetGlucoseChange = viewModel::setTargetGlucoseMgdl,
+            dosingLoad = dosingLoad,
+            use24HourTime = settings.use24HourTime,
+            onSaveProfile = { profile ->
+                viewModel.setDosingProfile(profile.copy(diaHours = bolus.diaHours))
+            },
+            explainerSeen = explainerSeen,
+            onExplainerDismiss = viewModel::markDosingProfileExplainerSeen,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -108,9 +114,11 @@ internal fun GlucoseTargetsSection(
     onUnitChange: (GlucoseUnit) -> Unit,
     onTargetRangeChange: (Float, Float) -> Unit,
     onDiaChange: (Float) -> Unit,
-    onCirChange: (Float) -> Unit,
-    onIsfChange: (Float) -> Unit,
-    onTargetGlucoseChange: (Float) -> Unit,
+    dosingLoad: com.omb9.glucosehero.domain.model.DosingProfileLoad,
+    use24HourTime: Boolean,
+    onSaveProfile: (com.omb9.glucosehero.domain.model.DosingProfile) -> Unit,
+    explainerSeen: Boolean,
+    onExplainerDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -172,10 +180,15 @@ internal fun GlucoseTargetsSection(
             valueRange = 40f..300f,
         )
 
+        Text(
+            text = androidx.compose.ui.res.stringResource(com.omb9.glucosehero.R.string.dosing_profile_dia_section),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(Modifier.height(4.dp))
         SmartBolusSlider(
             label = "Duration of Insulin Action (DIA)",
             value = bolus.diaHours,
-            valueRange = 2f..8f,
+            valueRange = com.omb9.glucosehero.domain.model.DosingBounds.MIN_DIA_HOURS..com.omb9.glucosehero.domain.model.DosingBounds.MAX_DIA_HOURS,
             steps = 11,
             displayText = { v ->
                 if (v % 1f == 0f) "${v.toInt()} hr" else "%.1f hr".format(v)
@@ -185,43 +198,18 @@ internal fun GlucoseTargetsSection(
             glossaryDefinition = SettingsGlossary.DURATION_OF_INSULIN_ACTION,
             glossaryContentDescription = "About duration of insulin action",
         )
-
-        SmartBolusSlider(
-            label = "Carb-to-Insulin Ratio (CIR)",
-            value = bolus.cirRatio,
-            valueRange = 1f..50f,
-            steps = 48,
-            displayText = { v -> "${v.toInt()} g/U" },
-            onValueChangeFinished = onCirChange,
-            glossaryTerm = "Carb-to-Insulin Ratio (CIR)",
-            glossaryDefinition = SettingsGlossary.CARB_RATIO,
-            glossaryContentDescription = "About carb-to-insulin ratio",
+        Text(
+            text = androidx.compose.ui.res.stringResource(com.omb9.glucosehero.R.string.dosing_profile_dia_caption),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-
-        SmartBolusSlider(
-            label = "Insulin Sensitivity Factor (ISF)",
-            value = bolus.isfMgdl,
-            valueRange = 10f..150f,
-            steps = 139,
-            displayText = { v -> "${v.toInt()} mg/dL per U" },
-            onValueChangeFinished = onIsfChange,
-            glossaryTerm = "Insulin Sensitivity Factor (ISF)",
-            glossaryDefinition = SettingsGlossary.INSULIN_SENSITIVITY_FACTOR,
-            glossaryContentDescription = "About insulin sensitivity factor",
-        )
-
-        SmartBolusSlider(
-            label = "Target Glucose",
-            value = bolus.targetGlucoseMgdl,
-            valueRange = 60f..180f,
-            steps = 119,
-            displayText = { v ->
-                "${Formatters.glucose(v.toDouble(), unit)} ${unit.label}"
-            },
-            onValueChangeFinished = onTargetGlucoseChange,
-            glossaryTerm = "Target Glucose",
-            glossaryDefinition = SettingsGlossary.TARGET_GLUCOSE,
-            glossaryContentDescription = "About target glucose",
+        Spacer(Modifier.height(16.dp))
+        DosingProfileEditor(
+            load = dosingLoad,
+            use24HourTime = use24HourTime,
+            onSave = onSaveProfile,
+            explainerSeen = explainerSeen,
+            onExplainerDismiss = onExplainerDismiss,
         )
     }
 }

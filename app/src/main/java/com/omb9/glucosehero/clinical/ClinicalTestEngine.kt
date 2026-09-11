@@ -1,5 +1,10 @@
 package com.omb9.glucosehero.clinical
 
+import com.omb9.glucosehero.domain.model.DosingProfile
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
 /**
  * Conservative overnight basal and single-meal ICR/ISF test heuristics.
  *
@@ -8,6 +13,21 @@ package com.omb9.glucosehero.clinical
  * bolus appears in the watch window (and, for basal, in the 2 hours before start).
  *
  * Glucose units are canonical mg/dL.
+ *
+ * ## Time-of-day attribution
+ *
+ * Hints come from glucose deltas, not from multiplying by ISF/CIR. When a
+ * [DosingProfile] is supplied, the result records which segments were in effect
+ * during `[start, end]`.
+ *
+ * **One segment:** the hint is attributed to that segment (its start is listed).
+ *
+ * **Multiple segments:** the glucose hint still stands, but
+ * [ClinicalTestResult.attributionInconclusive] is true. A 4-hour rise that
+ * crossed a 06:00 ISF change cannot tell you *which* ISF/CIR is wrong.
+ * Listing the covered starts is the honest alternative to guessing.
+ *
+ * FEATURE: dosing-profiles
  */
 object ClinicalTestEngine {
 
@@ -45,6 +65,8 @@ object ClinicalTestEngine {
         observations: List<GlucoseObservation>,
         startMillis: Long,
         endMillis: Long,
+        dosingProfile: DosingProfile? = null,
+        zoneId: ZoneId = ZoneId.systemDefault(),
     ): ClinicalTestResult? {
         val window = observations
             .filter { it.timestampMillis in startMillis..endMillis && it.glucoseMgdl.isFinite() }
@@ -66,6 +88,7 @@ object ClinicalTestEngine {
                 ClinicalCalibrationHint.BASAL_MAY_BE_HIGH
             else -> ClinicalCalibrationHint.INCONCLUSIVE
         }
+        val attr = attribution(dosingProfile, startMillis, endMillis, zoneId)
         return ClinicalTestResult(
             kind = ClinicalTestKind.OVERNIGHT_BASAL,
             startGlucoseMgdl = startG,
@@ -77,6 +100,8 @@ object ClinicalTestEngine {
             readingCount = window.size,
             hint = hint,
             summary = basalSummary(hint, startG, endG, range, slope),
+            coveredSegmentStarts = attr.first,
+            attributionInconclusive = attr.second,
         )
     }
 
@@ -86,6 +111,8 @@ object ClinicalTestEngine {
         endMillis: Long,
         preMealGlucoseMgdl: Double,
         mealBolusUnits: Double?,
+        dosingProfile: DosingProfile? = null,
+        zoneId: ZoneId = ZoneId.systemDefault(),
     ): ClinicalTestResult? {
         val window = observations
             .filter { it.timestampMillis in startMillis..endMillis && it.glucoseMgdl.isFinite() }
@@ -112,6 +139,7 @@ object ClinicalTestEngine {
             }
             else -> ClinicalCalibrationHint.INCONCLUSIVE
         }
+        val attr = attribution(dosingProfile, startMillis, endMillis, zoneId)
         return ClinicalTestResult(
             kind = ClinicalTestKind.MEAL_CARB_RATIO,
             startGlucoseMgdl = preMealGlucoseMgdl,
@@ -123,8 +151,30 @@ object ClinicalTestEngine {
             readingCount = window.size,
             hint = hint,
             summary = mealSummary(hint, preMealGlucoseMgdl, endG, delta),
+            coveredSegmentStarts = attr.first,
+            attributionInconclusive = attr.second,
         )
     }
+
+    private fun attribution(
+        profile: DosingProfile?,
+        startMillis: Long,
+        endMillis: Long,
+        zoneId: ZoneId,
+    ): Pair<List<String>, Boolean> {
+        if (profile == null || profile.validate() !is com.omb9.glucosehero.domain.model.DosingProfileValidation.Valid) {
+            return emptyList<String>() to false
+        }
+        val covered = profile.segmentsOverlapping(
+            Instant.ofEpochMilli(startMillis),
+            Instant.ofEpochMilli(endMillis),
+            zoneId,
+        )
+        val starts = covered.map { it.start.format(SEGMENT_START) }
+        return starts to (starts.size > 1)
+    }
+
+    private val SEGMENT_START: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
     private fun basalSummary(
         hint: ClinicalCalibrationHint,

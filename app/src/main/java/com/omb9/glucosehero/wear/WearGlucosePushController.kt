@@ -43,6 +43,18 @@ class WearGlucosePushController @Inject constructor(
         }
     }
 
+    /**
+     * Enqueues a one-shot Wear push when watch sync is enabled.
+     * [com.omb9.glucosehero.data.cgm.CgmIngestService] calls this after new
+     * rows; Room invalidation also enqueues, and REPLACE makes a double
+     * call safe.
+     */
+    suspend fun notifyGlucoseChanged() {
+        if (settingsStore.syncEnabled.first()) {
+            WearSyncWorker.enqueue(context)
+        }
+    }
+
     private fun registerInvalidationObserver(scope: CoroutineScope) {
         if (observerRegistered) return
         observerRegistered = true

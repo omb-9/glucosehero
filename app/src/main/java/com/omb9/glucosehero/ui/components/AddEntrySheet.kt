@@ -149,8 +149,12 @@ fun AddEntrySheet(
     onNoteChange: (String) -> Unit,
     onMoodScoreChange: (Int?) -> Unit,
     onMoodLabelChange: (String?) -> Unit,
-    suggestedBolus: Double? = null,
+    bolusRecommendation: com.omb9.glucosehero.util.BolusRecommendation =
+        com.omb9.glucosehero.util.BolusRecommendation.Incomplete,
+    bolusRecommendationIssues: List<com.omb9.glucosehero.domain.model.DosingProfileIssue> = emptyList(),
     onUseSuggestion: () -> Unit = {},
+    onOpenDosingProfile: () -> Unit = {},
+    use24HourTime: Boolean = false,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
     streakReward: StreakReward? = null,
@@ -442,12 +446,14 @@ fun AddEntrySheet(
                                 imeAction = ImeAction.Next,
                             ),
                         )
-                        if (suggestedBolus != null) {
-                            SuggestedBolusRow(
-                                suggestedBolus = suggestedBolus,
-                                onUseSuggestion = onUseSuggestion,
-                            )
-                        }
+                        SuggestedBolusSection(
+                            recommendation = bolusRecommendation,
+                            issues = bolusRecommendationIssues,
+                            unit = unit,
+                            use24HourTime = use24HourTime,
+                            onUseSuggestion = onUseSuggestion,
+                            onOpenDosingProfile = onOpenDosingProfile,
+                        )
                     }
                 }
 
@@ -694,30 +700,6 @@ private fun StreakExtendedConfirmation(
         }
     }
 }
-
-@Composable
-private fun SuggestedBolusRow(
-    suggestedBolus: Double,
-    onUseSuggestion: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "Suggested bolus: ${formatInsulinUnits(suggestedBolus)} u",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        TextButton(onClick = onUseSuggestion) {
-            Text("Use suggestion")
-        }
-    }
-}
-
-private fun formatInsulinUnits(value: Double): String =
-    if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
 
 /**
  * Camera affordance for the Meal path. Shows a tappable row that triggers the

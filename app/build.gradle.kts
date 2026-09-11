@@ -81,6 +81,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.process)
 
     // Compose
     implementation(platform(libs.compose.bom))
@@ -164,7 +165,15 @@ dependencies {
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.health.connect.testing)
+    // connect-testing 1.0.0-alpha04 transitively pulls connect-client 1.2.0-alpha05,
+    // which changes ExerciseSessionRecord's default constructor. Main compiles
+    // against 1.1.0, so unit tests then throw NoSuchMethodError. Keep the
+    // test classpath on the same client as production.
+    testImplementation(libs.health.connect.testing) {
+        exclude(group = "androidx.health.connect", module = "connect-client")
+        exclude(group = "androidx.health.connect", module = "connect-client-proto")
+        exclude(group = "androidx.health.connect", module = "connect-client-external-protobuf")
+    }
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)

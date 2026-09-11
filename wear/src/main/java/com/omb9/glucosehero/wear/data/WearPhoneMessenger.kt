@@ -12,6 +12,7 @@ import com.omb9.glucosehero.wear.protocol.WearQuickEntryPayload
 import com.omb9.glucosehero.wear.protocol.WearQuickEntryType
 import com.omb9.glucosehero.wear.protocol.WearSyncProtocol
 import com.omb9.glucosehero.wear.tile.QuickEntryTileService
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 
 object WearPhoneMessenger {
@@ -40,15 +41,29 @@ object WearPhoneMessenger {
         requestVisualUpdates(context)
     }
 
+    /**
+     * Asks the system to redraw complication and tile only when the visible
+     * signature changed. A wake that would reprint the same "112 · Just now"
+     * is a watch battery regression.
+     */
     fun requestVisualUpdates(context: Context) {
+        val appContext = context.applicationContext
+        val snapshot = runBlocking { WearGlucoseStore.get(appContext).latest() }
+        val now = System.currentTimeMillis()
+        WearFreshnessAlarmReceiver.scheduleCrossing(appContext, snapshot, now)
+        val next = WearFreshnessPolicy.visualSignature(snapshot, now)
+        val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val previous = prefs.getString(KEY_SIGNATURE, null)
+        if (!WearFreshnessPolicy.shouldRequestUpdate(previous, next)) return
+        prefs.edit().putString(KEY_SIGNATURE, next).apply()
         runCatching {
             ComplicationDataSourceUpdateRequester.create(
-                context,
-                ComponentName(context, GlucoseComplicationService::class.java),
+                appContext,
+                ComponentName(appContext, GlucoseComplicationService::class.java),
             ).requestUpdateAll()
         }
         runCatching {
-            TileService.getUpdater(context).requestUpdate(QuickEntryTileService::class.java)
+            TileService.getUpdater(appContext).requestUpdate(QuickEntryTileService::class.java)
         }
     }
 
@@ -77,4 +92,7 @@ object WearPhoneMessenger {
         WearQuickEntryType.CARBS -> "Logged ${amount.toInt()} g carbs"
         WearQuickEntryType.INSULIN -> "Logged $amount U bolus"
     }
+
+    private const val PREFS = "wear_freshness_render"
+    private const val KEY_SIGNATURE = "signature"
 }

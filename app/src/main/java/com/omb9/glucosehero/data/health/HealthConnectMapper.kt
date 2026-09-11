@@ -12,6 +12,7 @@ import androidx.health.connect.client.units.Energy
 import androidx.health.connect.client.units.Mass
 import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.GlucoseSampleEntity
+import com.omb9.glucosehero.data.local.entity.GlucoseSampleSource
 import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.Macros
 import com.omb9.glucosehero.domain.model.MealContext
@@ -27,6 +28,8 @@ object HealthConnectMapper {
         GlucoseSampleEntity(
             timestamp = time.toEpochMilli(),
             glucoseMgdl = level.inMilligramsPerDeciliter, // library converts; do not multiply by 18.0182
+            source = GlucoseSampleSource.HEALTH_CONNECT,
+            externalId = metadata.id,
             hcRecordId = metadata.id,
             sourcePackage = metadata.dataOrigin.packageName,
             recordingMethod = metadata.recordingMethod,

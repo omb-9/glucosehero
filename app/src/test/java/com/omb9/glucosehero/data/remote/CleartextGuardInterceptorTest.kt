@@ -1,7 +1,11 @@
 package com.omb9.glucosehero.data.remote
 
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -26,6 +30,7 @@ class CleartextGuardInterceptorTest {
             "172.16.0.1",
             "172.31.255.255",
             "192.168.0.1",
+            "192.168.1.50",
             "192.168.255.255",
             "169.254.0.1",
             "169.254.255.255",
@@ -66,6 +71,52 @@ class CleartextGuardInterceptorTest {
 
         assertTrue(e.message!!.contains("Refusing to send data"))
         assertTrue(e.message!!.contains("example.com"))
+    }
+
+    @Test
+    fun intercept_refusesPlainHttpToPublicNightscoutUrl() {
+        val client = OkHttpClient.Builder()
+            .addInterceptor(CleartextGuardInterceptor())
+            .addInterceptor { chain ->
+                throw AssertionError("must not proceed: ${chain.request().url}")
+            }
+            .build()
+
+        val e = assertThrows(IOException::class.java) {
+            client.newCall(
+                Request.Builder().url("http://mysite.example.com/api/v1/entries/sgv.json").build(),
+            ).execute()
+        }
+
+        assertTrue(e.message!!.contains("Refusing to send data"))
+        assertTrue(e.message!!.contains("mysite.example.com"))
+    }
+
+    @Test
+    fun intercept_allowsPlainHttpToLanNightscoutHost() {
+        var proceeded = false
+        val client = OkHttpClient.Builder()
+            .addInterceptor(CleartextGuardInterceptor())
+            .addInterceptor { chain ->
+                proceeded = true
+                Response.Builder()
+                    .request(chain.request())
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .body(ByteArray(0).toResponseBody("application/json".toMediaType()))
+                    .build()
+            }
+            .build()
+
+        val response = client.newCall(
+            Request.Builder().url("http://192.168.1.50:1337/api/v1/entries/sgv.json").build(),
+        ).execute()
+        response.close()
+
+        assertTrue(isPrivateOrLoopback("192.168.1.50"))
+        assertTrue(proceeded)
+        assertEquals(200, response.code)
     }
 
     @Test

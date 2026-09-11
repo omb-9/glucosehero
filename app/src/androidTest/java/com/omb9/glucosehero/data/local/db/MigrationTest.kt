@@ -11,6 +11,7 @@ import com.omb9.glucosehero.data.local.db.migration.Migration9To10
 import com.omb9.glucosehero.data.local.db.migration.Migration10To11
 import com.omb9.glucosehero.data.local.db.migration.Migration11To12
 import com.omb9.glucosehero.data.local.db.migration.Migration12To13
+import com.omb9.glucosehero.data.local.db.migration.Migration14To15
 import com.omb9.glucosehero.data.local.db.migration.MigrationPendingAiTtl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -1300,6 +1301,109 @@ class MigrationTest {
         }
     }
 
+    @Test
+    fun migrate14To15_generalizesGlucoseSampleIdentity() {
+        helper.createDatabase(testDb, 14).use { db ->
+            insertSample(
+                db,
+                timestamp = 10_000L,
+                glucoseMgdl = 95.0,
+                hcRecordId = "hc-samp-1",
+                sourcePackage = "com.dexcom.g7",
+            )
+            insertSample(
+                db,
+                timestamp = 20_000L,
+                glucoseMgdl = 105.0,
+                hcRecordId = "hc-samp-2",
+                sourcePackage = null,
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 15, true, Migration14To15)
+
+        db.query(
+            "SELECT timestamp, glucose_mgdl, source, external_id, hc_record_id, trend_arrow, " +
+                "source_package FROM glucose_samples ORDER BY timestamp",
+        ).use { c ->
+            assertEquals(2, c.count)
+            val source = c.getColumnIndexOrThrow("source")
+            val externalId = c.getColumnIndexOrThrow("external_id")
+            val hcRecordId = c.getColumnIndexOrThrow("hc_record_id")
+            val trendArrow = c.getColumnIndexOrThrow("trend_arrow")
+            val sourcePackage = c.getColumnIndexOrThrow("source_package")
+
+            assertTrue(c.moveToFirst())
+            assertEquals(10_000L, c.getLong(c.getColumnIndexOrThrow("timestamp")))
+            assertEquals(95.0, c.getDouble(c.getColumnIndexOrThrow("glucose_mgdl")), 0.0)
+            assertEquals("HEALTH_CONNECT", c.getString(source))
+            assertEquals("hc-samp-1", c.getString(externalId))
+            assertEquals("hc-samp-1", c.getString(hcRecordId))
+            assertTrue(c.isNull(trendArrow))
+            assertEquals("com.dexcom.g7", c.getString(sourcePackage))
+
+            assertTrue(c.moveToNext())
+            assertEquals(20_000L, c.getLong(c.getColumnIndexOrThrow("timestamp")))
+            assertEquals(105.0, c.getDouble(c.getColumnIndexOrThrow("glucose_mgdl")), 0.0)
+            assertEquals("HEALTH_CONNECT", c.getString(source))
+            assertEquals("hc-samp-2", c.getString(externalId))
+            assertEquals("hc-samp-2", c.getString(hcRecordId))
+            assertTrue(c.isNull(trendArrow))
+            assertTrue(c.isNull(sourcePackage))
+
+            assertFalse(c.moveToNext())
+        }
+
+        db.query("SELECT COUNT(*) FROM glucose_samples").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(2, c.getInt(0))
+        }
+
+        db.execSQL(
+            "INSERT OR IGNORE INTO glucose_samples " +
+                "(timestamp, glucose_mgdl, source, external_id, hc_record_id, " +
+                "source_package, recording_method, imported_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            arrayOf<Any?>(30_000L, 99.0, "HEALTH_CONNECT", "hc-samp-1", "hc-samp-1", null, 1, 31_000L),
+        )
+        db.query("SELECT COUNT(*) FROM glucose_samples").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(2, c.getInt(0))
+        }
+
+        insertSampleV15(
+            db,
+            timestamp = 40_000L,
+            glucoseMgdl = 110.0,
+            source = "NIGHTSCOUT",
+            externalId = "x",
+            hcRecordId = null,
+        )
+        insertSampleV15(
+            db,
+            timestamp = 50_000L,
+            glucoseMgdl = 111.0,
+            source = "XDRIP_BROADCAST",
+            externalId = "x",
+            hcRecordId = null,
+        )
+        db.query("SELECT COUNT(*) FROM glucose_samples").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(4, c.getInt(0))
+        }
+
+        db.query(
+            "SELECT source, external_id FROM glucose_samples WHERE external_id = 'x' ORDER BY source",
+        ).use { c ->
+            assertEquals(2, c.count)
+            assertTrue(c.moveToFirst())
+            assertEquals("NIGHTSCOUT", c.getString(0))
+            assertEquals("x", c.getString(1))
+            assertTrue(c.moveToNext())
+            assertEquals("XDRIP_BROADCAST", c.getString(0))
+            assertEquals("x", c.getString(1))
+        }
+    }
+
     private fun insertEntry(
         db: SupportSQLiteDatabase,
         timestamp: Long,
@@ -1419,6 +1523,33 @@ class MigrationTest {
                 "(timestamp, glucose_mgdl, hc_record_id, source_package, recording_method, imported_at) " +
                 "VALUES (?, ?, ?, ?, ?, ?)",
             arrayOf<Any?>(timestamp, glucoseMgdl, hcRecordId, sourcePackage, 1, timestamp + 1L),
+        )
+    }
+
+    private fun insertSampleV15(
+        db: SupportSQLiteDatabase,
+        timestamp: Long,
+        glucoseMgdl: Double,
+        source: String,
+        externalId: String,
+        hcRecordId: String? = null,
+        sourcePackage: String? = null,
+    ) {
+        db.execSQL(
+            "INSERT INTO glucose_samples " +
+                "(timestamp, glucose_mgdl, source, external_id, hc_record_id, " +
+                "source_package, recording_method, imported_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            arrayOf<Any?>(
+                timestamp,
+                glucoseMgdl,
+                source,
+                externalId,
+                hcRecordId,
+                sourcePackage,
+                1,
+                timestamp + 1L,
+            ),
         )
     }
 

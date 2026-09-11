@@ -46,10 +46,11 @@ import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
+import com.omb9.glucosehero.data.cgm.GlucoseFreshness
+import com.omb9.glucosehero.data.cgm.GlucoseFreshnessRepository
 import com.omb9.glucosehero.forecast.GlucoseForecastRepository
 import com.omb9.glucosehero.forecast.GlucoseForecastSnapshot
 import com.omb9.glucosehero.ui.glance.WidgetRefresher
-import com.omb9.glucosehero.util.BolusCalculator
 import com.omb9.glucosehero.util.CrisisDetector
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.IobCalculator
@@ -58,7 +59,6 @@ import com.omb9.glucosehero.work.HealthConnectSyncWorker
 import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.time.Instant
 import java.time.LocalDate
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -80,6 +80,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
@@ -149,7 +150,7 @@ sealed interface QuickLogState {
 class LogViewModel @Inject constructor(
     private val entryRepository: EntryRepository,
     private val entryDao: EntryDao,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     private val chatRepository: ChatRepository,
     private val heroAiPrefillCoordinator: HeroAiPrefillCoordinator,
     private val reminderScheduler: ReminderScheduler,
@@ -160,6 +161,8 @@ class LogViewModel @Inject constructor(
     private val offBarcodeLookup: OffBarcodeLookup,
     private val forecastRepository: GlucoseForecastRepository,
     private val hypoSosManager: HypoSosManager,
+    private val freshnessRepository: GlucoseFreshnessRepository,
+    private val clock: java.time.Clock = java.time.Clock.systemUTC(),
 ) : ViewModel() {
 
     private val foodDao = database.foodDao()
@@ -183,22 +186,27 @@ class LogViewModel @Inject constructor(
 
     /** Live insulin-on-board (units) for the home dashboard. */
     val activeInsulin: StateFlow<Double> = combine(
-        settingsRepository.bolusSettings,
+        settingsRepository.dosingProfile,
         entryRepository.observeEntries(System.currentTimeMillis() - ACTIVE_INSULIN_WINDOW_MILLIS),
         timeTick,
-    ) { bolus, entries, _ ->
+    ) { load, entries, _ ->
         val boluses = entries
             .filter { it.insulinBolusUnits != null }
             .map { IobCalculator.BolusEntry(it.timestamp, it.insulinBolusUnits!!) }
         IobCalculator.activeInsulinOnBoard(
             boluses = boluses,
-            diaHours = bolus.diaHours.toDouble(),
-            now = Instant.now(),
+            diaHours = load.diaHoursOrDefault.toDouble(),
+            now = clock.instant(),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
     val glucoseForecast: StateFlow<GlucoseForecastSnapshot?> =
         forecastRepository.observeForecast()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Newest `glucose_readings` age; independent of forecast sample count. */
+    val glucoseFreshness: StateFlow<GlucoseFreshness?> =
+        freshnessRepository.observe()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val pendingHypoSos: StateFlow<HypoSosPending?> = hypoSosManager.pending
@@ -275,30 +283,45 @@ class LogViewModel @Inject constructor(
     val foodLookupState: StateFlow<FoodLookupState> = _foodLookupState.asStateFlow()
 
     /**
-     * Recommended bolus for the in-progress draft, or null until the user has
-     * typed both a carb count and a glucose value. Recomputed reactively as
-     * either field, the dosing parameters, or the current IOB changes.
+     * Smart-bolus outcome for the in-progress draft. Glucose is required;
+     * missing carbs are treated as 0 g so a correction-only suggestion can
+     * still explain its terms. Incomplete until glucose is typed.
      */
-    val suggestedBolus: StateFlow<Double?> = combine(
+    val bolusRecommendation: StateFlow<com.omb9.glucosehero.util.BolusRecommendation> = combine(
         _draft,
-        settingsRepository.bolusSettings,
+        settingsRepository.dosingProfile,
         settings,
         activeInsulin,
-    ) { draft, bolus, userSettings, iob ->
-        val carbs = Formatters.parseDecimal(draft.carbsGrams)?.takeIf { it > 0 }
-            ?: return@combine null
+    ) { draft, load, userSettings, iob ->
         val glucoseDisplay = Formatters.parseDecimal(draft.glucose)?.takeIf { it > 0 }
-            ?: return@combine null
+            ?: return@combine com.omb9.glucosehero.util.BolusRecommendation.Incomplete
+        val carbs = Formatters.parseDecimal(draft.carbsGrams)?.takeIf { it >= 0.0 } ?: 0.0
         val glucoseMgdl = Formatters.displayToMgdl(glucoseDisplay, userSettings.unit)
-        BolusCalculator.recommend(
+        com.omb9.glucosehero.util.recommendBolus(
+            load = load,
+            now = clock.instant(),
+            zoneId = java.time.ZoneId.systemDefault(),
             currentGlucoseMgdl = glucoseMgdl,
-            targetGlucoseMgdl = bolus.targetGlucoseMgdl.toDouble(),
             carbsGrams = carbs,
-            carbRatio = bolus.cirRatio.toDouble(),
-            insulinSensitivityMgdl = bolus.isfMgdl.toDouble(),
             insulinOnBoard = iob,
         )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        com.omb9.glucosehero.util.BolusRecommendation.Incomplete,
+    )
+
+    val suggestedBolus: StateFlow<Double?> = bolusRecommendation.map { rec ->
+        (rec as? com.omb9.glucosehero.util.BolusRecommendation.Ready)?.units
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val bolusRecommendationIssues: StateFlow<List<com.omb9.glucosehero.domain.model.DosingProfileIssue>> =
+        settingsRepository.dosingProfile.map { load ->
+            when (load) {
+                is com.omb9.glucosehero.domain.model.DosingProfileLoad.Invalid -> load.issues
+                is com.omb9.glucosehero.domain.model.DosingProfileLoad.Valid -> emptyList()
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Pending Hero AI prefill waiting for the Log screen to consume it. */
     val pendingHeroAiPrefill: StateFlow<HeroAiPrefill?> = heroAiPrefillCoordinator.pendingPrefill

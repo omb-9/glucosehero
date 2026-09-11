@@ -13,7 +13,6 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.google.android.gms.wearable.DataMap
 import com.omb9.glucosehero.wear.protocol.WearSyncProtocol
 import com.omb9.glucosehero.wear.protocol.WearTrend
-import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -46,21 +45,6 @@ data class WearGlucoseSnapshot(
 
     val unitLabel: String
         get() = if (unit == WearSyncProtocol.UNIT_MMOL) "mmol/L" else "mg/dL"
-
-    val ageLabel: String
-        get() {
-            if (!hasReading || timestampMillis <= 0L) return "No reading yet"
-            val ageMs = (System.currentTimeMillis() - timestampMillis).coerceAtLeast(0L)
-            val minutes = TimeUnit.MILLISECONDS.toMinutes(ageMs)
-            return when {
-                minutes < 1L -> "Just now"
-                minutes < 60L -> "${minutes}m ago"
-                else -> {
-                    val hours = TimeUnit.MILLISECONDS.toHours(ageMs)
-                    if (hours < 24L) "${hours}h ago" else "${hours / 24L}d ago"
-                }
-            }
-        }
 }
 
 /**

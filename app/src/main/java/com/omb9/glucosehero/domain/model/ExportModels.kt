@@ -99,6 +99,7 @@ object ExportWhitelist {
         "cirRatio",
         "isfMgdl",
         "targetGlucoseMgdl",
+        "dosingProfile",
         "barcodeLookupEnabled",
         "healthConnectSyncEnabled",
         "glucoseImportEnabled",
@@ -107,6 +108,15 @@ object ExportWhitelist {
         "sleepImportEnabled",
         "cycleImportEnabled",
         "healthConnectInitialImportRange",
+    )
+
+    val dosingProfileKeys: Set<String> = setOf(
+        "diaHours",
+        "segments",
+        "start",
+        "isfMgdl",
+        "cirRatio",
+        "targetGlucoseMgdl",
     )
 
     val profileKeys: Set<String> = setOf(
@@ -208,7 +218,10 @@ object ExportWhitelist {
         "id",
         "timestamp",
         "glucoseMgdl",
+        "source",
+        "externalId",
         "hcRecordId",
+        "trendArrow",
         "sourcePackage",
         "recordingMethod",
         "importedAt",
@@ -305,6 +318,13 @@ object ExportWhitelist {
         "webdav_username",
         "cloudBackupRemoteId",
         "cloud_backup_remote_id",
+        "nightscoutCredential",
+        "nightscoutCredentialEnc",
+        "cgm_nightscout_credential_enc",
+        "nightscoutApiSecret",
+        "nightscoutToken",
+        "apiSecret",
+        "api_secret",
     )
 
     fun isForbiddenKey(key: String): Boolean =
@@ -312,6 +332,7 @@ object ExportWhitelist {
 
     fun allowedKeysForEnvelopeField(name: String): Set<String>? = when (name) {
         "settings" -> settingsKeys
+        "dosingProfile" -> dosingProfileKeys
         "profile" -> profileKeys
         "counts" -> countsKeys
         "entries" -> entryKeys

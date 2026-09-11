@@ -13,10 +13,15 @@
     <string name="glucose_widget_description">Shows your most recent glucose reading</string>
     <string name="glucose_widget_label_glucose">GLUCOSE</string>
     <string name="glucose_widget_empty">No glucose logged yet</string>
+    <string name="glucose_widget_reading_a11y">%1$s %2$s, %3$s</string>
 
     <string name="forecast_card_title">30-60 min forecast</string>
     <string name="forecast_30_min_label">In 30 min</string>
     <string name="forecast_60_min_label">In 60 min</string>
+    <string name="forecast_values_a11y">%1$s %2$s. %3$s %4$s</string>
+    <string name="forecast_values_a11y_with_freshness">%1$s. %2$s %3$s. %4$s %5$s</string>
+    <string name="stats_glucose_trend_title">Glucose trend (%1$s)</string>
+    <string name="stats_glucose_trend_a11y">%1$s. %2$s</string>
     <string name="forecast_insufficient_data">Need a few recent glucose readings to project ahead.</string>
     <string name="forecast_iob_cob">IOB %1$s U · COB %2$d g</string>
     <string name="forecast_disclaimer">On-device estimate from trend, insulin, and carbs. Not a medical device.</string>
@@ -150,4 +155,188 @@
     <string name="ai_endpoint_ack_cancel">Not now</string>
     <string name="food_lookup_error_generic">Couldn\'t look up that barcode.</string>
     <string name="food_lookup_error_network">Couldn\'t reach Open Food Facts.</string>
+
+    <string name="freshness_stale_minutes">Latest reading %1$d min ago</string>
+    <string name="freshness_stale_hours">Latest reading %1$d h ago</string>
+    <string name="freshness_stale_days">Latest reading %1$d d ago</string>
+    <string name="freshness_no_data">No glucose readings yet</string>
+    <string name="freshness_compact_fresh">Just now</string>
+    <string name="freshness_compact_stale_minutes">%1$d min ago</string>
+    <string name="freshness_compact_stale_hours">%1$d h ago</string>
+    <string name="freshness_compact_stale_days">%1$d d ago</string>
+    <string name="freshness_compact_no_data">No reading yet</string>
+
+    <string name="nightscout_title">Nightscout</string>
+    <string name="nightscout_back">Back</string>
+    <string name="nightscout_enable">Pull from Nightscout</string>
+    <string name="nightscout_enable_description">Off by default. GlucoseHero will request SGV entries from your Nightscout site. Nothing is uploaded except the access token or hashed API secret and a time cursor.</string>
+    <string name="nightscout_v1_only">This app speaks Nightscout API v1 only (`/api/v1/entries/sgv.json`). A v3-only instance will not sync.</string>
+    <string name="nightscout_url_label">Nightscout URL</string>
+    <string name="nightscout_url_placeholder">https://your-site.example.com</string>
+    <string name="nightscout_url_invalid">Enter a full Nightscout URL, including https://</string>
+    <string name="nightscout_cleartext_refused">Nightscout must be reached over HTTPS unless it is on your local network.</string>
+    <string name="nightscout_host_untrusted">%1$s is not a trusted Nightscout host. Confirm this address below before GlucoseHero sends your token.</string>
+    <string name="nightscout_host_ack_title">Trust this Nightscout site?</string>
+    <string name="nightscout_host_ack_body">GlucoseHero will send your Nightscout access token or hashed API secret to:\n\n%1$s\n\nOnly continue if you set this address yourself.</string>
+    <string name="nightscout_host_ack_confirm">Trust this site</string>
+    <string name="nightscout_host_ack_cancel">Not now</string>
+    <string name="nightscout_auth_label">Authentication</string>
+    <string name="nightscout_auth_token">Access token</string>
+    <string name="nightscout_auth_api_secret">API secret</string>
+    <string name="nightscout_auth_help">Prefer an access token (`?token=`). The legacy API secret is hashed with SHA-1 and sent as the api-secret header.</string>
+    <string name="nightscout_token_label">Access token</string>
+    <string name="nightscout_api_secret_label">API secret</string>
+    <string name="nightscout_credential_placeholder">Stored encrypted on this device</string>
+    <string name="nightscout_credential_stored">Leave blank to keep the stored value</string>
+    <string name="nightscout_credential_save">Save credential</string>
+    <string name="nightscout_credential_clear">Clear stored credential</string>
+    <string name="nightscout_backfill_label">Initial backfill</string>
+    <string name="nightscout_backfill_help">First pull looks back this far, hard-capped at %1$d h so years of history are never downloaded.</string>
+    <string name="nightscout_backfill_hours">%1$d h</string>
+    <string name="nightscout_fgs_enable">Keep polling every 5 minutes in the background</string>
+    <string name="nightscout_fgs_description">Off by default. WorkManager only runs every 15 minutes. This optional foreground service shows a persistent notification and uses extra battery so readings can be pulled every 5 minutes while the app is in the background.</string>
+    <string name="nightscout_last_sync">Last successful sync: %1$s</string>
+    <string name="nightscout_last_sync_never">Never</string>
+    <string name="nightscout_test_connection">Test connection</string>
+    <string name="nightscout_test_running">Contacting Nightscout…</string>
+    <string name="nightscout_test_success">Reached Nightscout. Parsed %1$d SGV rows.</string>
+    <string name="nightscout_error_host">This Nightscout host has not been acknowledged yet.</string>
+    <string name="nightscout_error_auth">Nightscout rejected the access token or API secret.</string>
+    <string name="nightscout_error_v1_only">This Nightscout instance does not serve API v1 entries. GlucoseHero does not support API v3 yet.</string>
+    <string name="nightscout_error_network">Could not reach Nightscout. Check the URL and your connection.</string>
+    <string name="nightscout_error_http">Nightscout returned an unexpected error.</string>
+    <string name="nightscout_error_credential">Save an access token or API secret first.</string>
+    <string name="nightscout_error_url">Enter a Nightscout URL first.</string>
+    <string name="nightscout_error_parse">Nightscout returned a response that could not be read.</string>
+    <string name="nightscout_error_generic">Nightscout sync failed.</string>
+    <string name="nightscout_notif_channel_name">Nightscout sync</string>
+    <string name="nightscout_notif_channel_description">Persistent notification while optional 5-minute Nightscout polling is on</string>
+    <string name="nightscout_notif_ongoing_title">Nightscout sync is running</string>
+    <string name="nightscout_notif_ongoing_body">GlucoseHero is polling Nightscout every 5 minutes. This uses extra battery. Turn it off in Settings → Data Sources.</string>
+
+    <!-- FEATURE: cgm-direct-ingest -->
+    <string name="xdrip_settings_title">xDrip+</string>
+    <string name="xdrip_back_cd">Back</string>
+    <string name="xdrip_enable_label">Accept local xDrip+ broadcasts</string>
+    <string name="xdrip_enable_description">Off by default. GlucoseHero listens on this phone only. No account and no network. Readings stay on the device.</string>
+    <string name="xdrip_setup_body">In xDrip+, open Inter-app settings, turn on Broadcast locally to other apps, and set Identify receiver to %1$s (space-separate additional packages if you also send to AndroidAPS).</string>
+    <string name="xdrip_identify_receiver_label">Identify receiver (xDrip+)</string>
+    <string name="xdrip_identify_receiver_package" translatable="false">com.omb9.glucosehero</string>
+    <string name="xdrip_setup_identify_why">Fill in Identify receiver so xDrip+ can wake GlucoseHero when it is not running. If you leave it blank, implicit broadcasts only arrive while GlucoseHero is already running. After a reboot GlucoseHero starts with the phone when this toggle is on, then implicit listening resumes.</string>
+    <string name="xdrip_setup_aaps">AndroidAPS can send the same local stream when its xDrip plugin is on. GlucoseHero then receives Nightscout-style SGV broadcasts from AAPS without Nightscout.</string>
+    <string name="xdrip_api_pre34_sender_warning">This Android version does not tell GlucoseHero which app sent a glucose broadcast. While xDrip+ or AndroidAPS is installed, any app on this phone could inject a reading that feeds the hypo alarm. Keep this toggle off unless you trust the apps installed here.</string>
+    <string name="xdrip_last_received_never">No broadcast received yet</string>
+    <string name="xdrip_permission_label">Send local CGM broadcasts to GlucoseHero</string>
+    <string name="xdrip_permission_description">Allows an app to send glucose readings to GlucoseHero. xDrip+ and AndroidAPS do not use this permission; they are identified by package name instead.</string>
+    <plurals name="xdrip_last_received_seconds">
+        <item quantity="one">Last broadcast received %d second ago</item>
+        <item quantity="other">Last broadcast received %d seconds ago</item>
+    </plurals>
+
+    <!-- FEATURE: cgm-direct-ingest -->
+    <string name="data_sources_title">Data Sources</string>
+    <string name="data_sources_back">Back</string>
+    <string name="data_sources_intro">Enable a CGM path here. Every ingest source starts off. Health Connect glucose import keeps the setting you already chose.</string>
+    <string name="data_sources_freshness_note">Reading freshness is the newest glucose row, not the last successful poll.</string>
+    <string name="data_sources_freshness_fresh">Latest reading is current.</string>
+    <string name="data_sources_priority_title">Source priority</string>
+    <string name="data_sources_priority_body">When two sources report the same reading within about 2.5 minutes, GlucoseHero keeps the higher-ranked one: xDrip+ first, then Nightscout, then LibreLinkUp (reserved, not available in this build), then Health Connect, then a file import.</string>
+    <string name="data_sources_last_sync">Last successful sync: %1$s</string>
+    <string name="data_sources_last_sync_never">Never</string>
+    <plurals name="data_sources_samples_24h">
+        <item quantity="one">%d sample in the last 24 hours</item>
+        <item quantity="other">%d samples in the last 24 hours</item>
+    </plurals>
+    <string name="data_sources_test_running">Checking…</string>
+    <string name="data_sources_open_xdrip">Set up xDrip+</string>
+    <string name="data_sources_open_nightscout">Set up Nightscout</string>
+    <string name="data_sources_open_hc">Open Health Connect settings</string>
+    <string name="data_sources_xdrip_test">Check last broadcast</string>
+    <string name="data_sources_xdrip_test_disabled">Turn on xDrip+ broadcasts first.</string>
+    <string name="data_sources_xdrip_test_no_app">xDrip+ or AndroidAPS is not installed on this phone.</string>
+    <string name="data_sources_xdrip_test_waiting">Waiting for a local broadcast from xDrip+ or AndroidAPS.</string>
+    <string name="data_sources_xdrip_test_received">A local broadcast was received.</string>
+    <string name="data_sources_xdrip_error_generic">The last xDrip+ broadcast could not be stored.</string>
+    <string name="data_sources_hc_title">Health Connect</string>
+    <string name="data_sources_hc_pointer">Nutrition, exercise, sleep, and cycle import stay in Health Connect settings. Glucose import is the CGM path.</string>
+    <string name="data_sources_hc_enable">Import glucose from Health Connect</string>
+    <string name="data_sources_hc_test">Check Health Connect</string>
+    <string name="data_sources_hc_test_ok">Health Connect is connected. A sync was requested.</string>
+    <string name="data_sources_hc_unavailable">Health Connect is not available on this device.</string>
+    <string name="data_sources_hc_update">Health Connect needs to be updated.</string>
+    <string name="data_sources_hc_not_connected">Health Connect is not connected yet.</string>
+    <string name="data_sources_hc_revoked">Health Connect permissions were revoked in system settings.</string>
+    <string name="data_sources_hc_error_generic">Health Connect sync failed.</string>
+    <string name="data_sources_libre_title">LibreLinkUp</string>
+    <string name="data_sources_libre_unavailable">Not available. GlucoseHero does not collect Abbott credentials or talk to LibreLinkUp.</string>
+
+    <string name="forecast_dosing_profile_invalid">Cannot project insulin or carb effects until the time-of-day dosing profile is valid. Open Glucose and Targets to fix it.</string>
+    <string name="clinical_test_segments_attributed">Hint attributed to the %1$s segment.</string>
+    <string name="clinical_test_segments_inconclusive">This window covered segments %1$s, so the hint cannot be attributed to a single ISF or CIR. Glucose deltas still apply.</string>
+
+    <string name="dosing_profile_title">Time-of-day ISF, CIR, and target</string>
+    <string name="dosing_profile_intro">Insulin sensitivity and carb ratio can change across the day. Segments tile midnight to midnight. DIA stays one value for the whole day.</string>
+    <string name="dosing_profile_explainer_title">ISF, CIR, and target by time of day</string>
+    <string name="dosing_profile_explainer_body">ISF is how much one unit of insulin lowers glucose (mg/dL per unit). CIR is how many grams of carbohydrate one unit covers. Target is the glucose the correction aims for. Use values from your care team. Dawn phenomenon often needs a different ISF in the early morning than overnight.</string>
+    <string name="dosing_profile_explainer_confirm">Got it</string>
+    <string name="dosing_profile_dia_section">Duration of insulin action</string>
+    <string name="dosing_profile_dia_caption">DIA is global. It does not change at segment boundaries, so insulin-on-board decay stays one continuous curve.</string>
+    <string name="dosing_profile_add_segment">Add segment</string>
+    <string name="dosing_profile_delete_segment">Delete segment</string>
+    <string name="dosing_profile_start_time">Start</string>
+    <string name="dosing_profile_isf">ISF</string>
+    <string name="dosing_profile_cir">CIR</string>
+    <string name="dosing_profile_target">Target</string>
+    <string name="dosing_profile_isf_unit">mg/dL per U</string>
+    <string name="dosing_profile_cir_unit">g/U</string>
+    <string name="dosing_profile_midnight_locked">The midnight segment cannot be deleted.</string>
+    <string name="dosing_profile_chart_title">ISF and CIR across 24 hours</string>
+    <string name="dosing_profile_chart_isf">ISF</string>
+    <string name="dosing_profile_chart_cir">CIR</string>
+    <string name="dosing_profile_save_blocked">Fix the errors below before this profile can be used for a dose.</string>
+    <string name="dosing_profile_invalid_banner">This stored profile is not valid. Recommendations are blocked until you save a valid schedule.</string>
+    <string name="dosing_issue_empty">Add at least one segment starting at midnight.</string>
+    <string name="dosing_issue_not_midnight">The first segment must start at 00:00.</string>
+    <string name="dosing_issue_not_increasing">Segment start times must increase with no overlaps or gaps.</string>
+    <string name="dosing_issue_duplicate">Two segments share the same start time.</string>
+    <string name="dosing_issue_isf">ISF must be between %1$s and %2$s mg/dL per unit.</string>
+    <string name="dosing_issue_cir">CIR must be between %1$s and %2$s g/U.</string>
+    <string name="dosing_issue_target">Target glucose must be between %1$s and %2$s mg/dL.</string>
+    <string name="dosing_issue_dia">DIA must be between %1$s and %2$s hours.</string>
+    <string name="dosing_issue_unparseable">The stored profile could not be read. Save a valid schedule to replace it.</string>
+    <string name="bolus_recommendation_refused">Cannot recommend a bolus until the dosing profile is valid.</string>
+    <string name="suggested_bolus">Suggested bolus: %1$s u</string>
+    <string name="use_suggestion">Use suggestion</string>
+    <string name="why_this_number">Why this number</string>
+    <string name="why_this_number_show">Show why this number</string>
+    <string name="why_this_number_hide">Hide why this number</string>
+    <string name="bolus_open_dosing_profile">Open Glucose and Targets</string>
+    <string name="bolus_why_meal">%1$s g ÷ CIR %2$s = %3$s U</string>
+    <string name="bolus_why_correction_add">(%1$s − %2$s) ÷ ISF %3$s = %4$s U</string>
+    <string name="bolus_why_correction_subtract">minus (%1$s − %2$s) ÷ ISF %3$s = %4$s U</string>
+    <string name="bolus_why_iob">minus insulin on board %1$s U</string>
+    <string name="bolus_why_total">= %1$s U</string>
+    <string name="bolus_why_zero_floor">= %1$s U, rounded up to 0 U</string>
+    <string name="bolus_why_rounding">= %1$s U, shown as %2$s U</string>
+    <string name="bolus_why_segment">ISF %1$s, your %2$s-%3$s block</string>
+    <string name="bolus_why_a11y_meal">%1$s grams divided by carb ratio %2$s equals %3$s units.</string>
+    <string name="bolus_why_a11y_correction_add">Correction: %1$s minus %2$s, divided by ISF %3$s, equals %4$s units.</string>
+    <string name="bolus_why_a11y_correction_subtract">Minus correction: %1$s minus %2$s, divided by ISF %3$s, equals %4$s units.</string>
+    <string name="bolus_why_a11y_iob">Minus insulin on board %1$s units.</string>
+    <string name="bolus_why_a11y_total">Suggested bolus %1$s units.</string>
+    <string name="bolus_why_a11y_zero_floor">The sum was %1$s units, rounded up to 0 units.</string>
+    <string name="bolus_why_a11y_rounding">The terms add to %1$s units, shown as %2$s units.</string>
+    <string name="bolus_why_a11y_segment">This used your %1$s to %2$s block with ISF %3$s.</string>
+    <string name="forecast_why_start">Starts from %1$s at %2$s.</string>
+    <string name="forecast_why_trend">Recent readings suggest about %1$s over 60 minutes.</string>
+    <string name="forecast_why_insulin">Insulin still working: %1$s U, about %2$s.</string>
+    <string name="forecast_why_carbs">Carbs still absorbing: %1$s g, about %2$s.</string>
+    <string name="forecast_why_clamp_60">The 60-minute value was limited to %1$s.</string>
+    <string name="forecast_why_clamp_30">The 30-minute value was limited to %1$s.</string>
+    <string name="forecast_why_segment_single">Used ISF %1$s, your %2$s-%3$s block.</string>
+    <string name="forecast_why_segments">This hour covers more than one dosing block: %1$s. There is not a single ISF for the whole forecast.</string>
+    <string name="forecast_why_segment_item">%1$s ISF %2$s CIR %3$s</string>
+    <string name="dosing_profile_pick_time">Segment start time</string>
+    <string name="dosing_profile_confirm_time">Set time</string>
+    <string name="dosing_profile_cancel">Cancel</string>
 </resources>

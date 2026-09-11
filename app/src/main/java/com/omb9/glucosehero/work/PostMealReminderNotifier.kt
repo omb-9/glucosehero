@@ -13,9 +13,11 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.omb9.glucosehero.MainActivity
 import com.omb9.glucosehero.R
+import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.first
 
 /**
  * Posts the optional "+2 hour post-meal glucose check" reminder. The channel
@@ -26,6 +28,7 @@ import javax.inject.Singleton
 @Singleton
 class PostMealReminderNotifier @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val settingsDataStore: SettingsDataStore,
 ) {
 
     fun createChannel() {
@@ -42,7 +45,8 @@ class PostMealReminderNotifier @Inject constructor(
             .createNotificationChannel(channel)
     }
 
-    fun notifyPostMealCheck(mealName: String?) {
+    suspend fun notifyPostMealCheck(mealName: String?) {
+        if (!settingsDataStore.notificationsEnabled.first()) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ActivityCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS,

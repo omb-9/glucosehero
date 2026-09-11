@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -101,6 +102,33 @@ internal fun HealthConnectToggleRow(
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge)
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+internal fun SettingsToggleRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    description: String? = null,
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Switch(checked = checked, onCheckedChange = onCheckedChange)
+        }
+        if (description != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

@@ -71,6 +71,7 @@ import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.ui.components.CrisisSupportCard
 import com.omb9.glucosehero.ui.components.MoodJournalSection
+import com.omb9.glucosehero.ui.components.SuggestedBolusSection
 import com.omb9.glucosehero.util.Formatters
 import java.time.Instant
 import java.time.ZoneId
@@ -87,6 +88,7 @@ private val editableCategoryTypes = listOf(
 @Composable
 fun EntryDetailScreen(
     onDone: () -> Unit,
+    onOpenDosingProfile: () -> Unit = {},
     viewModel: EntryDetailViewModel = hiltViewModel(),
 ) {
     val entry by viewModel.entry.collectAsStateWithLifecycle()
@@ -95,7 +97,8 @@ fun EntryDetailScreen(
     val canSave by viewModel.canSave.collectAsStateWithLifecycle()
     val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
     val showCrisisSupport by viewModel.showCrisisSupport.collectAsStateWithLifecycle()
-    val suggestedBolus by viewModel.suggestedBolus.collectAsStateWithLifecycle()
+    val bolusRecommendation by viewModel.bolusRecommendation.collectAsStateWithLifecycle()
+    val bolusRecommendationIssues by viewModel.bolusRecommendationIssues.collectAsStateWithLifecycle()
     val isHealthConnect = entry?.source == EntrySource.HEALTH_CONNECT
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {
@@ -340,12 +343,14 @@ fun EntryDetailScreen(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     )
-                    suggestedBolus?.let { smartBolus ->
-                        SuggestedBolusRow(
-                            suggestedBolus = smartBolus,
-                            onUseSuggestion = viewModel::useSuggestedBolus,
-                        )
-                    }
+                    SuggestedBolusSection(
+                        recommendation = bolusRecommendation,
+                        issues = bolusRecommendationIssues,
+                        unit = settings.unit,
+                        use24HourTime = settings.use24HourTime,
+                        onUseSuggestion = viewModel::useSuggestedBolus,
+                        onOpenDosingProfile = onOpenDosingProfile,
+                    )
                     Spacer(Modifier.height(12.dp))
                 }
 
@@ -672,27 +677,3 @@ private fun EntryType.detailTitle(): String = when (this) {
     EntryType.ACTIVITY -> "Exercise"
     EntryType.NOTE -> "Note"
 }
-
-@Composable
-private fun SuggestedBolusRow(
-    suggestedBolus: Double,
-    onUseSuggestion: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "Suggested bolus: ${formatInsulinUnits(suggestedBolus)} u",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
-        TextButton(onClick = onUseSuggestion) {
-            Text("Use suggestion")
-        }
-    }
-}
-
-private fun formatInsulinUnits(value: Double): String =
-    if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)

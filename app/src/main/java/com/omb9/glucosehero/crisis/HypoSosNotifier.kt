@@ -1,6 +1,7 @@
 package com.omb9.glucosehero.crisis
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -77,6 +78,7 @@ class HypoSosNotifier @Inject constructor(
             .build()
     }
 
+    @SuppressLint("MissingPermission")
     fun notifyPrompt(pending: HypoSosPending) {
         if (!canNotify()) return
         NotificationManagerCompat.from(context).notify(PROMPT_ID, promptNotification(pending))
@@ -86,6 +88,7 @@ class HypoSosNotifier @Inject constructor(
         NotificationManagerCompat.from(context).cancel(PROMPT_ID)
     }
 
+    @SuppressLint("MissingPermission")
     fun notifyDispatchResult(sent: Boolean, contactCount: Int) {
         if (!canNotify()) return
         val body = if (sent) {

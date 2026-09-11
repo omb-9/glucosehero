@@ -4,6 +4,8 @@ import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
 import com.omb9.glucosehero.domain.model.BolusSettings
+import com.omb9.glucosehero.domain.model.DosingProfile
+import com.omb9.glucosehero.domain.model.DosingProfileLoad
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ResolvedAiConfig
@@ -17,14 +19,23 @@ interface SettingsRepository {
     val aiConfig: Flow<AiConfig>
     val profile: Flow<UserProfile>
     val bolusSettings: Flow<BolusSettings>
+    val dosingProfile: Flow<DosingProfileLoad>
 
     suspend fun profileSnapshot(): UserProfile
 
     /** Reads the latest config from DataStore without decrypting the API key. */
     suspend fun aiConfigSnapshot(): AiConfig
 
-    /** Insulin-dosing parameters (DIA, CIR, ISF, target glucose). */
+    /** Insulin-dosing parameters (DIA, CIR, ISF, target glucose). Convenience only. */
     suspend fun bolusSettingsSnapshot(): BolusSettings
+
+    /**
+     * Stored time-of-day profile. Dosing paths must resolve from this and
+     * refuse when [DosingProfileLoad.Invalid].
+     *
+     * FEATURE: dosing-profiles
+     */
+    suspend fun dosingProfileSnapshot(): DosingProfileLoad
 
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setAccent(accent: AccentColor)
@@ -33,6 +44,7 @@ interface SettingsRepository {
     suspend fun setIsHeroAiEnabled(enabled: Boolean)
     suspend fun setShowAdvancedMacros(enabled: Boolean)
     suspend fun setPostMealRemindersEnabled(enabled: Boolean)
+    suspend fun setNotificationsEnabled(enabled: Boolean)
     suspend fun setSendMealPhotosToHeroAi(enabled: Boolean)
 
     suspend fun setProfileTarget(target: ProfileTarget)
@@ -48,6 +60,7 @@ interface SettingsRepository {
     suspend fun setCirRatio(ratio: Float)
     suspend fun setIsfMgdl(isf: Float)
     suspend fun setTargetGlucoseMgdl(target: Float)
+    suspend fun setDosingProfile(profile: DosingProfile)
 
     suspend fun setAiProvider(provider: AiProvider)
     suspend fun setAiBaseUrl(url: String)

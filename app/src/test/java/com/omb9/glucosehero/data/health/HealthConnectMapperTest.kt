@@ -24,6 +24,7 @@ import com.omb9.glucosehero.data.health.HealthConnectMapper.toRecords
 import com.omb9.glucosehero.data.health.HealthConnectMapper.toRelationToMeal
 import com.omb9.glucosehero.data.health.HealthConnectMapper.toSample
 import com.omb9.glucosehero.data.local.entity.EntryEntity
+import com.omb9.glucosehero.data.local.entity.GlucoseSampleSource
 import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.Macros
 import com.omb9.glucosehero.domain.model.MealContext
@@ -83,6 +84,8 @@ class HealthConnectMapperTest {
 
         assertEquals("com.dexcom.g7", sample.sourcePackage)
         assertEquals("test-id", sample.hcRecordId)
+        assertEquals(GlucoseSampleSource.HEALTH_CONNECT, sample.source)
+        assertEquals("test-id", sample.externalId)
     }
 
     // ---------- Nutrition -> shared entry ----------

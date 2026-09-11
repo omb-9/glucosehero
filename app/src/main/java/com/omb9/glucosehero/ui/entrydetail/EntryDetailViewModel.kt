@@ -15,13 +15,11 @@ import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.glance.WidgetRefresher
 import com.omb9.glucosehero.ui.log.DraftEventState
 import com.omb9.glucosehero.ui.log.toLogEvent
-import com.omb9.glucosehero.util.BolusCalculator
 import com.omb9.glucosehero.util.CrisisDetector
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.IobCalculator
 import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.time.Instant
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableSet
@@ -39,6 +37,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -79,9 +78,10 @@ data class EntryDetailFormState(
 class EntryDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val entryRepository: EntryRepository,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     private val reminderScheduler: ReminderScheduler,
     private val widgetRefresher: WidgetRefresher,
+    private val clock: java.time.Clock = java.time.Clock.systemUTC(),
 ) : ViewModel() {
 
     private val entryId: Long = checkNotNull(savedStateHandle["entryId"])
@@ -102,17 +102,17 @@ class EntryDetailViewModel @Inject constructor(
 
     /** Live insulin-on-board backing the smart-bolus suggestion. */
     val activeInsulin: StateFlow<Double> = combine(
-        settingsRepository.bolusSettings,
+        settingsRepository.dosingProfile,
         entryRepository.observeEntries(System.currentTimeMillis() - ACTIVE_INSULIN_WINDOW_MILLIS),
         timeTick,
-    ) { bolus, entries, _ ->
+    ) { load, entries, _ ->
         val boluses = entries
             .filter { it.insulinBolusUnits != null }
             .map { IobCalculator.BolusEntry(it.timestamp, it.insulinBolusUnits!!) }
         IobCalculator.activeInsulinOnBoard(
             boluses = boluses,
-            diaHours = bolus.diaHours.toDouble(),
-            now = Instant.now(),
+            diaHours = load.diaHoursOrDefault.toDouble(),
+            now = clock.instant(),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
@@ -122,27 +122,42 @@ class EntryDetailViewModel @Inject constructor(
     /** Snapshot of the freshly seeded form, used as the "loaded entry" baseline for dirty tracking. */
     private var seededForm: EntryDetailFormState = EntryDetailFormState()
 
-    /** Smart-bolus recommendation for the current edit, or null until valid. */
-    val suggestedBolus: StateFlow<Double?> = combine(
+    /** Smart-bolus outcome for the current edit. Glucose required; carbs default to 0. */
+    val bolusRecommendation: StateFlow<com.omb9.glucosehero.util.BolusRecommendation> = combine(
         _form,
-        settingsRepository.bolusSettings,
+        settingsRepository.dosingProfile,
         settings,
         activeInsulin,
-    ) { form, bolus, userSettings, iob ->
-        val carbs = Formatters.parseDecimal(form.carbs)?.takeIf { it > 0 }
-            ?: return@combine null
+    ) { form, load, userSettings, iob ->
         val glucoseDisplay = Formatters.parseDecimal(form.glucose)?.takeIf { it > 0 }
-            ?: return@combine null
+            ?: return@combine com.omb9.glucosehero.util.BolusRecommendation.Incomplete
+        val carbs = Formatters.parseDecimal(form.carbs)?.takeIf { it >= 0.0 } ?: 0.0
         val glucoseMgdl = Formatters.displayToMgdl(glucoseDisplay, userSettings.unit)
-        BolusCalculator.recommend(
+        com.omb9.glucosehero.util.recommendBolus(
+            load = load,
+            now = clock.instant(),
+            zoneId = java.time.ZoneId.systemDefault(),
             currentGlucoseMgdl = glucoseMgdl,
-            targetGlucoseMgdl = bolus.targetGlucoseMgdl.toDouble(),
             carbsGrams = carbs,
-            carbRatio = bolus.cirRatio.toDouble(),
-            insulinSensitivityMgdl = bolus.isfMgdl.toDouble(),
             insulinOnBoard = iob,
         )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        com.omb9.glucosehero.util.BolusRecommendation.Incomplete,
+    )
+
+    val suggestedBolus: StateFlow<Double?> = bolusRecommendation.map { rec ->
+        (rec as? com.omb9.glucosehero.util.BolusRecommendation.Ready)?.units
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val bolusRecommendationIssues: StateFlow<List<com.omb9.glucosehero.domain.model.DosingProfileIssue>> =
+        settingsRepository.dosingProfile.map { load ->
+            when (load) {
+                is com.omb9.glucosehero.domain.model.DosingProfileLoad.Invalid -> load.issues
+                is com.omb9.glucosehero.domain.model.DosingProfileLoad.Valid -> emptyList()
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val canSave: StateFlow<Boolean> = combine(_form, entry, settings) { form, current, settings ->
         current != null &&

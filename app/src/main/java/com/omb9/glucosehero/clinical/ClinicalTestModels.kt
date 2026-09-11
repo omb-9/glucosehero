@@ -53,6 +53,8 @@ data class ClinicalTestResult(
     val readingCount: Int,
     val hint: ClinicalCalibrationHint,
     val summary: String,
+    val coveredSegmentStarts: List<String> = emptyList(),
+    val attributionInconclusive: Boolean = false,
 )
 
 data class GlucoseObservation(

@@ -26,7 +26,10 @@ import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
 import com.omb9.glucosehero.data.local.entity.SupplyEntity
 import com.omb9.glucosehero.domain.model.ChatRole
+import com.omb9.glucosehero.domain.model.DosingProfileLoad
+import com.omb9.glucosehero.domain.model.DosingProfileValidation
 import com.omb9.glucosehero.domain.model.ExportWhitelist
+import com.omb9.glucosehero.domain.model.toRecord
 import com.omb9.glucosehero.util.AppJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -341,17 +344,32 @@ class BackupManager @Inject constructor(
     private suspend fun snapshotSettings(): BackupSettings {
         val settings = settingsDataStore.settings.first()
         val aiConfig = settingsDataStore.aiConfig.first()
-        val bolus = settingsDataStore.bolusSettings.first()
+        val profileLoad = settingsDataStore.dosingProfileSnapshot()
+        val dosingRecord = when (profileLoad) {
+            is DosingProfileLoad.Valid ->
+                profileLoad.profile.toRecord()
+            is DosingProfileLoad.Invalid ->
+                profileLoad.editorDraft?.toRecord()
+        }
+        val midnight = when (profileLoad) {
+            is DosingProfileLoad.Valid ->
+                profileLoad.profile.midnightBolusSettings()
+            is DosingProfileLoad.Invalid ->
+                settingsDataStore.bolusSettings.first()
+        }
 
         // PERMANENT SECURITY BOUNDARY
         // The KeyStore-encrypted API key blob (DataStore key `ai_api_key_enc`)
-        // is wrapped by a hardware-backed, non-exportable Android Keystore key.
+        // and Nightscout credential blob (`cgm_nightscout_credential_enc`) are
+        // wrapped by a hardware-backed, non-exportable Android Keystore key.
         // That wrapping key does not travel with backups, so the ciphertext is
         // worthless on any other device (and after a factory reset on this one).
         // This is the same reasoning documented in backup_rules.xml. Do not add
-        // the blob to the backup JSON "for completeness."
+        // either blob to the backup JSON "for completeness."
         @Suppress("UNUSED_VARIABLE")
         val _encryptedApiKeyToDrop: String? = settingsDataStore.encryptedApiKey()
+        @Suppress("UNUSED_VARIABLE")
+        val _encryptedNightscoutToDrop: String? = settingsDataStore.encryptedNightscoutCredential()
 
         return BackupSettings(
             themeMode = settings.themeMode,
@@ -366,10 +384,11 @@ class BackupManager @Inject constructor(
             aiProvider = aiConfig.provider,
             aiBaseUrl = aiConfig.baseUrl,
             aiModel = aiConfig.model,
-            diaHours = bolus.diaHours,
-            cirRatio = bolus.cirRatio,
-            isfMgdl = bolus.isfMgdl,
-            targetGlucoseMgdl = bolus.targetGlucoseMgdl,
+            diaHours = midnight.diaHours,
+            cirRatio = midnight.cirRatio,
+            isfMgdl = midnight.isfMgdl,
+            targetGlucoseMgdl = midnight.targetGlucoseMgdl,
+            dosingProfile = dosingRecord,
             barcodeLookupEnabled = settingsDataStore.barcodeLookupEnabled.first(),
             healthConnectSyncEnabled = settingsDataStore.healthConnectSyncEnabled.first(),
             glucoseImportEnabled = settingsDataStore.glucoseImportEnabled.first(),
@@ -657,10 +676,17 @@ class BackupManager @Inject constructor(
         settingsDataStore.setAiProvider(settings.aiProvider)
         settingsDataStore.setAiBaseUrl(settings.aiBaseUrl)
         settingsDataStore.setAiModel(settings.aiModel)
-        settingsDataStore.setDiaHours(settings.diaHours)
-        settingsDataStore.setCirRatio(settings.cirRatio)
-        settingsDataStore.setIsfMgdl(settings.isfMgdl)
-        settingsDataStore.setTargetGlucoseMgdl(settings.targetGlucoseMgdl)
+        val restoredProfile = settings.restoredDosingProfile()
+        when (val validated = restoredProfile.validate()) {
+            is DosingProfileValidation.Valid ->
+                settingsDataStore.setDosingProfile(validated.profile)
+            is DosingProfileValidation.Invalid -> {
+                settingsDataStore.setDiaHours(settings.diaHours)
+                settingsDataStore.setCirRatio(settings.cirRatio)
+                settingsDataStore.setIsfMgdl(settings.isfMgdl)
+                settingsDataStore.setTargetGlucoseMgdl(settings.targetGlucoseMgdl)
+            }
+        }
         settingsDataStore.setBarcodeLookupEnabled(settings.barcodeLookupEnabled)
         settingsDataStore.setHealthConnectSyncEnabled(settings.healthConnectSyncEnabled)
         settingsDataStore.setGlucoseImportEnabled(settings.glucoseImportEnabled)

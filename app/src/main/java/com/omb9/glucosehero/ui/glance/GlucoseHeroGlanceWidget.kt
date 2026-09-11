@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
+import androidx.glance.LocalContext
 import androidx.glance.ImageProvider
 import androidx.glance.action.Action
 import androidx.glance.action.clickable
@@ -29,6 +30,8 @@ import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
+import androidx.glance.semantics.contentDescription
+import androidx.glance.semantics.semantics
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -36,10 +39,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.omb9.glucosehero.MainActivity
 import com.omb9.glucosehero.R
+import com.omb9.glucosehero.data.cgm.GlucoseFreshness
 import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.repository.SettingsRepository
+import com.omb9.glucosehero.ui.cgm.compactText
 import com.omb9.glucosehero.util.Formatters
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -84,6 +89,10 @@ private data class GlucoseWidgetSnapshot(
  * Glance / RemoteViews payload stays well under Binder's 1 MB limit. The
  * whole surface deep-links into the Add Entry sheet with the Glucose tab
  * selected, exactly like the post-meal reminder notification.
+ *
+ * Freshness is classified at draw time. [WidgetRefresher] must therefore
+ * run on elapsed time as well as on new rows; otherwise a stopped CGM
+ * stream leaves the last "Just now" caption on the home screen forever.
  *
  * @param omitTrendBitmap set by [WidgetRefresher] when a previous update hit
  *   [android.os.TransactionTooLargeException]; the retry is text-only.
@@ -133,8 +142,13 @@ private fun GlucoseHeroWidgetContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val readingDescription = widgetReadingContentDescription(LocalContext.current, snapshot)
             Column(
-                modifier = GlanceModifier.clickable(openGlucose),
+                modifier = GlanceModifier
+                    .clickable(openGlucose)
+                    .semantics {
+                        contentDescription = readingDescription
+                    },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
@@ -251,6 +265,24 @@ private fun GlucoseHeroWidgetContent(
     }
 }
 
+private fun widgetReadingContentDescription(
+    context: Context,
+    snapshot: GlucoseWidgetSnapshot,
+): String {
+    val value = snapshot.valueText
+    val age = snapshot.timeText
+    return if (value != null && age != null) {
+        context.getString(
+            R.string.glucose_widget_reading_a11y,
+            value,
+            snapshot.unitLabel,
+            age,
+        )
+    } else {
+        snapshot.emptyText
+    }
+}
+
 private suspend fun loadSnapshot(
     context: Context,
     omitTrendBitmap: Boolean,
@@ -264,16 +296,17 @@ private suspend fun loadSnapshot(
     val reading = entryPoint.entryRepository().latestGlucoseReading()
 
     val valueText = reading?.glucoseMgdl?.let { Formatters.glucose(it, settings.unit) }
-    val timeText = reading?.let {
-        val day = Formatters.dayHeader(Formatters.localDate(it.timestamp))
-        val time = Formatters.time(it.timestamp, settings.use24HourTime)
-        "$day · $time"
+    val now = System.currentTimeMillis()
+    val freshness = GlucoseFreshness.classify(reading?.timestamp, now)
+    val timeText = if (reading == null) {
+        null
+    } else {
+        freshness.compactText(appContext)
     }
 
     val trendPng = if (omitTrendBitmap) {
         null
     } else {
-        val now = System.currentTimeMillis()
         val raw = entryPoint.entryDao().glucoseReadingPointsSince(
             now - WidgetTrendBitmap.TREND_WINDOW_MS,
         )

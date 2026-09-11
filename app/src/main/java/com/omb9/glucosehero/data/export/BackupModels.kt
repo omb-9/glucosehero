@@ -5,6 +5,7 @@ import com.omb9.glucosehero.data.local.entity.ChatMessageEntity
 import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.FoodEntity
 import com.omb9.glucosehero.data.local.entity.GlucoseSampleEntity
+import com.omb9.glucosehero.data.local.entity.GlucoseSampleSource
 import com.omb9.glucosehero.data.local.entity.InsightCardEntity
 import com.omb9.glucosehero.data.local.entity.PendingAiQueryEntity
 import com.omb9.glucosehero.data.local.entity.SupplyEntity
@@ -20,6 +21,10 @@ import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.domain.model.ExportWhitelist
+import com.omb9.glucosehero.domain.model.DosingProfile
+import com.omb9.glucosehero.domain.model.DosingProfileRecord
+import com.omb9.glucosehero.domain.model.BolusSettings
+import com.omb9.glucosehero.domain.model.toProfile
 import com.omb9.glucosehero.util.AppJson
 import java.io.InputStream
 import java.io.OutputStream
@@ -60,8 +65,23 @@ const val BACKUP_FORMAT = "glucosehero.backup"
  * (readHeader treats them as the first array name), so the bump lets the
  * existing version-refusal logic reject a newer file with a clear message
  * instead of misparsing it.
+ *
+ * Version 3 adds source-generic identity on [BackupGlucoseSample]
+ * (`source`, `externalId`, nullable `hcRecordId`, `trendArrow`). A v2 reader
+ * rejects unknown keys, so the bump refuses a newer file instead of failing
+ * mid-decode. Older files still deserialize: missing `source` defaults to
+ * HEALTH_CONNECT and missing `externalId` is filled from `hcRecordId`.
+ *
+ * FEATURE: cgm-direct-ingest
+ *
+ * Version 4 adds optional [BackupSettings.dosingProfile] (time-of-day ISF,
+ * CIR, and target). A v3 reader rejects unknown keys, so the bump refuses a
+ * newer file. Older files still deserialize: missing `dosingProfile` is
+ * synthesized into a single 00:00 segment from the four flat keys.
+ *
+ * FEATURE: dosing-profiles
  */
-const val BACKUP_FORMAT_VERSION = 2
+const val BACKUP_FORMAT_VERSION = 4
 
 /**
  * Room schema version of the database this exporter understands. Keep in sync
@@ -69,7 +89,7 @@ const val BACKUP_FORMAT_VERSION = 2
  * Independent of [BACKUP_FORMAT_VERSION]: a Room bump that does not change
  * field meaning does not require a format bump.
  */
-const val DATABASE_VERSION = 13
+const val DATABASE_VERSION = 15 // FEATURE: cgm-direct-ingest
 
 /** Thrown for anything structurally wrong with a backup file. */
 class BackupFormatException(message: String) : Exception(message)
@@ -202,6 +222,16 @@ data class BackupSettings(
     val cirRatio: Float = 10.0f,
     val isfMgdl: Float = 50.0f,
     val targetGlucoseMgdl: Float = 100.0f,
+    /**
+     * Time-of-day ISF/CIR/target plus global DIA. Null on v3 files; restore
+     * synthesizes a single 00:00 segment from the four flat keys.
+     *
+     * Flat keys on write are the 00:00 segment values (not "now"), so a
+     * round-trip does not depend on export time of day.
+     *
+     * FEATURE: dosing-profiles
+     */
+    val dosingProfile: DosingProfileRecord? = null,
     val barcodeLookupEnabled: Boolean = true,
     val healthConnectSyncEnabled: Boolean = false,
     val glucoseImportEnabled: Boolean = true,
@@ -210,7 +240,26 @@ data class BackupSettings(
     val sleepImportEnabled: Boolean = false,
     val cycleImportEnabled: Boolean = false,
     val healthConnectInitialImportRange: InitialImportRange = InitialImportRange.DAYS_90,
-)
+) {
+    /**
+     * Profile to persist on restore. A v3 file (null [dosingProfile]) becomes
+     * a single 00:00 segment from the four flat keys.
+     *
+     * FEATURE: dosing-profiles
+     */
+    fun restoredDosingProfile(): DosingProfile {
+        val record = dosingProfile
+        if (record != null) return record.toProfile()
+        return DosingProfile.single(
+            BolusSettings(
+                diaHours = diaHours,
+                cirRatio = cirRatio,
+                isfMgdl = isfMgdl,
+                targetGlucoseMgdl = targetGlucoseMgdl,
+            ),
+        )
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Per-table envelopes
@@ -304,7 +353,11 @@ data class BackupGlucoseSample(
     val id: Long = 0L,
     val timestamp: Long,
     val glucoseMgdl: Double,
-    val hcRecordId: String,
+    /** Defaults so a v14-era (format 2) file still deserializes. FEATURE: cgm-direct-ingest */
+    val source: GlucoseSampleSource = GlucoseSampleSource.HEALTH_CONNECT,
+    val externalId: String? = null,
+    val hcRecordId: String? = null,
+    val trendArrow: String? = null,
     val sourcePackage: String? = null,
     val recordingMethod: Int,
     val importedAt: Long,
@@ -797,7 +850,10 @@ fun GlucoseSampleEntity.toBackup() = BackupGlucoseSample(
     id = id,
     timestamp = timestamp,
     glucoseMgdl = glucoseMgdl,
+    source = source,
+    externalId = externalId,
     hcRecordId = hcRecordId,
+    trendArrow = trendArrow,
     sourcePackage = sourcePackage,
     recordingMethod = recordingMethod,
     importedAt = importedAt,
@@ -807,7 +863,13 @@ fun BackupGlucoseSample.toEntity() = GlucoseSampleEntity(
     id = id,
     timestamp = timestamp,
     glucoseMgdl = glucoseMgdl,
+    source = source,
+    // v14-era backups have hcRecordId only; later files send externalId.
+    externalId = checkNotNull(externalId ?: hcRecordId) {
+        "Glucose sample is missing externalId and hcRecordId"
+    },
     hcRecordId = hcRecordId,
+    trendArrow = trendArrow,
     sourcePackage = sourcePackage,
     recordingMethod = recordingMethod,
     importedAt = importedAt,

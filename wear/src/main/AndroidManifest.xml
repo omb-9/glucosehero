@@ -65,9 +65,19 @@
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
                 android:value="SHORT_TEXT,LONG_TEXT,RANGED_VALUE" />
+            <!-- 600s (10 min) is an honest request relative to the 8-minute
+                 Fresh ceiling. Wear OS treats this as advisory and may only
+                 honor ~30 minutes; WearFreshnessAlarmReceiver plus
+                 ComplicationData.setValidTimeRange drive the actual
+                 Fresh-to-Stale flip. Keep in lockstep with
+                 WearFreshnessPolicy.COMPLICATION_UPDATE_PERIOD_SECONDS. -->
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="0" />
+                android:value="600" />
         </service>
+
+        <receiver
+            android:name=".data.WearFreshnessAlarmReceiver"
+            android:exported="false" />
     </application>
 </manifest>

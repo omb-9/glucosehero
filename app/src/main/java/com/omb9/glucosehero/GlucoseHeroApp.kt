@@ -12,6 +12,7 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.data.cgm.nightscout.NightscoutPollCoordinator
 import com.omb9.glucosehero.crisis.HypoSosManager
 import com.omb9.glucosehero.crisis.HypoSosNotifier
 import com.omb9.glucosehero.exercise.ExerciseFuelingNotifier
@@ -24,6 +25,7 @@ import com.omb9.glucosehero.work.HypoSosMonitorWorker
 import com.omb9.glucosehero.work.InsightNotifier
 import com.omb9.glucosehero.work.PatternRecognitionWorker
 import com.omb9.glucosehero.work.PostMealReminderNotifier
+import com.omb9.glucosehero.data.cgm.xdrip.XdripBroadcastBootstrap
 import com.omb9.glucosehero.wear.WearGlucosePushController
 import dagger.hilt.android.HiltAndroidApp
 import java.time.Duration
@@ -61,9 +63,17 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
     @Inject
     lateinit var settingsDataStore: SettingsDataStore
 
+    // FEATURE: cgm-direct-ingest
+    @Inject
+    lateinit var nightscoutPollCoordinator: NightscoutPollCoordinator
+
     // FEATURE: wear-os-companion
     @Inject
     lateinit var wearGlucosePushController: WearGlucosePushController
+
+    // FEATURE: cgm-direct-ingest
+    @Inject
+    lateinit var xdripBroadcastBootstrap: XdripBroadcastBootstrap
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -76,13 +86,17 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
         schedulePatternRecognition()
         scheduleHealthConnectSync()
         observeForegroundHealthConnectSync()
+        // FEATURE: cgm-direct-ingest
+        scheduleNightscoutIngest()
         scheduleAutoBackup()
         scheduleDailyMarkdownExport()
         ForecastRefreshWorker.schedulePeriodic(this)
-        ExerciseFuelingWorker.schedulePeriodic(this)
+        scheduleExerciseFueling()
         HypoSosMonitorWorker.schedulePeriodic(this)
         // FEATURE: wear-os-companion
         wearGlucosePushController.start(applicationScope)
+        // FEATURE: cgm-direct-ingest
+        xdripBroadcastBootstrap.start()
         applicationScope.launch {
             hypoSosManager.hydrate()
             if (settingsDataStore.hypoSosEnabled.first()) {
@@ -115,6 +129,20 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
     }
 
     /**
+     * Schedules the exercise-fueling alert worker only when the master
+     * notifications switch is enabled. Disabling notifications cancels the
+     * periodic work from Settings; this guard keeps it cancelled across
+     * subsequent cold starts.
+     */
+    private fun scheduleExerciseFueling() {
+        applicationScope.launch {
+            if (settingsDataStore.notificationsEnabled.first()) {
+                ExerciseFuelingWorker.schedulePeriodic(this@GlucoseHeroApp)
+            }
+        }
+    }
+
+    /**
      * Schedules a Health Connect sync every three hours. Health Connect is a
      * local platform component, so the request never requires a network. The
      * periodic work is only registered once sync has been enabled; the worker
@@ -125,6 +153,16 @@ class GlucoseHeroApp : Application(), Configuration.Provider {
             if (!settingsDataStore.healthConnectSyncEnabled.first()) return@launch
             HealthConnectSyncWorker.schedulePeriodic(this@GlucoseHeroApp)
         }
+    }
+
+    /**
+     * Starts the Nightscout 15-minute worker, 5-minute resumed poll, and
+     * optional foreground service. Each path re-checks the opt-in flag.
+     *
+     * FEATURE: cgm-direct-ingest
+     */
+    private fun scheduleNightscoutIngest() {
+        nightscoutPollCoordinator.start(applicationScope)
     }
 
     /**

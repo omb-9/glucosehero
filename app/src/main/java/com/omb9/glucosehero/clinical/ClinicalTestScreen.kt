@@ -187,6 +187,24 @@ private fun SessionCard(session: ClinicalTestSession, unit: com.omb9.glucosehero
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(result.summary, style = MaterialTheme.typography.bodyMedium)
+                if (result.coveredSegmentStarts.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = if (result.attributionInconclusive) {
+                            stringResource(
+                                R.string.clinical_test_segments_inconclusive,
+                                result.coveredSegmentStarts.joinToString(", "),
+                            )
+                        } else {
+                            stringResource(
+                                R.string.clinical_test_segments_attributed,
+                                result.coveredSegmentStarts.joinToString(", "),
+                            )
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

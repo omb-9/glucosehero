@@ -75,6 +75,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -88,6 +90,8 @@ import com.omb9.glucosehero.domain.model.ExportFormat
 import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.TimeRange
 import com.omb9.glucosehero.forecast.GlucoseForecastCard
+import com.omb9.glucosehero.ui.cgm.GlucoseFreshnessLabel
+import com.omb9.glucosehero.ui.cgm.glucoseFreshnessSentence
 import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
 import com.omb9.glucosehero.ui.insights.MoodImpactSection
 import com.omb9.glucosehero.ui.insights.TagImpactCard
@@ -113,12 +117,14 @@ private val HighSeverityAccent = Color(0xFFFF5252)
 fun StatsScreen(
     onEntryClick: (Long) -> Unit,
     onSeeAllFoodImpact: () -> Unit,
+    onOpenDosingProfile: () -> Unit = {},
     viewModel: StatsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val enabledCategories by viewModel.enabledMarkerCategories.collectAsStateWithLifecycle()
     val streak by viewModel.currentStreakDays.collectAsStateWithLifecycle()
     val glucoseForecast by viewModel.glucoseForecast.collectAsStateWithLifecycle()
+    val glucoseFreshness by viewModel.glucoseFreshness.collectAsStateWithLifecycle()
     val supplies by viewModel.activeSupplies.collectAsStateWithLifecycle()
     val insights by viewModel.insights.collectAsStateWithLifecycle()
     val weeklySummaryState by viewModel.weeklySummaryState.collectAsStateWithLifecycle()
@@ -133,6 +139,7 @@ fun StatsScreen(
     var preselectedSupplyType by remember { mutableStateOf<SupplyType?>(null) }
     val pullToRefreshState = rememberPullToRefreshState()
     val context = LocalContext.current
+    val shareChooserTitle = stringResource(R.string.agp_share_title)
 
     LaunchedEffect(viewModel) {
         viewModel.exportEvents.collect { event ->
@@ -149,7 +156,7 @@ fun StatsScreen(
                         putExtra(Intent.EXTRA_STREAM, uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    context.startActivity(Intent.createChooser(sendIntent, context.getString(R.string.agp_share_title)))
+                    context.startActivity(Intent.createChooser(sendIntent, shareChooserTitle))
                 }
                 is ExportEvent.Failed -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
@@ -275,10 +282,34 @@ fun StatsScreen(
                 color = MaterialTheme.colorScheme.surfaceContainer,
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        "Glucose trend (${state.unit.label})",
-                        style = MaterialTheme.typography.titleMedium,
+                    val trendTitle = stringResource(
+                        R.string.stats_glucose_trend_title,
+                        state.unit.label,
                     )
+                    val freshnessCaption = glucoseFreshnessSentence(glucoseFreshness)
+                    val trendDescription = if (freshnessCaption == null) {
+                        trendTitle
+                    } else {
+                        stringResource(
+                            R.string.stats_glucose_trend_a11y,
+                            trendTitle,
+                            freshnessCaption,
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.semantics(mergeDescendants = true) {
+                            contentDescription = trendDescription
+                        },
+                    ) {
+                        Text(
+                            trendTitle,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        GlucoseFreshnessLabel(
+                            freshness = glucoseFreshness,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                     Spacer(Modifier.height(12.dp))
                     RangePresetRow(
                         selected = state.range,
@@ -288,6 +319,9 @@ fun StatsScreen(
                     GlucoseForecastCard(
                         snapshot = glucoseForecast,
                         unit = state.unit,
+                        freshness = glucoseFreshness,
+                        use24HourTime = state.use24HourTime,
+                        onOpenDosingProfile = onOpenDosingProfile,
                     )
                     Spacer(Modifier.height(12.dp))
                     if (state.hasData) {

@@ -313,6 +313,13 @@ class SchemaMigrationAuditTest {
 
         val pendingCols = queryNames(db, "SELECT name FROM pragma_table_info('pending_ai_queries')")
         assertTrue(pendingCols.contains("ttl_seconds"))
+
+        val sampleCols = queryNames(db, "SELECT name FROM pragma_table_info('glucose_samples')").toSet()
+        assertTrue(
+            sampleCols.containsAll(
+                listOf("source", "external_id", "hc_record_id", "trend_arrow", "source_package"),
+            ),
+        )
     }
 
     private fun queryNames(db: SupportSQLiteDatabase, sql: String): List<String> {

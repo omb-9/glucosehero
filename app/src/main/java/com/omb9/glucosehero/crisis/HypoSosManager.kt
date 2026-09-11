@@ -1,6 +1,7 @@
 package com.omb9.glucosehero.crisis
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
@@ -153,9 +154,9 @@ class HypoSosManager @Inject constructor(
             },
             boluses = emptyList(),
             meals = emptyList(),
-            diaHours = 4.0,
-            cirRatio = 10.0,
-            isfMgdl = 50.0,
+            diaHours = UNUSED_SOS_FORECAST_DIA_HOURS,
+            cirRatio = UNUSED_SOS_FORECAST_CIR_RATIO,
+            isfMgdl = UNUSED_SOS_FORECAST_ISF_MGDL,
         )
         val forecast = GlucoseForecastEngine.forecast(input, now)
         return GlucoseTrendSnapshot(
@@ -221,9 +222,10 @@ class HypoSosManager @Inject constructor(
             add(LocationManager.GPS_PROVIDER)
             add(LocationManager.NETWORK_PROVIDER)
         }
-        return providers.firstNotNullOfOrNull { provider ->
+        @SuppressLint("MissingPermission")
+        fun read(provider: String): Location? =
             runCatching { manager.getLastKnownLocation(provider) }.getOrNull()
-        }
+        return providers.firstNotNullOfOrNull { read(it) }
     }
 
     private fun hasLocationPermission(): Boolean {
@@ -286,5 +288,18 @@ class HypoSosManager @Inject constructor(
         private const val REQUEST_TIMEOUT = 4301
         const val DISMISS_COOLDOWN_MILLIS: Long = 30L * 60_000L
         const val DISPATCH_COOLDOWN_MILLIS: Long = 15L * 60_000L
+
+        /**
+         * Unused on this path: [trendSnapshot] currently passes empty bolus and
+         * meal lists, so DIA/CIR/ISF never affect the SOS trend (only CGM
+         * velocity). If dose lists are ever populated, replace these with a
+         * real [com.omb9.glucosehero.domain.model.DosingProfile] lookup and
+         * refuse when that profile is invalid.
+         *
+         * FEATURE: dosing-profiles
+         */
+        const val UNUSED_SOS_FORECAST_DIA_HOURS: Double = 4.0
+        const val UNUSED_SOS_FORECAST_CIR_RATIO: Double = 10.0
+        const val UNUSED_SOS_FORECAST_ISF_MGDL: Double = 50.0
     }
 }

@@ -104,6 +104,26 @@ object NetworkModule {
             .writeTimeout(Duration.ofSeconds(120))
             .build()
 
+    /**
+     * Isolated Nightscout poller. Never attached to [DynamicApiInterceptor],
+     * so the AI bearer token cannot leak to a user-supplied Nightscout host.
+     * Logging is omitted even in debug: SGV JSON is glucose, and token auth
+     * puts the access token in the query string.
+     *
+     * FEATURE: cgm-direct-ingest
+     */
+    @Provides
+    @Singleton
+    @Named("nightscout")
+    fun provideNightscoutOkHttpClient(): OkHttpClient =
+        OkHttpClient.Builder()
+            .addInterceptor(CleartextGuardInterceptor())
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .connectTimeout(Duration.ofSeconds(20))
+            .readTimeout(Duration.ofSeconds(30))
+            .build()
+
     @Provides
     @Singleton
     fun provideRetrofit(client: OkHttpClient): Retrofit =

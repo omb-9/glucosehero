@@ -4,6 +4,7 @@ import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.UnitSystem
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -91,6 +92,22 @@ object Formatters {
 
     fun glucoseWithUnit(mgdl: Double, unit: GlucoseUnit): String =
         "${glucose(mgdl, unit)} ${unit.label}"
+
+    /**
+     * Insulin sensitivity in the user's glucose unit, per insulin unit.
+     * Canonical storage is mg/dL per U; convert only here so a mmol/L
+     * explanation never silently mixes mg/dL arithmetic.
+     */
+    fun isf(mgdlPerUnit: Double, unit: GlucoseUnit): String = glucose(mgdlPerUnit, unit)
+
+    fun isfWithUnit(mgdlPerUnit: Double, unit: GlucoseUnit): String =
+        "${isf(mgdlPerUnit, unit)} ${unit.label}/U"
+
+    /** Wall-clock segment label, 12-hour or 24-hour. */
+    fun wallClock(time: LocalTime, use24Hour: Boolean): String {
+        val f = formatters()
+        return time.format(if (use24Hour) f.time24 else f.time12)
+    }
 
     /** Signed, unit-aware glucose string, e.g. "+85 mg/dL" or "-4.7 mmol/L".
      * Positive deltas carry an explicit "+" so changes read as signed. */

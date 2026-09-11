@@ -76,6 +76,7 @@ import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.crisis.HypoSosPending
+import com.omb9.glucosehero.data.cgm.GlucoseFreshness
 import com.omb9.glucosehero.forecast.GlucoseForecastCard
 import com.omb9.glucosehero.forecast.GlucoseForecastSnapshot
 import com.omb9.glucosehero.ui.components.AddEntrySheet
@@ -89,6 +90,7 @@ import com.omb9.glucosehero.ui.theme.GlucoseLow
 fun LogScreen(
     onEntryClick: (Long) -> Unit,
     onManageFoods: () -> Unit = {},
+    onOpenDosingProfile: () -> Unit = {},
     addGlucoseTick: Int = 0,
     addMealTick: Int = 0,
     addBolusTick: Int = 0,
@@ -100,8 +102,10 @@ fun LogScreen(
     val canSave by viewModel.canSave.collectAsStateWithLifecycle()
     val activeInsulin by viewModel.activeInsulin.collectAsStateWithLifecycle()
     val glucoseForecast by viewModel.glucoseForecast.collectAsStateWithLifecycle()
+    val glucoseFreshness by viewModel.glucoseFreshness.collectAsStateWithLifecycle()
     val pendingHypoSos by viewModel.pendingHypoSos.collectAsStateWithLifecycle()
-    val suggestedBolus by viewModel.suggestedBolus.collectAsStateWithLifecycle()
+    val bolusRecommendation by viewModel.bolusRecommendation.collectAsStateWithLifecycle()
+    val bolusRecommendationIssues by viewModel.bolusRecommendationIssues.collectAsStateWithLifecycle()
     var showSheet by rememberSaveable { mutableStateOf(false) }
     val streakReward by viewModel.streakReward.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
@@ -281,6 +285,9 @@ fun LogScreen(
                 LogForecastSlot(
                     snapshot = glucoseForecast,
                     unit = forecastUnit,
+                    freshness = glucoseFreshness,
+                    use24HourTime = settings.use24HourTime,
+                    onOpenDosingProfile = onOpenDosingProfile,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
 
@@ -370,8 +377,14 @@ fun LogScreen(
             onNoteChange = viewModel::onNoteChange,
             onMoodScoreChange = viewModel::onMoodScoreChange,
             onMoodLabelChange = viewModel::onMoodLabelChange,
-            suggestedBolus = suggestedBolus,
+            bolusRecommendation = bolusRecommendation,
+            bolusRecommendationIssues = bolusRecommendationIssues,
             onUseSuggestion = viewModel::useSuggestedBolus,
+            onOpenDosingProfile = {
+                showSheet = false
+                onOpenDosingProfile()
+            },
+            use24HourTime = settings.use24HourTime,
             onSave = { viewModel.saveDraft { showSheet = false } },
             onDismiss = {
                 viewModel.discardDraft()
@@ -433,11 +446,17 @@ private fun EntryType.icon(): ImageVector = when (this) {
 private fun LogForecastSlot(
     snapshot: GlucoseForecastSnapshot?,
     unit: GlucoseUnit,
+    freshness: GlucoseFreshness?,
+    use24HourTime: Boolean,
+    onOpenDosingProfile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     GlucoseForecastCard(
         snapshot = snapshot,
         unit = unit,
+        freshness = freshness,
+        use24HourTime = use24HourTime,
+        onOpenDosingProfile = onOpenDosingProfile,
         modifier = modifier,
     )
 }

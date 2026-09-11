@@ -25,6 +25,7 @@ import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.db.GlucoseSampleDao
 import com.omb9.glucosehero.data.local.entity.EntryEntity
+import com.omb9.glucosehero.data.local.entity.GlucoseSampleSource
 import com.omb9.glucosehero.domain.model.EntrySource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
@@ -49,9 +50,11 @@ import kotlinx.coroutines.flow.first
  * Records whose originating package matches [BuildConfig.APPLICATION_ID] are filtered out
  * to prevent echo when write-back ships.
  *
- * Re-imports are idempotent: both glucose samples and entries rely on a unique
- * index on their respective `hc_record_id` columns with an [androidx.room.OnConflictStrategy.IGNORE]
- * insert, safely ignoring already-imported rows.
+ * Re-imports are idempotent: glucose samples use a unique index on
+ * `(source, external_id)` (Health Connect rows set both to Metadata.id) and
+ * entries use a unique index on `hc_record_id`, each with an
+ * [androidx.room.OnConflictStrategy.IGNORE] insert, safely ignoring
+ * already-imported rows.
  */
 @Singleton
 class HealthConnectRepository(
@@ -564,8 +567,13 @@ class HealthConnectRepository(
         }
     }
 
+    /**
+     * Drops Health Connect `glucose_samples` only. Nightscout / xDrip /
+     * Libre rows share this table and must survive a Health Connect reset.
+     * FEATURE: cgm-direct-ingest
+     */
     suspend fun clearImportedGlucoseData() {
-        glucoseSampleDao.clear()
+        glucoseSampleDao.deleteBySource(GlucoseSampleSource.HEALTH_CONNECT)
         settingsDataStore?.setHealthConnectChangesToken(null)
     }
 

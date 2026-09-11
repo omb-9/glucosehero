@@ -143,6 +143,14 @@ class FormattersTest {
     }
 
     @Test
+    fun `isf formats in both glucose units`() {
+        assertEquals("50", Formatters.isf(50.0, GlucoseUnit.MGDL))
+        assertEquals("50 mg/dL/U", Formatters.isfWithUnit(50.0, GlucoseUnit.MGDL))
+        assertEquals("2.8", Formatters.isf(50.0, GlucoseUnit.MMOL))
+        assertEquals("2.8 mmol/L/U", Formatters.isfWithUnit(50.0, GlucoseUnit.MMOL))
+    }
+
+    @Test
     fun `carbs format as whole grams`() {
         assertEquals("62 g", Formatters.carbs(62.4))
         assertEquals("41 g", Formatters.carbs(41.0))

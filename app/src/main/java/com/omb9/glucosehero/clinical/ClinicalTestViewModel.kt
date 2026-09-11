@@ -167,6 +167,7 @@ class ClinicalTestViewModel @Inject constructor(
         val result = when (session.kind) {
             ClinicalTestKind.OVERNIGHT_BASAL -> ClinicalTestEngine.analyzeBasal(
                 observations, session.startedAtMillis, session.plannedEndMillis,
+                dosingProfile = dosingProfileOrNull(),
             )
             ClinicalTestKind.MEAL_CARB_RATIO -> {
                 val pre = session.preMealGlucoseMgdl ?: observations.firstOrNull()?.glucoseMgdl
@@ -177,6 +178,7 @@ class ClinicalTestViewModel @Inject constructor(
                     session.plannedEndMillis,
                     pre,
                     session.mealBolusUnits,
+                    dosingProfile = dosingProfileOrNull(),
                 )
             }
         }
@@ -200,6 +202,12 @@ class ClinicalTestViewModel @Inject constructor(
     private suspend fun persist(session: ClinicalTestSession) {
         settingsDataStore.setClinicalTestSessionJson(AppJson.encodeToString(session))
     }
+
+    private suspend fun dosingProfileOrNull(): com.omb9.glucosehero.domain.model.DosingProfile? =
+        when (val load = settingsDataStore.dosingProfileSnapshot()) {
+            is com.omb9.glucosehero.domain.model.DosingProfileLoad.Valid -> load.profile
+            is com.omb9.glucosehero.domain.model.DosingProfileLoad.Invalid -> null
+        }
 
     private fun decodeSession(raw: String?): ClinicalTestSession? {
         if (raw.isNullOrBlank()) return null

@@ -3,4 +3,11 @@
     <string name="app_name">GlucoseHero</string>
     <string name="complication_label">Glucose</string>
     <string name="tile_label">Quick log</string>
+
+    <string name="freshness_compact_fresh">Just now</string>
+    <string name="freshness_compact_stale_minutes">%1$d min ago</string>
+    <string name="freshness_compact_stale_hours">%1$d h ago</string>
+    <string name="freshness_compact_stale_days">%1$d d ago</string>
+    <string name="freshness_compact_no_data">No reading yet</string>
+    <string name="glucose_reading_a11y">%1$s %2$s %3$s, %4$s</string>
 </resources>

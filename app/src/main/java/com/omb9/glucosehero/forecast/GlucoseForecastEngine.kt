@@ -1,8 +1,12 @@
 package com.omb9.glucosehero.forecast
 
+import com.omb9.glucosehero.domain.model.DosingProfile
+import com.omb9.glucosehero.domain.model.DosingProfileValidation
 import com.omb9.glucosehero.util.CarbAbsorptionCalculator
 import com.omb9.glucosehero.util.IobCalculator
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 import kotlin.math.sqrt
 
@@ -28,14 +32,28 @@ import kotlin.math.sqrt
  * **IOB decay.** Walsh / Scheiner activity triangle identical to
  * [IobCalculator]: 100% of a rapid-acting bolus is active at delivery, peak
  * activity around 50-75 min, 0% after [diaHours]. IOB(t) is monotonically
- * decreasing. The glucose drop over a horizon is
- * `(IOB_now - IOB_horizon) * ISF` mg/dL. The curve is approximate, not a
- * dosing recommendation.
+ * decreasing. Duration of insulin action is **global** (not time-varying).
+ * The glucose drop over a horizon is the sum, over each 5-minute step, of
+ * `(IOB_stepStart - IOB_stepEnd) * ISF_at_stepEnd` mg/dL. A single-segment
+ * profile uses the closed form `(IOB_now - IOB_horizon) * ISF`, which is
+ * bit-identical to the previous scalar engine. The curve is approximate,
+ * not a dosing recommendation.
  *
  * **Carb absorption.** Linear mixed-meal curve from
  * [CarbAbsorptionCalculator] (default 3.0 h). The glucose rise over a
- * horizon is `carbs_absorbed * (ISF / CIR)` mg/dL, because CIR grams are
- * covered by 1 U and 1 U drops glucose by ISF mg/dL.
+ * horizon is summed per step as `carbs_absorbed * (ISF / CIR)` mg/dL using
+ * the segment **in effect at that projected step**, because CIR grams are
+ * covered by 1 U and 1 U drops glucose by ISF mg/dL. A single-segment profile
+ * uses one ISF/CIR for the whole horizon (bit-identical to the previous
+ * engine).
+ *
+ * **Time-of-day ISF/CIR.** [GlucoseForecastInput.dosingProfile] is resolved at
+ * each horizon instant via [com.omb9.glucosehero.domain.model.DosingProfile.at]
+ * and the input [GlucoseForecastInput.zoneId] (evaluation-time system default
+ * when omitted). An invalid profile refuses the forecast rather than
+ * substituting defaults.
+ *
+ * FEATURE: dosing-profiles
  *
  * **Velocity blend.** `0.55 * v_kalman + 0.45 * v_ar` when AR is available,
  * otherwise Kalman alone. IOB and carb effects are added on top of this
@@ -60,11 +78,41 @@ object GlucoseForecastEngine {
 
     private const val KALMAN_BLEND: Double = 0.55
     private const val AR_BLEND: Double = 0.45
+    private val SEGMENT_HHMM: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
     fun forecast(
         input: GlucoseForecastInput,
         now: Instant = Instant.now(),
     ): GlucoseForecastSnapshot {
+        val zoneId = input.zoneId ?: ZoneId.systemDefault()
+        val profile = input.dosingProfile
+        if (profile != null) {
+            when (profile.validate()) {
+                is DosingProfileValidation.Invalid -> {
+                    val iob = IobCalculator.activeInsulinOnBoard(
+                        input.boluses, input.diaHours, now,
+                    )
+                    val cob = CarbAbsorptionCalculator.carbsOnBoard(
+                        input.meals, input.carbActionHours, now,
+                    )
+                    return GlucoseForecastSnapshot(
+                        generatedAtMillis = now.toEpochMilli(),
+                        currentMgdl = 0.0,
+                        currentTimestampMillis = now.toEpochMilli(),
+                        velocityMgdlPerMin = 0.0,
+                        iobUnits = iob,
+                        cobGrams = cob,
+                        points = emptyList(),
+                        sampleCount = 0,
+                        insufficientData = true,
+                        dosingProfileInvalid = true,
+                    )
+                }
+                is DosingProfileValidation.Valid -> Unit
+            }
+        }
+        val perStepProfile = profile?.takeIf { it.segments.size > 1 }
+
         val samples = input.samples
             .filter { it.glucoseMgdl.isFinite() && it.timestampMillis <= now.toEpochMilli() }
             .sortedBy { it.timestampMillis }
@@ -109,24 +157,70 @@ object GlucoseForecastEngine {
 
         val mgdlPerGram = mgdlPerGramCarb(input.isfMgdl, input.cirRatio)
         val points = ArrayList<GlucoseForecastPoint>(HORIZON_MINUTES / STEP_MINUTES)
+        var trendEffectMgdl30 = 0.0
+        var insulinEffectMgdl30 = 0.0
+        var carbEffectMgdl30 = 0.0
+        var unclampedMgdl30 = 0.0
+        var clampMin30 = false
+        var clampMax30 = false
+        var trendEffectMgdl60 = 0.0
+        var insulinEffectMgdl60 = 0.0
+        var carbEffectMgdl60 = 0.0
+        var unclampedMgdl60 = 0.0
+        var clampMin60 = false
+        var clampMax60 = false
         var horizon = STEP_MINUTES
         while (horizon <= HORIZON_MINUTES) {
             val at = now.plusMillis(horizon * 60_000L)
             val kinematic = latest.glucoseMgdl + blendedVelocity * horizon
-            val insulinDrop = IobCalculator.insulinAbsorbedBetween(
-                input.boluses, input.diaHours, now, at,
-            ) * input.isfMgdl
-            val carbRise = CarbAbsorptionCalculator.carbsAbsorbedBetween(
-                input.meals, input.carbActionHours, now, at,
-            ) * mgdlPerGram
-            val projected = (kinematic - insulinDrop + carbRise)
-                .coerceIn(MIN_GLUCOSE_MGDL, MAX_GLUCOSE_MGDL)
+            val (insulinDrop, carbRise) = if (perStepProfile != null) {
+                perStepGlucoseEffects(input, perStepProfile, zoneId, now, at)
+            } else {
+                val drop = IobCalculator.insulinAbsorbedBetween(
+                    input.boluses, input.diaHours, now, at,
+                ) * input.isfMgdl
+                val rise = CarbAbsorptionCalculator.carbsAbsorbedBetween(
+                    input.meals, input.carbActionHours, now, at,
+                ) * mgdlPerGram
+                drop to rise
+            }
+            val unclamped = kinematic - insulinDrop + carbRise
+            val projected = unclamped.coerceIn(MIN_GLUCOSE_MGDL, MAX_GLUCOSE_MGDL)
+            if (horizon == HIGHLIGHT_MINUTES_30) {
+                trendEffectMgdl30 = blendedVelocity * horizon
+                insulinEffectMgdl30 = insulinDrop
+                carbEffectMgdl30 = carbRise
+                unclampedMgdl30 = unclamped
+                clampMin30 = unclamped < MIN_GLUCOSE_MGDL
+                clampMax30 = unclamped > MAX_GLUCOSE_MGDL
+            }
+            if (horizon == HIGHLIGHT_MINUTES_60) {
+                trendEffectMgdl60 = blendedVelocity * horizon
+                insulinEffectMgdl60 = insulinDrop
+                carbEffectMgdl60 = carbRise
+                unclampedMgdl60 = unclamped
+                clampMin60 = unclamped < MIN_GLUCOSE_MGDL
+                clampMax60 = unclamped > MAX_GLUCOSE_MGDL
+            }
             points += GlucoseForecastPoint(
                 timestampMillis = at.toEpochMilli(),
                 minutesAhead = horizon,
                 glucoseMgdl = projected,
             )
             horizon += STEP_MINUTES
+        }
+
+        val horizonEnd = now.plusMillis(HORIZON_MINUTES * 60_000L)
+        val dosingSegmentsUsed = if (profile != null) {
+            profile.segmentsOverlapping(now, horizonEnd, zoneId).map { seg ->
+                ForecastDosingSegmentUsed(
+                    startHhmm = seg.start.format(SEGMENT_HHMM),
+                    isfMgdl = seg.isfMgdl.toDouble(),
+                    cirRatio = seg.cirRatio.toDouble(),
+                )
+            }
+        } else {
+            emptyList()
         }
 
         return GlucoseForecastSnapshot(
@@ -139,6 +233,20 @@ object GlucoseForecastEngine {
             points = points,
             sampleCount = series.size,
             insufficientData = false,
+            trendEffectMgdl30 = trendEffectMgdl30,
+            insulinEffectMgdl30 = insulinEffectMgdl30,
+            carbEffectMgdl30 = carbEffectMgdl30,
+            unclampedMgdl30 = unclampedMgdl30,
+            clampMin30 = clampMin30,
+            clampMax30 = clampMax30,
+            trendEffectMgdl60 = trendEffectMgdl60,
+            insulinEffectMgdl60 = insulinEffectMgdl60,
+            carbEffectMgdl60 = carbEffectMgdl60,
+            unclampedMgdl60 = unclampedMgdl60,
+            clampMin60 = clampMin60,
+            clampMax60 = clampMax60,
+            horizonCrossedSegmentBoundary = dosingSegmentsUsed.size > 1,
+            dosingSegmentsUsed = dosingSegmentsUsed,
         )
     }
 
@@ -188,6 +296,36 @@ object GlucoseForecastEngine {
         if (!a1.isFinite() || !a2.isFinite()) return velocities.last()
         val predicted = a1 * velocities.last() + a2 * velocities[velocities.size - 2]
         return if (predicted.isFinite()) predicted else velocities.last()
+    }
+
+    /**
+     * Insulin and carb glucose effects from [from] to [to], applying the
+     * ISF/CIR in effect at each 5-minute step end (and at [to]).
+     */
+    private fun perStepGlucoseEffects(
+        input: GlucoseForecastInput,
+        profile: DosingProfile,
+        zoneId: ZoneId,
+        from: Instant,
+        to: Instant,
+    ): Pair<Double, Double> {
+        var t = from
+        var insulinDrop = 0.0
+        var carbRise = 0.0
+        val stepMillis = STEP_MINUTES * 60_000L
+        while (t.isBefore(to)) {
+            val nextInstant = t.plusMillis(stepMillis)
+            val next = if (nextInstant.isAfter(to)) to else nextInstant
+            val settings = profile.toBolusSettings(next, zoneId)
+            insulinDrop += IobCalculator.insulinAbsorbedBetween(
+                input.boluses, input.diaHours, t, next,
+            ) * settings.isfMgdl
+            carbRise += CarbAbsorptionCalculator.carbsAbsorbedBetween(
+                input.meals, input.carbActionHours, t, next,
+            ) * mgdlPerGramCarb(settings.isfMgdl.toDouble(), settings.cirRatio.toDouble())
+            t = next
+        }
+        return insulinDrop to carbRise
     }
 }
 

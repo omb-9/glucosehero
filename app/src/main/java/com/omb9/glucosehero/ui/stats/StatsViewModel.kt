@@ -34,6 +34,8 @@ import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.domain.repository.SupplyRepository
+import com.omb9.glucosehero.data.cgm.GlucoseFreshness
+import com.omb9.glucosehero.data.cgm.GlucoseFreshnessRepository
 import com.omb9.glucosehero.forecast.GlucoseForecastRepository
 import com.omb9.glucosehero.forecast.GlucoseForecastSnapshot
 import com.omb9.glucosehero.ui.insights.TagImpactUi
@@ -230,6 +232,7 @@ class StatsViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val chatRepository: ChatRepository,
     private val forecastRepository: GlucoseForecastRepository,
+    private val freshnessRepository: GlucoseFreshnessRepository,
 ) : ViewModel() {
 
     private val tagAnalyticDao = database.tagAnalyticDao()
@@ -240,6 +243,11 @@ class StatsViewModel @Inject constructor(
 
     val glucoseForecast: StateFlow<GlucoseForecastSnapshot?> =
         forecastRepository.observeForecast()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Newest `glucose_readings` age for the trend header and forecast card. */
+    val glucoseFreshness: StateFlow<GlucoseFreshness?> =
+        freshnessRepository.observe()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** Latest generated pattern-recognition insights, newest first. */

@@ -16,7 +16,12 @@ class BolusCalculatorTest {
             insulinSensitivityMgdl = 50.0,
             insulinOnBoard = 1.0,
         )
-        assertEquals(5.1, dose, 1e-9)
+        assertEquals(5.1, dose.units, 1e-9)
+        assertEquals(4.5, dose.mealDose, 1e-9)
+        assertEquals(1.6, dose.correctionDose, 1e-9)
+        assertEquals(1.0, dose.insulinOnBoard, 1e-9)
+        assertEquals(5.1, dose.rawTotal, 1e-9)
+        assertEquals(false, dose.zeroFloorApplied)
     }
 
     @Test
@@ -30,13 +35,18 @@ class BolusCalculatorTest {
             insulinSensitivityMgdl = 50.0,
             insulinOnBoard = 2.0,
         )
-        assertEquals(0.0, dose, 1e-9)
+        assertEquals(0.0, dose.units, 1e-9)
+        assertEquals(true, dose.zeroFloorApplied)
+        assertEquals(-2.2, dose.rawTotal, 1e-9)
+        assertEquals(-0.2, dose.correctionDose, 1e-9)
+        assertEquals(0.0, dose.mealDose, 1e-9)
     }
 
     @Test
     fun `high iob cancels an otherwise positive dose`() {
         // 30 / 10 = 3.0; (120 - 100) / 50 = 0.4; 3.4 - 4.0 = -0.6 -> 0.0
         val dose = BolusCalculator.recommend(120.0, 100.0, 30.0, 10.0, 50.0, 4.0)
-        assertEquals(0.0, dose, 1e-9)
+        assertEquals(0.0, dose.units, 1e-9)
+        assertEquals(true, dose.zeroFloorApplied)
     }
 }

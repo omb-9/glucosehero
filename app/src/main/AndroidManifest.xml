@@ -14,6 +14,9 @@
     <uses-feature
         android:name="android.hardware.microphone"
         android:required="false" />
+    <uses-feature
+        android:name="android.hardware.telephony"
+        android:required="false" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -37,11 +40,32 @@
     <uses-permission android:name="android.permission.health.WRITE_NUTRITION" />
     <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
 
+    <!-- FEATURE: cgm-direct-ingest
+         xDrip+ sendBroadcast(intent, RECEIVE_BG_ESTIMATE) only delivers to
+         apps that hold this permission, unless the user enables xDrip's
+         "without permission" switch. -->
+    <uses-permission android:name="com.eveningoutpost.dexdrip.permissions.RECEIVE_BG_ESTIMATE" />
+
+    <!-- Declared for a future sender that wants to opt in. Not attached to
+         the receiver: xDrip+ and AAPS do not request it. Sender checks use
+         the package allowlist in XdripBroadcastAllowlist. -->
+    <permission
+        android:name="com.omb9.glucosehero.permission.SEND_XDRIP_CGM"
+        android:description="@string/xdrip_permission_description"
+        android:label="@string/xdrip_permission_label"
+        android:protectionLevel="normal" />
+
     <!-- Health Connect is a separate installable app below Android 14; query
          its package so availability checks and permission-usage intents can
          resolve it. -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
+        <!-- FEATURE: cgm-direct-ingest — resolve xDrip+ / AAPS for the sender allowlist. -->
+        <package android:name="com.eveningoutpost.dexdrip" />
+        <package android:name="info.nightscout.androidaps" />
+        <package android:name="info.nightscout.aapsclient" />
+        <package android:name="info.nightscout.aapsclient2" />
+        <package android:name="info.nightscout.aapspumpcontrol" />
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
@@ -113,6 +137,16 @@
                 android:value="Severe hypoglycemia caregiver SOS countdown" />
         </service>
 
+        <!-- FEATURE: cgm-direct-ingest -->
+        <service
+            android:name=".data.cgm.nightscout.NightscoutForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Optional user-opt-in Nightscout CGM poll at a 5-minute cadence" />
+        </service>
+
         <receiver
             android:name=".crisis.HypoSosAlarmReceiver"
             android:exported="true">
@@ -131,6 +165,27 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/glucose_hero_widget_info" />
+        </receiver>
+
+        <!-- FEATURE: cgm-direct-ingest
+             Manifest path for explicit xDrip+ Identify-receiver / AAPS
+             queryBroadcastReceivers sends. Disabled until the user opt-in
+             persists via PackageManager. Implicit custom-action broadcasts
+             on API 26+ need the runtime twin in XdripBroadcastRuntime.
+             No android:permission: xDrip+ and AAPS cannot hold SEND_XDRIP_CGM.
+             XdripBroadcastAllowlist is the sender gate. -->
+        <receiver
+            android:name=".data.cgm.xdrip.XdripGlucoseBroadcastReceiver"
+            android:enabled="false"
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="com.eveningoutpost.dexdrip.BgEstimate" />
+                <action android:name="info.nightscout.client.NEW_SGV" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
         </receiver>
 
         <!-- FEATURE: wear-os-companion -->

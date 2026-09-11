@@ -14,12 +14,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -28,10 +33,14 @@ import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
+import com.omb9.glucosehero.wear.R
 import com.omb9.glucosehero.wear.data.WearGlucoseStore
 import com.omb9.glucosehero.wear.data.WearPhoneMessenger
+import com.omb9.glucosehero.wear.data.freshness
+import com.omb9.glucosehero.wear.data.glucoseFreshnessCompactLabel
 import com.omb9.glucosehero.wear.protocol.WearQuickEntryType
 import com.omb9.glucosehero.wear.protocol.WearSyncProtocol
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class WearMainActivity : ComponentActivity() {
@@ -51,6 +60,26 @@ fun WearApp() {
         initialValue = com.omb9.glucosehero.wear.data.WearGlucoseSnapshot(),
     )
     val scope = rememberCoroutineScope()
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000)
+            nowMillis = System.currentTimeMillis()
+        }
+    }
+    val freshness = snapshot.freshness(nowMillis)
+    val ageLabel = glucoseFreshnessCompactLabel(freshness)
+    val readingDescription = if (snapshot.hasReading) {
+        stringResource(
+            R.string.glucose_reading_a11y,
+            snapshot.displayValue,
+            snapshot.unitLabel,
+            snapshot.trend.arrow,
+            ageLabel,
+        )
+    } else {
+        ageLabel
+    }
 
     LaunchedEffect(Unit) {
         runCatching { WearPhoneMessenger.requestGlucose(context) }
@@ -66,36 +95,43 @@ fun WearApp() {
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = "Glucose",
+                    text = stringResource(R.string.complication_label),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = snapshot.displayValue,
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Accent,
-                    )
-                    if (snapshot.trend.arrow.isNotEmpty()) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.semantics(mergeDescendants = true) {
+                        contentDescription = readingDescription
+                    },
+                ) {
+                    Row(verticalAlignment = Alignment.Bottom) {
                         Text(
-                            text = " ${snapshot.trend.arrow}",
-                            style = MaterialTheme.typography.displaySmall,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            text = snapshot.displayValue,
+                            style = MaterialTheme.typography.displayMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Accent,
                         )
+                        if (snapshot.trend.arrow.isNotEmpty()) {
+                            Text(
+                                text = " ${snapshot.trend.arrow}",
+                                style = MaterialTheme.typography.displaySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
+                    Text(
+                        text = snapshot.unitLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = ageLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
                 }
-                Text(
-                    text = snapshot.unitLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = snapshot.ageLabel,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
                 if (snapshot.lastQuickEntry.isNotBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(

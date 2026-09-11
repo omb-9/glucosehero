@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- updatePeriodMillis stays 0: the host floors this at 30 minutes, later
+     than the 8-minute Fresh ceiling. WidgetRefresher plus
+     WidgetFreshnessRefreshWorker (boundary one-shot) and
+     ForecastRefreshWorker (15 min backstop) redraw on elapsed time. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/glucose_widget_description"
     android:initialLayout="@layout/glucose_hero_widget_loading"

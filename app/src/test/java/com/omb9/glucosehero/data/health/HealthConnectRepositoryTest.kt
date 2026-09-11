@@ -30,6 +30,7 @@ import com.omb9.glucosehero.data.local.db.TagAnalyticsRow
 import com.omb9.glucosehero.data.local.db.TimeInRangeCounts
 import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.GlucoseSampleEntity
+import com.omb9.glucosehero.data.local.entity.GlucoseSampleSource
 import com.omb9.glucosehero.domain.model.DailyGlucoseSummary
 import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.EntryType
@@ -264,7 +265,7 @@ class HealthConnectRepositoryTest {
     }
 
     @Test
-    fun `clearImportedGlucoseData clears glucoseSampleDao without touching entryDao`() = runBlocking {
+    fun `clearImportedGlucoseData clears Health Connect samples only`() = runBlocking {
         val glucoseDao = FakeGlucoseSampleDao().apply {
             upsertAll(
                 listOf(
@@ -272,11 +273,31 @@ class HealthConnectRepositoryTest {
                         id = 1L,
                         timestamp = now.toEpochMilli(),
                         glucoseMgdl = 120.0,
+                        source = GlucoseSampleSource.HEALTH_CONNECT,
+                        externalId = "g-1",
                         sourcePackage = "com.dexcom.g7",
                         recordingMethod = 1,
                         hcRecordId = "g-1",
                         importedAt = now.toEpochMilli(),
-                    )
+                    ),
+                    GlucoseSampleEntity(
+                        id = 2L,
+                        timestamp = now.toEpochMilli(),
+                        glucoseMgdl = 118.0,
+                        source = GlucoseSampleSource.NIGHTSCOUT,
+                        externalId = "ns-1",
+                        recordingMethod = 0,
+                        importedAt = now.toEpochMilli(),
+                    ),
+                    GlucoseSampleEntity(
+                        id = 3L,
+                        timestamp = now.toEpochMilli(),
+                        glucoseMgdl = 119.0,
+                        source = GlucoseSampleSource.XDRIP_BROADCAST,
+                        externalId = "xd-1",
+                        recordingMethod = 0,
+                        importedAt = now.toEpochMilli(),
+                    ),
                 )
             )
         }
@@ -298,12 +319,17 @@ class HealthConnectRepositoryTest {
             entryDao = entryDao,
         )
 
-        assertEquals(1, glucoseDao.count())
+        assertEquals(3, glucoseDao.count())
         assertEquals(1, entryDao.countAll())
 
         repo.clearImportedGlucoseData()
 
-        assertEquals(0, glucoseDao.count())
+        assertEquals(2, glucoseDao.count())
+        assertTrue(glucoseDao.inserted.none { it.source == GlucoseSampleSource.HEALTH_CONNECT })
+        assertEquals(
+            setOf(GlucoseSampleSource.NIGHTSCOUT, GlucoseSampleSource.XDRIP_BROADCAST),
+            glucoseDao.inserted.map { it.source }.toSet(),
+        )
         assertEquals(1, entryDao.countAll())
     }
 
@@ -564,20 +590,19 @@ private class TestHealthConnectClient(
         throw UnsupportedOperationException()
     override suspend fun getChanges(changesToken: String): Nothing =
         throw UnsupportedOperationException()
-    override suspend fun getChanges(changesToken: String, pageSize: Int): androidx.health.connect.client.response.ChangesResponse =
-        throw UnsupportedOperationException()
 }
 
 private class FakeGlucoseSampleDao : GlucoseSampleDao {
     val inserted = mutableListOf<GlucoseSampleEntity>()
-    val existingHcRecordIds = mutableSetOf<String>()
+    private val existingKeys = mutableSetOf<Pair<GlucoseSampleSource, String>>()
 
     override suspend fun upsertAll(samples: List<GlucoseSampleEntity>): List<Long> {
         return samples.map { sample ->
-            if (existingHcRecordIds.contains(sample.hcRecordId)) {
+            val key = sample.source to sample.externalId
+            if (existingKeys.contains(key)) {
                 -1L
             } else {
-                existingHcRecordIds.add(sample.hcRecordId)
+                existingKeys.add(key)
                 inserted.add(sample)
                 inserted.size.toLong()
             }
@@ -585,14 +610,42 @@ private class FakeGlucoseSampleDao : GlucoseSampleDao {
     }
 
     override suspend fun deleteByHcRecordId(hcRecordId: String) {
-        inserted.removeAll { it.hcRecordId == hcRecordId }
-        existingHcRecordIds.remove(hcRecordId)
+        inserted.removeAll {
+            it.source == GlucoseSampleSource.HEALTH_CONNECT && it.hcRecordId == hcRecordId
+        }
+        rebuildKeys()
     }
 
+    override suspend fun deleteByExternalId(source: GlucoseSampleSource, externalId: String) {
+        inserted.removeAll { it.source == source && it.externalId == externalId }
+        existingKeys.remove(source to externalId)
+    }
+
+    override suspend fun deleteBySource(source: GlucoseSampleSource) {
+        inserted.removeAll { it.source == source }
+        rebuildKeys()
+    }
+
+    override suspend fun samplesBetween(
+        fromInclusive: Long,
+        toInclusive: Long,
+    ): List<GlucoseSampleEntity> =
+        inserted.filter { it.timestamp in fromInclusive..toInclusive }
+
+    override suspend fun latestSampleTimestamp(source: GlucoseSampleSource): Long? =
+        inserted.filter { it.source == source }.maxOfOrNull { it.timestamp }
+
     override suspend fun count(): Int = inserted.size
+
+    override suspend fun countBySource(source: GlucoseSampleSource): Int =
+        inserted.count { it.source == source }
+
+    override suspend fun countSince(source: GlucoseSampleSource, sinceMillis: Long): Int =
+        inserted.count { it.source == source && it.timestamp >= sinceMillis }
+
     override suspend fun clear() {
         inserted.clear()
-        existingHcRecordIds.clear()
+        existingKeys.clear()
     }
 
     override suspend fun pageForExport(limit: Int, offset: Int): List<GlucoseSampleEntity> = emptyList()
@@ -623,6 +676,11 @@ private class FakeGlucoseSampleDao : GlucoseSampleDao {
         avgMgdl = null,
         count = 0,
     )
+
+    private fun rebuildKeys() {
+        existingKeys.clear()
+        existingKeys.addAll(inserted.map { it.source to it.externalId })
+    }
 }
 
 private class FakeEntryDao : EntryDao {

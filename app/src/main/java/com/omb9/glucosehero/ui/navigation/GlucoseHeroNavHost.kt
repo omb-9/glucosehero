@@ -33,11 +33,14 @@ import com.omb9.glucosehero.ui.log.LogScreen
 import com.omb9.glucosehero.ui.settings.AiSettingsScreen
 import com.omb9.glucosehero.ui.settings.AppearanceSettingsScreen
 import com.omb9.glucosehero.ui.settings.BackupSettingsScreen
+import com.omb9.glucosehero.ui.settings.DataSourcesSettingsScreen
 import com.omb9.glucosehero.ui.settings.GlucoseTargetsSettingsScreen
 import com.omb9.glucosehero.ui.settings.HealthConnectSettingsScreen
 import com.omb9.glucosehero.ui.settings.MealLoggingSettingsScreen
+import com.omb9.glucosehero.ui.settings.NightscoutSettingsScreen
 import com.omb9.glucosehero.ui.settings.ProfileSettingsScreen
 import com.omb9.glucosehero.ui.settings.SettingsScreen
+import com.omb9.glucosehero.ui.settings.XdripSettingsScreen
 import com.omb9.glucosehero.ui.stats.StatsScreen
 
 /**
@@ -58,6 +61,9 @@ object Routes {
     const val GLUCOSE_TARGETS_SETTINGS = "glucose_targets_settings"
     const val MEAL_LOGGING_SETTINGS = "meal_logging_settings"
     const val HEALTH_CONNECT_SETTINGS = "health_connect_settings"
+    const val DATA_SOURCES = "data_sources"
+    const val NIGHTSCOUT_SETTINGS = "nightscout_settings"
+    const val XDRIP_SETTINGS = "xdrip_settings"
     const val BACKUP_SETTINGS = "backup_settings"
     const val APPEARANCE_SETTINGS = "appearance_settings"
     const val CLINICAL_TESTS = "clinical_tests"
@@ -134,6 +140,7 @@ fun GlucoseHeroNavHost(
                 LogScreen(
                     onEntryClick = { id -> navController.navigate(Routes.entryDetail(id)) },
                     onManageFoods = { navController.navigate(Routes.FOOD_LIBRARY) },
+                    onOpenDosingProfile = { navController.navigate(Routes.GLUCOSE_TARGETS_SETTINGS) },
                     addGlucoseTick = addGlucoseTick,
                     addMealTick = addMealTick,
                     addBolusTick = addBolusTick,
@@ -143,6 +150,7 @@ fun GlucoseHeroNavHost(
                 StatsScreen(
                     onEntryClick = { id -> navController.navigate(Routes.entryDetail(id)) },
                     onSeeAllFoodImpact = { navController.navigate(Routes.FOOD_IMPACT) },
+                    onOpenDosingProfile = { navController.navigate(Routes.GLUCOSE_TARGETS_SETTINGS) },
                 )
             }
             composable(Routes.HERO) {
@@ -166,6 +174,7 @@ fun GlucoseHeroNavHost(
                     onGlucoseTargets = { navController.navigate(Routes.GLUCOSE_TARGETS_SETTINGS) },
                     onMealLogging = { navController.navigate(Routes.MEAL_LOGGING_SETTINGS) },
                     onHealthConnect = { navController.navigate(Routes.HEALTH_CONNECT_SETTINGS) },
+                    onDataSources = { navController.navigate(Routes.DATA_SOURCES) },
                     onBackup = { navController.navigate(Routes.BACKUP_SETTINGS) },
                     onAppearance = { navController.navigate(Routes.APPEARANCE_SETTINGS) },
                     onClinicalTests = { navController.navigate(Routes.CLINICAL_TESTS) },
@@ -186,6 +195,20 @@ fun GlucoseHeroNavHost(
             }
             composable(Routes.HEALTH_CONNECT_SETTINGS) {
                 HealthConnectSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.DATA_SOURCES) {
+                DataSourcesSettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onXdripSetup = { navController.navigate(Routes.XDRIP_SETTINGS) },
+                    onNightscoutSetup = { navController.navigate(Routes.NIGHTSCOUT_SETTINGS) },
+                    onHealthConnect = { navController.navigate(Routes.HEALTH_CONNECT_SETTINGS) },
+                )
+            }
+            composable(Routes.NIGHTSCOUT_SETTINGS) {
+                NightscoutSettingsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.XDRIP_SETTINGS) {
+                XdripSettingsScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.BACKUP_SETTINGS) {
                 BackupSettingsScreen(onBack = { navController.popBackStack() })
@@ -209,7 +232,10 @@ fun GlucoseHeroNavHost(
                 route = Routes.ENTRY_DETAIL,
                 arguments = listOf(navArgument("entryId") { type = NavType.LongType }),
             ) {
-                EntryDetailScreen(onDone = { navController.popBackStack() })
+                EntryDetailScreen(
+                    onDone = { navController.popBackStack() },
+                    onOpenDosingProfile = { navController.navigate(Routes.GLUCOSE_TARGETS_SETTINGS) },
+                )
             }
         }
     }

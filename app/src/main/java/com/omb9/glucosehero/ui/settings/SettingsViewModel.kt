@@ -22,6 +22,7 @@ import com.omb9.glucosehero.data.health.HealthConnectStatus
 import com.omb9.glucosehero.data.local.datastore.InitialImportRange
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.GlucoseSampleDao
+import com.omb9.glucosehero.data.local.entity.GlucoseSampleSource
 import com.omb9.glucosehero.data.remote.AiEndpointGuard
 import com.omb9.glucosehero.data.remote.TrustedHosts
 import com.omb9.glucosehero.domain.model.AccentColor
@@ -37,8 +38,10 @@ import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.util.AiQuota
 import com.omb9.glucosehero.util.AiTier
+import com.omb9.glucosehero.exercise.ExerciseFuelingWorker
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.work.HealthConnectSyncWorker
+import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -55,6 +58,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -95,6 +99,7 @@ class SettingsViewModel @Inject constructor(
     private val backupManager: BackupManager,
     private val encryptedCloudBackupManager: EncryptedCloudBackupManager,
     private val markdownExporter: MarkdownExporter,
+    private val reminderScheduler: ReminderScheduler,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -144,6 +149,19 @@ class SettingsViewModel @Inject constructor(
     val bolusSettings: StateFlow<BolusSettings> = settingsRepository.bolusSettings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BolusSettings())
 
+    val dosingProfile: StateFlow<com.omb9.glucosehero.domain.model.DosingProfileLoad> =
+        settingsRepository.dosingProfile.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            com.omb9.glucosehero.domain.model.DosingProfileLoad.Valid(
+                com.omb9.glucosehero.domain.model.DosingProfile.single(BolusSettings()),
+            ),
+        )
+
+    val dosingProfileExplainerSeen: StateFlow<Boolean> =
+        settingsDataStore.dosingProfileExplainerSeen
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     /** Whether the user owns an active Pro subscription. */
     val isPremium: StateFlow<Boolean> = billingRepository.isPremium
 
@@ -184,6 +202,10 @@ class SettingsViewModel @Inject constructor(
     val healthConnectSampleCount: StateFlow<Int> = _healthConnectSampleCount.asStateFlow()
 
     val barcodeLookupEnabled: StateFlow<Boolean> = settingsDataStore.barcodeLookupEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    val notificationsEnabled: StateFlow<Boolean> = settingsRepository.settings
+        .map { it.notificationsEnabled }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     val glucoseImportEnabled: StateFlow<Boolean> = settingsDataStore.glucoseImportEnabled
@@ -358,6 +380,17 @@ class SettingsViewModel @Inject constructor(
     fun setBarcodeLookupEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsDataStore.setBarcodeLookupEnabled(enabled) }
 
+    fun setNotificationsEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsRepository.setNotificationsEnabled(enabled)
+            if (enabled) {
+                ExerciseFuelingWorker.schedulePeriodic(context)
+            } else {
+                WorkManager.getInstance(context).cancelUniqueWork(ExerciseFuelingWorker.UNIQUE_NAME)
+                reminderScheduler.cancelPostMealCheck()
+            }
+        }
+
     fun setProfileTarget(target: ProfileTarget) =
         viewModelScope.launch { settingsRepository.setProfileTarget(target) }
 
@@ -409,6 +442,12 @@ class SettingsViewModel @Inject constructor(
 
     fun setTargetGlucoseMgdl(target: Float) =
         viewModelScope.launch { settingsRepository.setTargetGlucoseMgdl(target) }
+
+    fun setDosingProfile(profile: com.omb9.glucosehero.domain.model.DosingProfile) =
+        viewModelScope.launch { settingsRepository.setDosingProfile(profile) }
+
+    fun markDosingProfileExplainerSeen() =
+        viewModelScope.launch { settingsDataStore.setDosingProfileExplainerSeen(true) }
 
     fun setAiProvider(provider: AiProvider) =
         viewModelScope.launch { settingsRepository.setAiProvider(provider) }
@@ -536,7 +575,8 @@ class SettingsViewModel @Inject constructor(
     }
 
     private suspend fun refreshHealthConnectSampleCount() {
-        _healthConnectSampleCount.value = glucoseSampleDao.count()
+        _healthConnectSampleCount.value =
+            glucoseSampleDao.countBySource(GlucoseSampleSource.HEALTH_CONNECT)
     }
 
     private fun enqueueHealthConnectSync() {
