@@ -17,15 +17,12 @@ import com.omb9.glucosehero.ui.log.DraftEventState
 import com.omb9.glucosehero.ui.log.toLogEvent
 import com.omb9.glucosehero.util.CrisisDetector
 import com.omb9.glucosehero.util.Formatters
-import com.omb9.glucosehero.util.IobCalculator
 import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -34,10 +31,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -81,7 +76,6 @@ class EntryDetailViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val reminderScheduler: ReminderScheduler,
     private val widgetRefresher: WidgetRefresher,
-    private val clock: java.time.Clock = java.time.Clock.systemUTC(),
 ) : ViewModel() {
 
     private val entryId: Long = checkNotNull(savedStateHandle["entryId"])
@@ -92,72 +86,11 @@ class EntryDetailViewModel @Inject constructor(
     val settings: StateFlow<UserSettings> = settingsRepository.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserSettings())
 
-    /** Minute-grain ticker so IOB keeps decaying without a DB emission. */
-    private val timeTick: Flow<Unit> = flow {
-        while (true) {
-            emit(Unit)
-            delay(IOB_TICK_MILLIS)
-        }
-    }
-
-    /** Live insulin-on-board backing the smart-bolus suggestion. */
-    val activeInsulin: StateFlow<Double> = combine(
-        settingsRepository.dosingProfile,
-        entryRepository.observeEntries(System.currentTimeMillis() - ACTIVE_INSULIN_WINDOW_MILLIS),
-        timeTick,
-    ) { load, entries, _ ->
-        val boluses = entries
-            .filter { it.insulinBolusUnits != null }
-            .map { IobCalculator.BolusEntry(it.timestamp, it.insulinBolusUnits!!) }
-        IobCalculator.activeInsulinOnBoard(
-            boluses = boluses,
-            diaHours = load.diaHoursOrDefault.toDouble(),
-            now = clock.instant(),
-        )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
-
     private val _form = MutableStateFlow(EntryDetailFormState())
     val form: StateFlow<EntryDetailFormState> = _form.asStateFlow()
 
     /** Snapshot of the freshly seeded form, used as the "loaded entry" baseline for dirty tracking. */
     private var seededForm: EntryDetailFormState = EntryDetailFormState()
-
-    /** Smart-bolus outcome for the current edit. Glucose required; carbs default to 0. */
-    val bolusRecommendation: StateFlow<com.omb9.glucosehero.util.BolusRecommendation> = combine(
-        _form,
-        settingsRepository.dosingProfile,
-        settings,
-        activeInsulin,
-    ) { form, load, userSettings, iob ->
-        val glucoseDisplay = Formatters.parseDecimal(form.glucose)?.takeIf { it > 0 }
-            ?: return@combine com.omb9.glucosehero.util.BolusRecommendation.Incomplete
-        val carbs = Formatters.parseDecimal(form.carbs)?.takeIf { it >= 0.0 } ?: 0.0
-        val glucoseMgdl = Formatters.displayToMgdl(glucoseDisplay, userSettings.unit)
-        com.omb9.glucosehero.util.recommendBolus(
-            load = load,
-            now = clock.instant(),
-            zoneId = java.time.ZoneId.systemDefault(),
-            currentGlucoseMgdl = glucoseMgdl,
-            carbsGrams = carbs,
-            insulinOnBoard = iob,
-        )
-    }.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5_000),
-        com.omb9.glucosehero.util.BolusRecommendation.Incomplete,
-    )
-
-    val suggestedBolus: StateFlow<Double?> = bolusRecommendation.map { rec ->
-        (rec as? com.omb9.glucosehero.util.BolusRecommendation.Ready)?.units
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    val bolusRecommendationIssues: StateFlow<List<com.omb9.glucosehero.domain.model.DosingProfileIssue>> =
-        settingsRepository.dosingProfile.map { load ->
-            when (load) {
-                is com.omb9.glucosehero.domain.model.DosingProfileLoad.Invalid -> load.issues
-                is com.omb9.glucosehero.domain.model.DosingProfileLoad.Valid -> emptyList()
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val canSave: StateFlow<Boolean> = combine(_form, entry, settings) { form, current, settings ->
         current != null &&
@@ -270,13 +203,6 @@ class EntryDetailViewModel @Inject constructor(
     fun onMealContextChange(value: MealContext) { _form.update { it.copy(mealContext = value) } }
     fun onInsulinBasalChange(value: String) { _form.update { it.copy(insulinBasal = value) } }
     fun onInsulinBolusChange(value: String) { _form.update { it.copy(insulinBolus = value) } }
-
-    /** Populates the bolus field with the current smart-bolus suggestion. */
-    fun useSuggestedBolus() {
-        if (entry.value?.source == EntrySource.HEALTH_CONNECT) return
-        val suggestion = suggestedBolus.value ?: return
-        onInsulinBolusChange(trimDouble(suggestion))
-    }
     fun onCarbsChange(value: String) { _form.update { it.copy(carbs = value) } }
     fun onProteinChange(value: String) { _form.update { it.copy(protein = value) } }
     fun onFatChange(value: String) { _form.update { it.copy(fat = value) } }
@@ -400,11 +326,6 @@ class EntryDetailViewModel @Inject constructor(
         val currentEvent = this.toDraft().toLogEvent(settings, this.timestamp)
         val baselineEvent = baseline.toDraft().toLogEvent(settings, baseline.timestamp)
         return currentEvent != baselineEvent
-    }
-
-    private companion object {
-        const val ACTIVE_INSULIN_WINDOW_MILLIS = 6 * IobCalculator.MILLIS_PER_HOUR
-        const val IOB_TICK_MILLIS = 60_000L
     }
 }
 

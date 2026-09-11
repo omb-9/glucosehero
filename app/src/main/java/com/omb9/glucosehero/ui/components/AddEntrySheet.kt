@@ -149,12 +149,6 @@ fun AddEntrySheet(
     onNoteChange: (String) -> Unit,
     onMoodScoreChange: (Int?) -> Unit,
     onMoodLabelChange: (String?) -> Unit,
-    bolusRecommendation: com.omb9.glucosehero.util.BolusRecommendation =
-        com.omb9.glucosehero.util.BolusRecommendation.Incomplete,
-    bolusRecommendationIssues: List<com.omb9.glucosehero.domain.model.DosingProfileIssue> = emptyList(),
-    onUseSuggestion: () -> Unit = {},
-    onOpenDosingProfile: () -> Unit = {},
-    use24HourTime: Boolean = false,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
     streakReward: StreakReward? = null,
@@ -445,14 +439,6 @@ fun AddEntrySheet(
                                 keyboardType = KeyboardType.Decimal,
                                 imeAction = ImeAction.Next,
                             ),
-                        )
-                        SuggestedBolusSection(
-                            recommendation = bolusRecommendation,
-                            issues = bolusRecommendationIssues,
-                            unit = unit,
-                            use24HourTime = use24HourTime,
-                            onUseSuggestion = onUseSuggestion,
-                            onOpenDosingProfile = onOpenDosingProfile,
                         )
                     }
                 }

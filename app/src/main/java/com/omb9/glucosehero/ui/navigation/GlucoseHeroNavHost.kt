@@ -234,7 +234,6 @@ fun GlucoseHeroNavHost(
             ) {
                 EntryDetailScreen(
                     onDone = { navController.popBackStack() },
-                    onOpenDosingProfile = { navController.navigate(Routes.GLUCOSE_TARGETS_SETTINGS) },
                 )
             }
         }

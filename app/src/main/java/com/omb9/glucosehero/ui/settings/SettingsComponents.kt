@@ -212,7 +212,7 @@ internal fun GlossaryIcon(
 }
 
 @Composable
-internal fun SmartBolusSlider(
+internal fun SettingsValueSlider(
     label: String,
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,

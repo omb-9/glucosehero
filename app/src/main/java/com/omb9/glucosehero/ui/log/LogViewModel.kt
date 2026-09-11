@@ -282,47 +282,6 @@ class LogViewModel @Inject constructor(
     private val _foodLookupState = MutableStateFlow<FoodLookupState>(FoodLookupState.Idle)
     val foodLookupState: StateFlow<FoodLookupState> = _foodLookupState.asStateFlow()
 
-    /**
-     * Smart-bolus outcome for the in-progress draft. Glucose is required;
-     * missing carbs are treated as 0 g so a correction-only suggestion can
-     * still explain its terms. Incomplete until glucose is typed.
-     */
-    val bolusRecommendation: StateFlow<com.omb9.glucosehero.util.BolusRecommendation> = combine(
-        _draft,
-        settingsRepository.dosingProfile,
-        settings,
-        activeInsulin,
-    ) { draft, load, userSettings, iob ->
-        val glucoseDisplay = Formatters.parseDecimal(draft.glucose)?.takeIf { it > 0 }
-            ?: return@combine com.omb9.glucosehero.util.BolusRecommendation.Incomplete
-        val carbs = Formatters.parseDecimal(draft.carbsGrams)?.takeIf { it >= 0.0 } ?: 0.0
-        val glucoseMgdl = Formatters.displayToMgdl(glucoseDisplay, userSettings.unit)
-        com.omb9.glucosehero.util.recommendBolus(
-            load = load,
-            now = clock.instant(),
-            zoneId = java.time.ZoneId.systemDefault(),
-            currentGlucoseMgdl = glucoseMgdl,
-            carbsGrams = carbs,
-            insulinOnBoard = iob,
-        )
-    }.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5_000),
-        com.omb9.glucosehero.util.BolusRecommendation.Incomplete,
-    )
-
-    val suggestedBolus: StateFlow<Double?> = bolusRecommendation.map { rec ->
-        (rec as? com.omb9.glucosehero.util.BolusRecommendation.Ready)?.units
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    val bolusRecommendationIssues: StateFlow<List<com.omb9.glucosehero.domain.model.DosingProfileIssue>> =
-        settingsRepository.dosingProfile.map { load ->
-            when (load) {
-                is com.omb9.glucosehero.domain.model.DosingProfileLoad.Invalid -> load.issues
-                is com.omb9.glucosehero.domain.model.DosingProfileLoad.Valid -> emptyList()
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
     /** Pending Hero AI prefill waiting for the Log screen to consume it. */
     val pendingHeroAiPrefill: StateFlow<HeroAiPrefill?> = heroAiPrefillCoordinator.pendingPrefill
 
@@ -423,12 +382,6 @@ class LogViewModel @Inject constructor(
     fun onMealContextChange(context: MealContext) { _draft.update { it.copy(mealContext = context) } }
     fun onInsulinBasalChange(value: String) { _draft.update { it.copy(insulinBasal = value) } }
     fun onInsulinBolusChange(value: String) { _draft.update { it.copy(insulinBolus = value) } }
-
-    /** Populates the bolus field with the current smart-bolus suggestion. */
-    fun useSuggestedBolus() {
-        val suggestion = suggestedBolus.value ?: return
-        onInsulinBolusChange(trim(suggestion))
-    }
     fun onCarbsChange(value: String) { _draft.update { it.copy(carbsGrams = value) } }
     fun onProteinChange(value: String) { _draft.update { it.copy(proteinGrams = value) } }
     fun onFatChange(value: String) { _draft.update { it.copy(fatGrams = value) } }

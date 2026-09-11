@@ -112,8 +112,8 @@ data class DosingProfile(
      * [time] wins; times before the first start (should not happen when the
      * first start is 00:00) wrap to the last segment.
      *
-     * Dosing paths must [validate] first. An invalid profile must never be
-     * resolved into a recommendation; use [resolvedBolusSettings].
+     * Callers that need validated ISF/CIR/target must [validate] first. An
+     * invalid profile must never be treated as usable; use [resolvedBolusSettings].
      */
     fun at(time: LocalTime): DosingSegment {
         check(segments.isNotEmpty()) { "DosingProfile.at requires at least one segment" }
@@ -167,7 +167,7 @@ data class DosingProfile(
     /**
      * Exclusive end of [segment]: the next start, or midnight when [segment]
      * is last (it wraps to the following day). Used to name the block that
-     * produced a recommendation without resolving time again.
+     * was in effect without resolving time again.
      */
     fun nextSegmentStart(segment: DosingSegment): LocalTime {
         val idx = segments.indexOfFirst { it.start == segment.start }
@@ -284,7 +284,7 @@ sealed class DosingProfileValidation {
     data class Invalid(val issues: List<DosingProfileIssue>) : DosingProfileValidation()
 }
 
-/** Dosing-path resolve: recommend only on [Ok]. */
+/** Dosing-path resolve: use [Ok] settings only; never invent ISF/CIR/target. */
 sealed class DosingResolveResult {
     data class Ok(
         val settings: BolusSettings,

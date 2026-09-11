@@ -185,7 +185,7 @@ internal fun GlucoseTargetsSection(
             style = MaterialTheme.typography.titleMedium,
         )
         Spacer(Modifier.height(4.dp))
-        SmartBolusSlider(
+        SettingsValueSlider(
             label = "Duration of Insulin Action (DIA)",
             value = bolus.diaHours,
             valueRange = com.omb9.glucosehero.domain.model.DosingBounds.MIN_DIA_HOURS..com.omb9.glucosehero.domain.model.DosingBounds.MAX_DIA_HOURS,
@@ -200,6 +200,12 @@ internal fun GlucoseTargetsSection(
         )
         Text(
             text = androidx.compose.ui.res.stringResource(com.omb9.glucosehero.R.string.dosing_profile_dia_caption),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = androidx.compose.ui.res.stringResource(com.omb9.glucosehero.R.string.dosing_profile_record_caption),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

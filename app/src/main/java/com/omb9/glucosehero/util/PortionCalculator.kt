@@ -6,8 +6,8 @@ import java.util.Locale
 /**
  * Pure, side-effect-free scaling and parsing for Open Food Facts portions.
  *
- * Values are returned unrounded. Rounding belongs to the UI layer, and the
- * unrounded carbohydrate figure must be what reaches [BolusCalculator].
+ * Values are returned unrounded. Rounding belongs to the UI layer so logged
+ * carbs and the forecast keep the same unrounded grams.
  */
 object PortionCalculator {
 

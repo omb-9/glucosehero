@@ -145,7 +145,7 @@ class SettingsViewModel @Inject constructor(
     val profile: StateFlow<UserProfile> = settingsRepository.profile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserProfile())
 
-    /** Insulin-dosing parameters (DIA, CIR, ISF, target glucose) backing Smart Bolus + IOB. */
+    /** Insulin-dosing parameters (DIA, CIR, ISF, target glucose) backing IOB and the forecast. */
     val bolusSettings: StateFlow<BolusSettings> = settingsRepository.bolusSettings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BolusSettings())
 

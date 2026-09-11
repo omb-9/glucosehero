@@ -122,6 +122,9 @@ object Formatters {
      */
     fun bolus(units: Double): String = "%.1f units".format(units)
 
+    /** One decimal place with a stable ASCII point, used for IOB readout. */
+    fun oneDecimal(value: Double): String = "%.1f".format(Locale.US, value)
+
     /** Carbohydrate amount in grams, nearest gram. */
     fun carbs(grams: Double): String = "${grams.roundToInt()} g"
 

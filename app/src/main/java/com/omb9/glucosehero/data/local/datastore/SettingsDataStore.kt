@@ -228,7 +228,7 @@ class SettingsDataStore @Inject constructor(
     /**
      * Stored time-of-day profile. Absent JSON migrates from the four flat keys.
      * Unparseable or invalid JSON is [DosingProfileLoad.Invalid] and must not
-     * be used for a recommendation.
+     * be treated as a valid ISF/CIR/target schedule.
      *
      * FEATURE: dosing-profiles
      */
@@ -438,12 +438,12 @@ class SettingsDataStore @Inject constructor(
 
     /**
      * Convenience "resolved for right now" snapshot. **Not for dosing math.**
-     * BolusCalculator, forecast, exercise, and clinical attribution must call
+     * Forecast, exercise, and clinical attribution must call
      * [dosingProfileSnapshot] and resolve explicitly. If the stored profile is
      * invalid this still returns [BolusSettings] built only from global DIA
      * plus the 00:00 *flat keys* so IOB UI can keep a DIA value; ISF/CIR/target
      * in that case are the legacy flats and must not be treated as a validated
-     * recommendation input.
+     * schedule.
      *
      * FEATURE: dosing-profiles
      */

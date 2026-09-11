@@ -104,8 +104,6 @@ fun LogScreen(
     val glucoseForecast by viewModel.glucoseForecast.collectAsStateWithLifecycle()
     val glucoseFreshness by viewModel.glucoseFreshness.collectAsStateWithLifecycle()
     val pendingHypoSos by viewModel.pendingHypoSos.collectAsStateWithLifecycle()
-    val bolusRecommendation by viewModel.bolusRecommendation.collectAsStateWithLifecycle()
-    val bolusRecommendationIssues by viewModel.bolusRecommendationIssues.collectAsStateWithLifecycle()
     var showSheet by rememberSaveable { mutableStateOf(false) }
     val streakReward by viewModel.streakReward.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
@@ -377,14 +375,6 @@ fun LogScreen(
             onNoteChange = viewModel::onNoteChange,
             onMoodScoreChange = viewModel::onMoodScoreChange,
             onMoodLabelChange = viewModel::onMoodLabelChange,
-            bolusRecommendation = bolusRecommendation,
-            bolusRecommendationIssues = bolusRecommendationIssues,
-            onUseSuggestion = viewModel::useSuggestedBolus,
-            onOpenDosingProfile = {
-                showSheet = false
-                onOpenDosingProfile()
-            },
-            use24HourTime = settings.use24HourTime,
             onSave = { viewModel.saveDraft { showSheet = false } },
             onDismiss = {
                 viewModel.discardDraft()

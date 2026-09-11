@@ -218,28 +218,12 @@ class PortionCalculatorTest {
     }
 
     @Test
-    fun `unrounded carbs from portion calculator pass directly into bolus calculator`() {
+    fun `unrounded carbs from portion calculator stay unrounded until display`() {
         val base = Macros(carbsGrams = 23.45, proteinGrams = 4.0, fatGrams = 2.0, kcal = 120.0)
         // 1.5 servings -> 35.175g unrounded carbs
         val scaled = PortionCalculator.scaleByServings(base, 1.5)
         assertEquals(35.175, scaled.carbsGrams, 1e-9)
 
-        // Bolus recommendation with unrounded carbs:
-        // meal dose = 35.175 / 10.0 = 3.5175
-        // correction = (160.0 - 100.0) / 40.0 = 1.5
-        // IOB = 0.5
-        // total = 3.5175 + 1.5 - 0.5 = 4.5175
-        val dose = BolusCalculator.recommend(
-            currentGlucoseMgdl = 160.0,
-            targetGlucoseMgdl = 100.0,
-            carbsGrams = scaled.carbsGrams,
-            carbRatio = 10.0,
-            insulinSensitivityMgdl = 40.0,
-            insulinOnBoard = 0.5,
-        )
-        assertEquals(4.5175, dose.units, 1e-9)
-
-        // Round once at display:
         val display = PortionCalculator.roundForDisplay(scaled.carbsGrams)
         assertEquals("35.2", display)
     }

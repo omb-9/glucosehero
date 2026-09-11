@@ -237,9 +237,7 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.surfaceContainer,
             ) {
                 Text(
-                    "GlucoseHero is a logging tool, not a medical device. Hero's " +
-                        "answers are informational. Always confirm treatment " +
-                        "decisions with your care team.",
+                    stringResource(R.string.settings_disclaimer),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(14.dp),

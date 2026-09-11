@@ -25,6 +25,7 @@
     <string name="forecast_insufficient_data">Need a few recent glucose readings to project ahead.</string>
     <string name="forecast_iob_cob">IOB %1$s U · COB %2$d g</string>
     <string name="forecast_disclaimer">On-device estimate from trend, insulin, and carbs. Not a medical device.</string>
+    <string name="settings_disclaimer">GlucoseHero logs what you enter and can project glucose from that log. It does not advise on dosing. Hero\'s answers are informational. Always confirm treatment decisions with your care team.</string>
 
     <string name="notif_exercise_fueling_channel_name">Exercise fueling</string>
     <string name="notif_exercise_fueling_channel_description">Alerts when intense activity overlaps elevated insulin on board</string>
@@ -275,12 +276,13 @@
     <string name="clinical_test_segments_inconclusive">This window covered segments %1$s, so the hint cannot be attributed to a single ISF or CIR. Glucose deltas still apply.</string>
 
     <string name="dosing_profile_title">Time-of-day ISF, CIR, and target</string>
-    <string name="dosing_profile_intro">Insulin sensitivity and carb ratio can change across the day. Segments tile midnight to midnight. DIA stays one value for the whole day.</string>
+    <string name="dosing_profile_intro">This is a record of the settings your care team gave you. Insulin sensitivity and carb ratio can change across the day. Segments tile midnight to midnight. DIA stays one value for the whole day. The app stores and displays these values; it does not calculate a dose from them.</string>
     <string name="dosing_profile_explainer_title">ISF, CIR, and target by time of day</string>
-    <string name="dosing_profile_explainer_body">ISF is how much one unit of insulin lowers glucose (mg/dL per unit). CIR is how many grams of carbohydrate one unit covers. Target is the glucose the correction aims for. Use values from your care team. Dawn phenomenon often needs a different ISF in the early morning than overnight.</string>
+    <string name="dosing_profile_explainer_body">These numbers are a record of the settings your care team gave you. ISF is how much one unit of insulin lowers glucose (mg/dL per unit). CIR is how many grams of carbohydrate one unit covers. Target is the glucose number your care team gave you to aim for. Dawn phenomenon often needs a different ISF in the early morning than overnight. GlucoseHero does not calculate an insulin dose from these values.</string>
     <string name="dosing_profile_explainer_confirm">Got it</string>
     <string name="dosing_profile_dia_section">Duration of insulin action</string>
     <string name="dosing_profile_dia_caption">DIA is global. It does not change at segment boundaries, so insulin-on-board decay stays one continuous curve.</string>
+    <string name="dosing_profile_record_caption">A record of the settings your care team gave you. Used to estimate insulin still working (IOB) and to project glucose. The app does not tell you how much insulin to take.</string>
     <string name="dosing_profile_add_segment">Add segment</string>
     <string name="dosing_profile_delete_segment">Delete segment</string>
     <string name="dosing_profile_start_time">Start</string>
@@ -293,8 +295,8 @@
     <string name="dosing_profile_chart_title">ISF and CIR across 24 hours</string>
     <string name="dosing_profile_chart_isf">ISF</string>
     <string name="dosing_profile_chart_cir">CIR</string>
-    <string name="dosing_profile_save_blocked">Fix the errors below before this profile can be used for a dose.</string>
-    <string name="dosing_profile_invalid_banner">This stored profile is not valid. Recommendations are blocked until you save a valid schedule.</string>
+    <string name="dosing_profile_save_blocked">Fix the errors below before this profile can be saved.</string>
+    <string name="dosing_profile_invalid_banner">This stored profile is not valid. The forecast cannot use it until you save a valid schedule.</string>
     <string name="dosing_issue_empty">Add at least one segment starting at midnight.</string>
     <string name="dosing_issue_not_midnight">The first segment must start at 00:00.</string>
     <string name="dosing_issue_not_increasing">Segment start times must increase with no overlaps or gaps.</string>
@@ -304,29 +306,10 @@
     <string name="dosing_issue_target">Target glucose must be between %1$s and %2$s mg/dL.</string>
     <string name="dosing_issue_dia">DIA must be between %1$s and %2$s hours.</string>
     <string name="dosing_issue_unparseable">The stored profile could not be read. Save a valid schedule to replace it.</string>
-    <string name="bolus_recommendation_refused">Cannot recommend a bolus until the dosing profile is valid.</string>
-    <string name="suggested_bolus">Suggested bolus: %1$s u</string>
-    <string name="use_suggestion">Use suggestion</string>
     <string name="why_this_number">Why this number</string>
     <string name="why_this_number_show">Show why this number</string>
     <string name="why_this_number_hide">Hide why this number</string>
     <string name="bolus_open_dosing_profile">Open Glucose and Targets</string>
-    <string name="bolus_why_meal">%1$s g ÷ CIR %2$s = %3$s U</string>
-    <string name="bolus_why_correction_add">(%1$s − %2$s) ÷ ISF %3$s = %4$s U</string>
-    <string name="bolus_why_correction_subtract">minus (%1$s − %2$s) ÷ ISF %3$s = %4$s U</string>
-    <string name="bolus_why_iob">minus insulin on board %1$s U</string>
-    <string name="bolus_why_total">= %1$s U</string>
-    <string name="bolus_why_zero_floor">= %1$s U, rounded up to 0 U</string>
-    <string name="bolus_why_rounding">= %1$s U, shown as %2$s U</string>
-    <string name="bolus_why_segment">ISF %1$s, your %2$s-%3$s block</string>
-    <string name="bolus_why_a11y_meal">%1$s grams divided by carb ratio %2$s equals %3$s units.</string>
-    <string name="bolus_why_a11y_correction_add">Correction: %1$s minus %2$s, divided by ISF %3$s, equals %4$s units.</string>
-    <string name="bolus_why_a11y_correction_subtract">Minus correction: %1$s minus %2$s, divided by ISF %3$s, equals %4$s units.</string>
-    <string name="bolus_why_a11y_iob">Minus insulin on board %1$s units.</string>
-    <string name="bolus_why_a11y_total">Suggested bolus %1$s units.</string>
-    <string name="bolus_why_a11y_zero_floor">The sum was %1$s units, rounded up to 0 units.</string>
-    <string name="bolus_why_a11y_rounding">The terms add to %1$s units, shown as %2$s units.</string>
-    <string name="bolus_why_a11y_segment">This used your %1$s to %2$s block with ISF %3$s.</string>
     <string name="forecast_why_start">Starts from %1$s at %2$s.</string>
     <string name="forecast_why_trend">Recent readings suggest about %1$s over 60 minutes.</string>
     <string name="forecast_why_insulin">Insulin still working: %1$s U, about %2$s.</string>

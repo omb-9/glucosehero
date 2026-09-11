@@ -39,25 +39,15 @@ class DosingProfileTest {
         val profile = twoSegment(nightIsf = 50f, morningIsf = 30f, nightTarget = 100f, morningTarget = 100f)
         val overnight = profile.toBolusSettings(LocalTime.of(5, 0))
         val morning = profile.toBolusSettings(LocalTime.of(7, 0))
-        val at5am = com.omb9.glucosehero.util.BolusCalculator.recommend(
-            currentGlucoseMgdl = 180.0,
-            targetGlucoseMgdl = overnight.targetGlucoseMgdl.toDouble(),
-            carbsGrams = 0.0,
-            carbRatio = overnight.cirRatio.toDouble(),
-            insulinSensitivityMgdl = overnight.isfMgdl.toDouble(),
-            insulinOnBoard = 0.0,
-        )
-        val at7am = com.omb9.glucosehero.util.BolusCalculator.recommend(
-            currentGlucoseMgdl = 180.0,
-            targetGlucoseMgdl = morning.targetGlucoseMgdl.toDouble(),
-            carbsGrams = 0.0,
-            carbRatio = morning.cirRatio.toDouble(),
-            insulinSensitivityMgdl = morning.isfMgdl.toDouble(),
-            insulinOnBoard = 0.0,
-        )
-        assertEquals(1.6, at5am.units, 1e-9)
-        assertEquals(80.0 / 30.0, at7am.units, 1e-9)
-        assertTrue(at7am.units > at5am.units)
+        assertEquals(50f, overnight.isfMgdl)
+        assertEquals(30f, morning.isfMgdl)
+        assertEquals(100f, overnight.targetGlucoseMgdl)
+        assertEquals(100f, morning.targetGlucoseMgdl)
+        val overnightGap = 180.0 - overnight.targetGlucoseMgdl
+        val morningGap = 180.0 - morning.targetGlucoseMgdl
+        assertEquals(1.6, overnightGap / overnight.isfMgdl, 1e-9)
+        assertEquals(80.0 / 30.0, morningGap / morning.isfMgdl, 1e-9)
+        assertTrue(morning.isfMgdl < overnight.isfMgdl)
     }
 
     @Test

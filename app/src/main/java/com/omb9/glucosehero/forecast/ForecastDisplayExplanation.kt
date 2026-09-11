@@ -3,7 +3,6 @@ package com.omb9.glucosehero.forecast
 import androidx.compose.runtime.Immutable
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.parseSegmentStart
-import com.omb9.glucosehero.util.BolusDisplayFormatter
 import com.omb9.glucosehero.util.Formatters
 import java.time.LocalTime
 
@@ -39,7 +38,7 @@ object ForecastDisplayFormatter {
             startGlucose = Formatters.glucoseWithUnit(snapshot.currentMgdl, unit),
             startTime = Formatters.time(snapshot.currentTimestampMillis, use24HourTime),
             trendContribution = Formatters.signedGlucoseWithUnit(snapshot.trendEffectMgdl60, unit),
-            iobUnits = BolusDisplayFormatter.oneDecimal(snapshot.iobUnits),
+            iobUnits = Formatters.oneDecimal(snapshot.iobUnits),
             insulinDrop = Formatters.signedGlucoseWithUnit(-snapshot.insulinEffectMgdl60, unit),
             cobGrams = snapshot.cobGrams.toInt().toString(),
             carbRise = Formatters.signedGlucoseWithUnit(snapshot.carbEffectMgdl60, unit),

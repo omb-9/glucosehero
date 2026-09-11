@@ -41,7 +41,7 @@ This project is written for people who read the code before trusting a health ap
 - Manual glucose readings (mg/dL or mmol/L), basal and bolus insulin, carbs, protein, fat, exercise, mood, and free-text notes.
 - Meal context tags (fasting, before/after meal, bedtime) and hashtag extraction.
 - Search and single-day filtering over a paged log.
-- A recommended bolus ("Smart Bolus") and insulin-on-board (IOB) readout ([`BolusCalculator.kt`](app/src/main/java/com/omb9/glucosehero/util/BolusCalculator.kt), [`IobCalculator.kt`](app/src/main/java/com/omb9/glucosehero/util/IobCalculator.kt)).
+- Insulin-on-board (IOB) readout from doses you already logged ([`IobCalculator.kt`](app/src/main/java/com/omb9/glucosehero/util/IobCalculator.kt)). The app does not recommend an insulin dose.
 
 ### Stats & insights
 
@@ -145,7 +145,7 @@ In other words, your raw log data and settings are **not** silently copied to Go
 
 ## Disclaimer
 
-GlucoseHero is a logging tool, not a medical device. Hero's answers are informational. Always confirm treatment decisions with your care team.
+GlucoseHero logs what you enter and can project glucose from that log. It does not advise on dosing. Hero's answers are informational. Always confirm treatment decisions with your care team.
 
 The app does not diagnose, treat, or advise on any medical condition. The wording above matches the in-app disclaimer in [`SettingsScreen.kt`](app/src/main/java/com/omb9/glucosehero/ui/settings/SettingsScreen.kt).
 
