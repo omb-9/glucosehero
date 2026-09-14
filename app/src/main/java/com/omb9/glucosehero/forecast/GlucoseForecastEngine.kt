@@ -21,8 +21,9 @@ import kotlin.math.sqrt
  *
  * **AR order.** AR(2) on first differences (velocity in mg/dL per minute),
  * estimated by ordinary least squares on the last [MAX_AR_SAMPLES] CGM
- * points after they are resampled onto a 5-minute grid. Needs at least 4
- * velocity observations; otherwise the AR term is skipped.
+ * points after they are resampled onto a 5-minute grid. A uniform grid
+ * needs at least 5 glucose points (4 velocity observations, two lags);
+ * otherwise the AR term is skipped.
  *
  * **Kalman.** State is `[glucose (mg/dL), velocity (mg/dL/min)]`. Measurement
  * noise `R = 9` (CGM RMSE of ~3 mg/dL). Velocity process noise is
@@ -85,6 +86,8 @@ object GlucoseForecastEngine {
     const val MAX_ANCHOR_AGE_MILLIS: Long = 20L * 60L * 1000L
     const val GRID_MINUTES: Double = 5.0
     const val MAX_AR_SAMPLES: Int = 12
+    /** Gridded glucose points required for AR(2) OLS (4 velocities, two lags). */
+    const val MIN_AR_GRIDDED_POINTS: Int = 5
     const val MIN_GLUCOSE_MGDL: Double = 40.0
     const val MAX_GLUCOSE_MGDL: Double = 400.0
 
@@ -178,18 +181,19 @@ object GlucoseForecastEngine {
         }
 
         val series = recent
+        val gridded = resampleOntoGrid(series)
 
         val kalman = GlucoseKalmanFilter()
-        for (i in series.indices) {
+        for (i in gridded.indices) {
             val dtMin = if (i == 0) {
                 GRID_MINUTES
             } else {
-                (series[i].timestampMillis - series[i - 1].timestampMillis) / 60_000.0
+                (gridded[i].timestampMillis - gridded[i - 1].timestampMillis) / 60_000.0
             }
-            kalman.update(series[i].glucoseMgdl, dtMin)
+            kalman.update(gridded[i].glucoseMgdl, dtMin)
         }
 
-        val arVelocity = fitAr2Velocity(series)
+        val arVelocity = fitAr2Velocity(gridded)
         val blendedVelocity = if (arVelocity == null) {
             kalman.velocity
         } else {
@@ -311,12 +315,77 @@ object GlucoseForecastEngine {
     }
 
     /**
-     * AR(2) on 5-minute first differences. Returns the one-step-ahead velocity
-     * in mg/dL per minute, or null when the series is too short or singular.
+     * Linearly interpolate [series] onto a [gridMinutes] cadence aligned to the
+     * last sample so the CGM anchor is exact and Kalman/AR see a uniform dt.
+     */
+    internal fun resampleOntoGrid(
+        series: List<GlucoseForecastInput.GlucoseSample>,
+        gridMinutes: Double = GRID_MINUTES,
+    ): List<GlucoseForecastInput.GlucoseSample> {
+        if (series.size < 2) return series
+        val gridMillis = (gridMinutes * 60_000.0).toLong()
+        if (gridMillis <= 0L) return series
+        val start = series.first().timestampMillis
+        val end = series.last().timestampMillis
+        if (end <= start) return listOf(series.last())
+        val out = ArrayList<GlucoseForecastInput.GlucoseSample>(
+            ((end - start) / gridMillis).toInt() + 1,
+        )
+        var t = end
+        while (t >= start) {
+            out += interpolateAt(series, t)
+            val next = t - gridMillis
+            if (next >= t) break
+            t = next
+        }
+        out.reverse()
+        return out
+    }
+
+    private fun interpolateAt(
+        series: List<GlucoseForecastInput.GlucoseSample>,
+        t: Long,
+    ): GlucoseForecastInput.GlucoseSample {
+        val first = series.first()
+        if (t <= first.timestampMillis) {
+            return GlucoseForecastInput.GlucoseSample(t, first.glucoseMgdl)
+        }
+        val last = series.last()
+        if (t >= last.timestampMillis) {
+            return GlucoseForecastInput.GlucoseSample(t, last.glucoseMgdl)
+        }
+        for (i in 0 until series.lastIndex) {
+            val a = series[i]
+            val b = series[i + 1]
+            if (t == a.timestampMillis) {
+                return GlucoseForecastInput.GlucoseSample(t, a.glucoseMgdl)
+            }
+            if (t > a.timestampMillis && t <= b.timestampMillis) {
+                val span = (b.timestampMillis - a.timestampMillis).toDouble()
+                if (span <= 0.0) {
+                    return GlucoseForecastInput.GlucoseSample(t, b.glucoseMgdl)
+                }
+                val w = (t - a.timestampMillis) / span
+                return GlucoseForecastInput.GlucoseSample(
+                    t,
+                    a.glucoseMgdl + w * (b.glucoseMgdl - a.glucoseMgdl),
+                )
+            }
+        }
+        return GlucoseForecastInput.GlucoseSample(t, last.glucoseMgdl)
+    }
+
+    /**
+     * AR(2) on 5-minute first differences. [series] is resampled onto
+     * [GRID_MINUTES] first so lags are uniform. Returns the one-step-ahead
+     * velocity in mg/dL per minute, or null when fewer than
+     * [MIN_AR_GRIDDED_POINTS] gridded samples (4 velocities) or the OLS
+     * system is singular.
      */
     internal fun fitAr2Velocity(series: List<GlucoseForecastInput.GlucoseSample>): Double? {
-        if (series.size < 5) return null
-        val tail = series.takeLast(MAX_AR_SAMPLES)
+        val gridded = resampleOntoGrid(series)
+        if (gridded.size < MIN_AR_GRIDDED_POINTS) return null
+        val tail = gridded.takeLast(MAX_AR_SAMPLES)
         val velocities = ArrayList<Double>(tail.size - 1)
         for (i in 1 until tail.size) {
             val dtMin = (tail[i].timestampMillis - tail[i - 1].timestampMillis) / 60_000.0
