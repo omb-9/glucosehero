@@ -32,14 +32,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.R
+import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 /**
  * Full-screen severe-hypo prompt. Dismissing cancels the caregiver SOS timeout.
@@ -57,8 +56,10 @@ class HypoSosPromptActivity : ComponentActivity() {
             setTurnScreenOn(true)
         }
         enableEdgeToEdge()
-        val settings = runBlocking { settingsRepository.settings.first() }
         setContent {
+            val settings by settingsRepository.settings.collectAsStateWithLifecycle(
+                initialValue = UserSettings(),
+            )
             GlucoseHeroTheme(settings = settings) {
                 val pending by manager.pending.collectAsStateWithLifecycle()
                 var hydrated by remember { mutableStateOf(false) }

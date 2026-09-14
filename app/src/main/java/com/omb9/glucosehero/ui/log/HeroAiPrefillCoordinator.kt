@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 /**
  * In-memory bridge between the Hero AI chat screen and the Log screen.
@@ -36,11 +36,19 @@ class HeroAiPrefillCoordinator @Inject constructor(
     private val _openLogRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val openLogRequests: SharedFlow<Unit> = _openLogRequests.asSharedFlow()
 
-    fun requestPrefill(prefill: HeroAiPrefill) {
+    /**
+     * Must be called from a coroutine. The only caller is
+     * [com.omb9.glucosehero.ui.chat.ChatViewModel.handleFunctionCall], which
+     * runs on viewModelScope (Main.immediate) while collecting the SSE stream.
+     * A DataStore read via runBlocking would freeze that main-thread collector
+     * even if the inner block used [Dispatchers.IO], so this suspends onto IO
+     * instead.
+     */
+    suspend fun requestPrefill(prefill: HeroAiPrefill) {
         // A missing or unrecognised unit falls back to the user's configured
         // display unit, so resolve it from DataStore. This is a bounded read
         // that only runs when the model actually invokes the prefill tool.
-        val displayUnit = runBlocking(Dispatchers.IO) {
+        val displayUnit = withContext(Dispatchers.IO) {
             settingsRepository.settings.first().unit
         }
         _pendingPrefill.value = prefill.toCanonical(displayUnit)

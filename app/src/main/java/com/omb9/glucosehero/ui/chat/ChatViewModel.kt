@@ -200,7 +200,7 @@ class ChatViewModel @Inject constructor(
         )
     }
 
-    private fun handleFunctionCall(event: StreamEvent.FunctionCall): Boolean {
+    private suspend fun handleFunctionCall(event: StreamEvent.FunctionCall): Boolean {
         if (event.name != PREFILL_TOOL_NAME) return false
 
         val prefill = runCatching {
