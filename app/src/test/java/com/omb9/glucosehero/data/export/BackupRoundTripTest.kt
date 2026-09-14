@@ -248,7 +248,7 @@ class BackupRoundTripTest {
     @Test
     fun formatVersion_isIndependentOfDatabaseVersion() {
         assertEquals(4, BACKUP_FORMAT_VERSION)
-        assertEquals(15, DATABASE_VERSION)
+        assertEquals(16, DATABASE_VERSION)
         assertTrue(BACKUP_FORMAT_VERSION != DATABASE_VERSION)
     }
 

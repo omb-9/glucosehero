@@ -12,6 +12,7 @@ import com.omb9.glucosehero.data.local.db.migration.Migration10To11
 import com.omb9.glucosehero.data.local.db.migration.Migration11To12
 import com.omb9.glucosehero.data.local.db.migration.Migration12To13
 import com.omb9.glucosehero.data.local.db.migration.Migration14To15
+import com.omb9.glucosehero.data.local.db.migration.Migration15To16
 import com.omb9.glucosehero.data.local.db.migration.MigrationPendingAiTtl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -1402,6 +1403,62 @@ class MigrationTest {
             assertEquals("XDRIP_BROADCAST", c.getString(0))
             assertEquals("x", c.getString(1))
         }
+    }
+
+    @Test
+    fun migrate15To16_dropsRedundantIndexesAndKeepsCoveringOnes() {
+        helper.createDatabase(testDb, 15).use { db ->
+            db.execSQL(
+                "INSERT INTO entries (timestamp, glucose_mgdl, uuid) VALUES (?, ?, ?)",
+                arrayOf<Any?>(1_000L, 110.0, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+            )
+            insertSampleV15(
+                db,
+                timestamp = 2_000L,
+                glucoseMgdl = 95.0,
+                source = "HEALTH_CONNECT",
+                externalId = "hc-1",
+                hcRecordId = "hc-1",
+            )
+            db.query(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'index_entries_glucose_mgdl'",
+            ).use { c ->
+                assertTrue(c.moveToFirst())
+            }
+            db.query(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'index_glucose_samples_timestamp'",
+            ).use { c ->
+                assertTrue(c.moveToFirst())
+            }
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 16, true, Migration15To16)
+
+        db.query("SELECT timestamp, glucose_mgdl, uuid FROM entries").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1_000L, c.getLong(0))
+            assertEquals(110.0, c.getDouble(1), 0.0)
+            assertEquals("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", c.getString(2))
+        }
+        db.query("SELECT timestamp, glucose_mgdl, external_id FROM glucose_samples").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(2_000L, c.getLong(0))
+            assertEquals(95.0, c.getDouble(1), 0.0)
+            assertEquals("hc-1", c.getString(2))
+        }
+
+        val indexNames = mutableListOf<String>()
+        db.query("SELECT name FROM sqlite_master WHERE type = 'index'").use { c ->
+            while (c.moveToNext()) {
+                val name = c.getString(0)
+                if (name != null) indexNames += name
+            }
+        }
+        assertFalse(indexNames.contains("index_entries_glucose_mgdl"))
+        assertFalse(indexNames.contains("index_glucose_samples_timestamp"))
+        assertTrue(indexNames.contains("index_entries_timestamp"))
+        assertTrue(indexNames.contains("index_entries_glucose_mgdl_timestamp"))
+        assertTrue(indexNames.contains("index_glucose_samples_timestamp_glucose_mgdl"))
     }
 
     private fun insertEntry(

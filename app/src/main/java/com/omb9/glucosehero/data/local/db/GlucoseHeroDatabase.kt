@@ -16,6 +16,7 @@ import com.omb9.glucosehero.data.local.db.migration.Migration10To11
 import com.omb9.glucosehero.data.local.db.migration.Migration11To12
 import com.omb9.glucosehero.data.local.db.migration.Migration12To13
 import com.omb9.glucosehero.data.local.db.migration.Migration14To15
+import com.omb9.glucosehero.data.local.db.migration.Migration15To16
 import com.omb9.glucosehero.data.local.db.migration.MigrationPendingAiTtl
 import com.omb9.glucosehero.data.local.entity.ChatMessageEntity
 import com.omb9.glucosehero.data.local.entity.EntryEntity
@@ -50,7 +51,7 @@ import com.omb9.glucosehero.data.local.entity.TagAnalyticEntity
         TagAnalyticEntity::class,
     ],
     views = [GlucoseReadingView::class],
-    version = 15, // FEATURE: cgm-direct-ingest
+    version = 16,
     exportSchema = true,
 )
 abstract class GlucoseHeroDatabase : RoomDatabase() {
@@ -81,6 +82,7 @@ abstract class GlucoseHeroDatabase : RoomDatabase() {
             Migration12To13,
             MigrationPendingAiTtl, // FEATURE: pending-query-ttl
             Migration14To15, // FEATURE: cgm-direct-ingest
+            Migration15To16,
         )
     }
 }

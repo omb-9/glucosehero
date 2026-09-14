@@ -320,6 +320,13 @@ class SchemaMigrationAuditTest {
                 listOf("source", "external_id", "hc_record_id", "trend_arrow", "source_package"),
             ),
         )
+
+        val indexes = queryNames(db, "SELECT name FROM sqlite_master WHERE type = 'index'").toSet()
+        assertFalse(indexes.contains("index_entries_glucose_mgdl"))
+        assertFalse(indexes.contains("index_glucose_samples_timestamp"))
+        assertTrue(indexes.contains("index_entries_timestamp"))
+        assertTrue(indexes.contains("index_entries_glucose_mgdl_timestamp"))
+        assertTrue(indexes.contains("index_glucose_samples_timestamp_glucose_mgdl"))
     }
 
     private fun queryNames(db: SupportSQLiteDatabase, sql: String): List<String> {

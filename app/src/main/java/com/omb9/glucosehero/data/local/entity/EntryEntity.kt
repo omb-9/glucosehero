@@ -23,7 +23,6 @@ import java.util.UUID
     tableName = "entries",
     indices = [
         Index("timestamp"),
-        Index("glucose_mgdl"),
         Index(value = ["glucose_mgdl", "timestamp"]),
         Index(value = ["uuid"], unique = true),
         Index(value = ["hc_record_id"], unique = true),

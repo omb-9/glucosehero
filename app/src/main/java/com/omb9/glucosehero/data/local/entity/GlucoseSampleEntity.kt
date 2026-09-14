@@ -23,7 +23,6 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "glucose_samples",
     indices = [
-        Index("timestamp"),
         Index(value = ["source", "external_id"], unique = true),
         Index("hc_record_id"),
         Index(value = ["timestamp", "glucose_mgdl"]),

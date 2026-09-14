@@ -89,7 +89,7 @@ const val BACKUP_FORMAT_VERSION = 4
  * Independent of [BACKUP_FORMAT_VERSION]: a Room bump that does not change
  * field meaning does not require a format bump.
  */
-const val DATABASE_VERSION = 15 // FEATURE: cgm-direct-ingest
+const val DATABASE_VERSION = 16
 
 /** Thrown for anything structurally wrong with a backup file. */
 class BackupFormatException(message: String) : Exception(message)
