@@ -72,6 +72,11 @@
     <string name="notif_hypo_sos_sent_title">Caregiver SOS</string>
     <string name="notif_hypo_sos_sent_body">Alert sent to %1$d caregiver(s).</string>
     <string name="notif_hypo_sos_failed_body">Could not send SMS. Check SMS permission and caregiver numbers.</string>
+    <string name="notif_hypo_sos_sent_ok">Sent to %1$s.</string>
+    <string name="notif_hypo_sos_no_service">Could not send to %1$s: no cellular signal.</string>
+    <string name="notif_hypo_sos_radio_off">Could not send to %1$s: airplane mode or radio off.</string>
+    <string name="notif_hypo_sos_failed_recipient">Could not send to %1$s.</string>
+    <string name="notif_hypo_sos_handed_to_app">Opened your messaging app for %1$s. Confirm send there.</string>
     <string name="hypo_sos_prompt_title">Severe low glucose</string>
     <string name="hypo_sos_prompt_body">Current reading %1$d mg/dL (%2$s). If you dismiss this, caregivers will not be texted.</string>
     <string name="hypo_sos_prompt_countdown">SOS in %1$d:%2$02d</string>

@@ -89,12 +89,25 @@ class HypoSosNotifier @Inject constructor(
     }
 
     @SuppressLint("MissingPermission")
-    fun notifyDispatchResult(sent: Boolean, contactCount: Int) {
+    fun notifyDispatchResult(results: List<RecipientSmsResult>) {
         if (!canNotify()) return
-        val body = if (sent) {
-            context.getString(R.string.notif_hypo_sos_sent_body, contactCount)
-        } else {
+        val body = if (results.isEmpty()) {
             context.getString(R.string.notif_hypo_sos_failed_body)
+        } else {
+            results.joinToString("\n") { result ->
+                when (result.status) {
+                    SmsSendStatus.SENT ->
+                        context.getString(R.string.notif_hypo_sos_sent_ok, result.label)
+                    SmsSendStatus.NO_SERVICE ->
+                        context.getString(R.string.notif_hypo_sos_no_service, result.label)
+                    SmsSendStatus.RADIO_OFF ->
+                        context.getString(R.string.notif_hypo_sos_radio_off, result.label)
+                    SmsSendStatus.HANDED_TO_MESSAGING_APP ->
+                        context.getString(R.string.notif_hypo_sos_handed_to_app, result.label)
+                    SmsSendStatus.FAILED ->
+                        context.getString(R.string.notif_hypo_sos_failed_recipient, result.label)
+                }
+            }
         }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_glucosehero)

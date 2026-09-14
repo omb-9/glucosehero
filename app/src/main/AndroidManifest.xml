@@ -72,6 +72,10 @@
         <intent>
             <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
     </queries>
 
     <application
@@ -154,6 +158,10 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".crisis.HypoSosSmsSentReceiver"
+            android:exported="false" />
 
         <receiver
             android:name=".ui.glance.GlucoseHeroGlanceWidgetReceiver"

@@ -10,7 +10,6 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
-import android.telephony.SmsManager
 import androidx.core.content.ContextCompat
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.EntryDao
@@ -41,6 +40,7 @@ class HypoSosManager @Inject constructor(
     private val entryDao: EntryDao,
     private val settingsDataStore: SettingsDataStore,
     private val notifier: HypoSosNotifier,
+    private val smsSender: HypoSosSmsSender,
 ) {
 
     private val mutex = Mutex()
@@ -129,15 +129,17 @@ class HypoSosManager @Inject constructor(
             .filter { it.phone.isNotBlank() }
         val location = lastKnownLocation()
         val body = sosMessage(pending, location)
-        var sentAny = false
-        if (hasSmsPermission() && contacts.isNotEmpty()) {
-            contacts.forEach { contact ->
-                sentAny = sendSms(contact.phone, body) || sentAny
-            }
+        val hasSms = hasSmsPermission()
+        val results = contacts.map { contact ->
+            val status = smsSender.dispatch(contact.phone, body, hasSms)
+            RecipientSmsResult(
+                label = contact.name.ifBlank { contact.phone },
+                status = status,
+            )
         }
         settingsDataStore.setHypoSosLastSentMillis(System.currentTimeMillis())
         cancelLocked()
-        notifier.notifyDispatchResult(sent = sentAny, contactCount = contacts.size)
+        notifier.notifyDispatchResult(results)
         stopService()
     }
 
@@ -242,28 +244,6 @@ class HypoSosManager @Inject constructor(
         ContextCompat.checkSelfPermission(
             context, Manifest.permission.SEND_SMS,
         ) == PackageManager.PERMISSION_GRANTED
-
-    private fun sendSms(phone: String, body: String): Boolean {
-        val normalized = phone.filter { it.isDigit() || it == '+' }
-        if (normalized.isBlank()) return false
-        return try {
-            val smsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                context.getSystemService(SmsManager::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                SmsManager.getDefault()
-            }
-            val parts = smsManager.divideMessage(body)
-            if (parts.size > 1) {
-                smsManager.sendMultipartTextMessage(normalized, null, parts, null, null)
-            } else {
-                smsManager.sendTextMessage(normalized, null, body, null, null)
-            }
-            true
-        } catch (_: Exception) {
-            false
-        }
-    }
 
     private fun sosMessage(pending: HypoSosPending, location: Location?): String {
         val maps = if (location != null) {
