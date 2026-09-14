@@ -26,8 +26,8 @@ interface InsightDao {
 
     // ---------- Backup/export paged reads (additive) ----------
 
-    @Query("SELECT * FROM insight_cards ORDER BY id LIMIT :limit OFFSET :offset")
-    suspend fun pageForExport(limit: Int, offset: Int): List<InsightCardEntity>
+    @Query("SELECT * FROM insight_cards WHERE id > :lastId ORDER BY id ASC LIMIT :limit")
+    suspend fun pageForExport(lastId: Long, limit: Int): List<InsightCardEntity>
 
     @Query("SELECT COUNT(*) FROM insight_cards")
     suspend fun countAll(): Int

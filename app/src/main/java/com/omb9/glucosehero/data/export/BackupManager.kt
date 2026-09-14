@@ -290,7 +290,11 @@ class BackupManager @Inject constructor(
         // materializing any entry array. Cheaper than tracking min/max through
         // the page stream, and it keeps the streaming writer oblivious to
         // entry shape.
-        val earliestEntry = entryDao.pageByTimestampForExport(1, 0).firstOrNull()?.timestamp
+        val earliestEntry = entryDao.pageByTimestampForExport(
+            lastTimestamp = Long.MIN_VALUE,
+            lastId = 0L,
+            limit = 1,
+        ).firstOrNull()?.timestamp
         val latestEntry = entryDao.recentEntries(1).firstOrNull()?.timestamp
         val profile = settingsDataStore.profileSnapshot().let { p ->
             BackupProfile(
@@ -315,17 +319,17 @@ class BackupManager @Inject constructor(
             earliestEntry = earliestEntry,
             latestEntry = latestEntry,
             pageSize = EXPORT_PAGE_SIZE,
-            foods = { offset, limit -> foodDao.pageForExport(limit, offset).map { it.toBackup() } },
-            entries = { offset, limit -> entryDao.pageForExport(limit, offset).map { it.toBackup() } },
-            supplies = { offset, limit -> supplyDao.pageForExport(limit, offset).map { it.toBackup() } },
-            glucoseSamples = { offset, limit ->
-                glucoseSampleDao.pageForExport(limit, offset).map { it.toBackup() }
+            foods = { lastId, limit -> foodDao.pageForExport(lastId, limit).map { it.toBackup() } },
+            entries = { lastId, limit -> entryDao.pageForExport(lastId, limit).map { it.toBackup() } },
+            supplies = { lastId, limit -> supplyDao.pageForExport(lastId, limit).map { it.toBackup() } },
+            glucoseSamples = { lastId, limit ->
+                glucoseSampleDao.pageForExport(lastId, limit).map { it.toBackup() }
             },
-            chat = { offset, limit -> chatMessageDao.pageForExport(limit, offset).map { it.toBackup() } },
-            pendingAiQueries = { offset, limit ->
-                pendingAiQueryDao.pageForExport(limit, offset).map { it.toBackup() }
+            chat = { lastId, limit -> chatMessageDao.pageForExport(lastId, limit).map { it.toBackup() } },
+            pendingAiQueries = { lastId, limit ->
+                pendingAiQueryDao.pageForExport(lastId, limit).map { it.toBackup() }
             },
-            insights = { offset, limit -> insightDao.pageForExport(limit, offset).map { it.toBackup() } },
+            insights = { lastId, limit -> insightDao.pageForExport(lastId, limit).map { it.toBackup() } },
             onProgress = onProgress,
         )
         jsonWriter.flush()

@@ -26,8 +26,8 @@ interface PendingAiQueryDao {
 
     // ---------- Backup/export paged reads (additive) ----------
 
-    @Query("SELECT * FROM pending_ai_queries ORDER BY id LIMIT :limit OFFSET :offset")
-    suspend fun pageForExport(limit: Int, offset: Int): List<PendingAiQueryEntity>
+    @Query("SELECT * FROM pending_ai_queries WHERE id > :lastId ORDER BY id ASC LIMIT :limit")
+    suspend fun pageForExport(lastId: Long, limit: Int): List<PendingAiQueryEntity>
 
     @Query("SELECT COUNT(*) FROM pending_ai_queries")
     suspend fun countAll(): Int

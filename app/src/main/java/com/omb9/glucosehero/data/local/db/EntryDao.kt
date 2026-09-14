@@ -445,20 +445,30 @@ interface EntryDao {
 
     // ---------- Backup/export paged reads (additive) ----------
 
-    @Query("SELECT * FROM entries ORDER BY id LIMIT :limit OFFSET :offset")
-    suspend fun pageForExport(limit: Int, offset: Int): List<EntryEntity>
-
-    @Query("SELECT * FROM entries ORDER BY timestamp ASC, id ASC LIMIT :limit OFFSET :offset")
-    suspend fun pageByTimestampForExport(limit: Int, offset: Int): List<EntryEntity>
+    @Query("SELECT * FROM entries WHERE id > :lastId ORDER BY id ASC LIMIT :limit")
+    suspend fun pageForExport(lastId: Long, limit: Int): List<EntryEntity>
 
     @Query(
-        "SELECT * FROM entries WHERE timestamp >= :since ORDER BY timestamp ASC, id ASC " +
-            "LIMIT :limit OFFSET :offset"
+        "SELECT * FROM entries WHERE timestamp > :lastTimestamp " +
+            "OR (timestamp = :lastTimestamp AND id > :lastId) " +
+            "ORDER BY timestamp ASC, id ASC LIMIT :limit"
+    )
+    suspend fun pageByTimestampForExport(
+        lastTimestamp: Long,
+        lastId: Long,
+        limit: Int,
+    ): List<EntryEntity>
+
+    @Query(
+        "SELECT * FROM entries WHERE timestamp >= :since AND " +
+            "(timestamp > :lastTimestamp OR (timestamp = :lastTimestamp AND id > :lastId)) " +
+            "ORDER BY timestamp ASC, id ASC LIMIT :limit"
     )
     suspend fun pageSinceByTimestampForExport(
         since: Long,
+        lastTimestamp: Long,
+        lastId: Long,
         limit: Int,
-        offset: Int,
     ): List<EntryEntity>
 
     @Query("SELECT COUNT(*) FROM entries")

@@ -80,8 +80,8 @@ interface GlucoseSampleDao {
 
     // ---------- Backup/export paged reads (additive) ----------
 
-    @Query("SELECT * FROM glucose_samples ORDER BY id LIMIT :limit OFFSET :offset")
-    suspend fun pageForExport(limit: Int, offset: Int): List<GlucoseSampleEntity>
+    @Query("SELECT * FROM glucose_samples WHERE id > :lastId ORDER BY id ASC LIMIT :limit")
+    suspend fun pageForExport(lastId: Long, limit: Int): List<GlucoseSampleEntity>
 
     @Query("SELECT * FROM glucose_samples ORDER BY id")
     suspend fun getAll(): List<GlucoseSampleEntity>

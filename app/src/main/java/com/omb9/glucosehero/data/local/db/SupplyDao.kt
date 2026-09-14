@@ -74,8 +74,8 @@ interface SupplyDao {
 
     // ---------- Backup/export paged reads (additive) ----------
 
-    @Query("SELECT * FROM supplies ORDER BY id LIMIT :limit OFFSET :offset")
-    suspend fun pageForExport(limit: Int, offset: Int): List<SupplyEntity>
+    @Query("SELECT * FROM supplies WHERE id > :lastId ORDER BY id ASC LIMIT :limit")
+    suspend fun pageForExport(lastId: Long, limit: Int): List<SupplyEntity>
 
     @Query("SELECT COUNT(*) FROM supplies")
     suspend fun countAll(): Int

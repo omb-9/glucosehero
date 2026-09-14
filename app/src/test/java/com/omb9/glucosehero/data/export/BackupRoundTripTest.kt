@@ -201,13 +201,13 @@ class BackupRoundTripTest {
             appVersion = "1.0.0",
             exportedAt = 1_234_567L,
             pageSize = 1,
-            foods = { offset, limit -> page(foods, offset, limit) },
-            entries = { offset, limit -> page(entries, offset, limit) },
-            supplies = { offset, limit -> page(supplies, offset, limit) },
-            glucoseSamples = { offset, limit -> page(glucoseSamples, offset, limit) },
-            chat = { offset, limit -> page(chat, offset, limit) },
-            pendingAiQueries = { offset, limit -> page(pending, offset, limit) },
-            insights = { offset, limit -> page(insights, offset, limit) },
+            foods = { lastId, limit -> pageById(foods, lastId, limit) { it.id } },
+            entries = { lastId, limit -> pageById(entries, lastId, limit) { it.id } },
+            supplies = { lastId, limit -> pageById(supplies, lastId, limit) { it.id } },
+            glucoseSamples = { lastId, limit -> pageById(glucoseSamples, lastId, limit) { it.id } },
+            chat = { lastId, limit -> pageById(chat, lastId, limit) { it.id } },
+            pendingAiQueries = { lastId, limit -> pageById(pending, lastId, limit) { it.id } },
+            insights = { lastId, limit -> pageById(insights, lastId, limit) { it.id } },
         )
 
         val decoded = decodeEnvelope(ByteArrayInputStream(output.toByteArray()))
@@ -471,12 +471,12 @@ class BackupRoundTripTest {
             latestEntry = 2_000L,
             pageSize = 1,
             foods = { _, _ -> emptyList() },
-            entries = { offset, limit ->
-                page(
+            entries = { lastId, limit ->
+                pageById(
                     listOf(BackupEntry(id = 1L, timestamp = 1_000L, glucoseMgdl = 100.0, uuid = "a")),
-                    offset,
+                    lastId,
                     limit,
-                )
+                ) { it.id }
             },
             supplies = { _, _ -> emptyList() },
             glucoseSamples = { _, _ -> emptyList() },
@@ -605,6 +605,10 @@ class BackupRoundTripTest {
         assertEquals(restored, v3Again)
     }
 
-    private fun <T> page(list: List<T>, offset: Int, limit: Int): List<T> =
-        if (offset >= list.size) emptyList() else list.subList(offset, minOf(offset + limit, list.size))
+    private fun <T> pageById(
+        list: List<T>,
+        lastId: Long,
+        limit: Int,
+        idOf: (T) -> Long,
+    ): List<T> = list.filter { idOf(it) > lastId }.take(limit)
 }

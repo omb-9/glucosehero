@@ -574,13 +574,13 @@ suspend fun streamBackupEnvelope(
     earliestEntry: Long? = null,
     latestEntry: Long? = null,
     pageSize: Int = 500,
-    foods: suspend (offset: Int, limit: Int) -> List<BackupFood>,
-    entries: suspend (offset: Int, limit: Int) -> List<BackupEntry>,
-    supplies: suspend (offset: Int, limit: Int) -> List<BackupSupply>,
-    glucoseSamples: suspend (offset: Int, limit: Int) -> List<BackupGlucoseSample>,
-    chat: suspend (offset: Int, limit: Int) -> List<BackupChatMessage>,
-    pendingAiQueries: suspend (offset: Int, limit: Int) -> List<BackupPendingQuery>,
-    insights: suspend (offset: Int, limit: Int) -> List<BackupInsight>,
+    foods: suspend (lastId: Long, limit: Int) -> List<BackupFood>,
+    entries: suspend (lastId: Long, limit: Int) -> List<BackupEntry>,
+    supplies: suspend (lastId: Long, limit: Int) -> List<BackupSupply>,
+    glucoseSamples: suspend (lastId: Long, limit: Int) -> List<BackupGlucoseSample>,
+    chat: suspend (lastId: Long, limit: Int) -> List<BackupChatMessage>,
+    pendingAiQueries: suspend (lastId: Long, limit: Int) -> List<BackupPendingQuery>,
+    insights: suspend (lastId: Long, limit: Int) -> List<BackupInsight>,
     onProgress: suspend (Float) -> Unit = {},
 ) {
     val writer = output.bufferedWriter(Charsets.UTF_8)
@@ -616,13 +616,13 @@ internal suspend fun streamBackupEnvelope(
     earliestEntry: Long? = null,
     latestEntry: Long? = null,
     pageSize: Int = 500,
-    foods: suspend (offset: Int, limit: Int) -> List<BackupFood>,
-    entries: suspend (offset: Int, limit: Int) -> List<BackupEntry>,
-    supplies: suspend (offset: Int, limit: Int) -> List<BackupSupply>,
-    glucoseSamples: suspend (offset: Int, limit: Int) -> List<BackupGlucoseSample>,
-    chat: suspend (offset: Int, limit: Int) -> List<BackupChatMessage>,
-    pendingAiQueries: suspend (offset: Int, limit: Int) -> List<BackupPendingQuery>,
-    insights: suspend (offset: Int, limit: Int) -> List<BackupInsight>,
+    foods: suspend (lastId: Long, limit: Int) -> List<BackupFood>,
+    entries: suspend (lastId: Long, limit: Int) -> List<BackupEntry>,
+    supplies: suspend (lastId: Long, limit: Int) -> List<BackupSupply>,
+    glucoseSamples: suspend (lastId: Long, limit: Int) -> List<BackupGlucoseSample>,
+    chat: suspend (lastId: Long, limit: Int) -> List<BackupChatMessage>,
+    pendingAiQueries: suspend (lastId: Long, limit: Int) -> List<BackupPendingQuery>,
+    insights: suspend (lastId: Long, limit: Int) -> List<BackupInsight>,
     onProgress: suspend (Float) -> Unit = {},
 ) {
     val total = counts.total().coerceAtLeast(1)
@@ -654,13 +654,13 @@ internal suspend fun streamBackupEnvelope(
     // Dependency order matters for merge: foods precede entries (entries
     // reference foods by id) and chat precedes pending queries (pending
     // queries reference chat messages by id).
-    writeJsonArray(sink, "foods", BackupFood.serializer(), pageSize, foods, pageDone)
-    writeJsonArray(sink, "entries", BackupEntry.serializer(), pageSize, entries, pageDone)
-    writeJsonArray(sink, "supplies", BackupSupply.serializer(), pageSize, supplies, pageDone)
-    writeJsonArray(sink, "glucoseSamples", BackupGlucoseSample.serializer(), pageSize, glucoseSamples, pageDone)
-    writeJsonArray(sink, "chat", BackupChatMessage.serializer(), pageSize, chat, pageDone)
-    writeJsonArray(sink, "pendingAiQueries", BackupPendingQuery.serializer(), pageSize, pendingAiQueries, pageDone)
-    writeJsonArray(sink, "insights", BackupInsight.serializer(), pageSize, insights, pageDone)
+    writeJsonArray(sink, "foods", BackupFood.serializer(), pageSize, foods, { it.id }, pageDone)
+    writeJsonArray(sink, "entries", BackupEntry.serializer(), pageSize, entries, { it.id }, pageDone)
+    writeJsonArray(sink, "supplies", BackupSupply.serializer(), pageSize, supplies, { it.id }, pageDone)
+    writeJsonArray(sink, "glucoseSamples", BackupGlucoseSample.serializer(), pageSize, glucoseSamples, { it.id }, pageDone)
+    writeJsonArray(sink, "chat", BackupChatMessage.serializer(), pageSize, chat, { it.id }, pageDone)
+    writeJsonArray(sink, "pendingAiQueries", BackupPendingQuery.serializer(), pageSize, pendingAiQueries, { it.id }, pageDone)
+    writeJsonArray(sink, "insights", BackupInsight.serializer(), pageSize, insights, { it.id }, pageDone)
 
     sink.endObject()
     sink.flush()
@@ -672,19 +672,20 @@ private suspend fun <T> writeJsonArray(
     name: String,
     serializer: KSerializer<T>,
     pageSize: Int,
-    page: suspend (offset: Int, limit: Int) -> List<T>,
+    page: suspend (lastId: Long, limit: Int) -> List<T>,
+    idOf: (T) -> Long,
     onPage: suspend (written: Int) -> Unit = {},
 ) {
     sink.name(name)
     sink.beginArray()
-    var offset = 0
+    var lastId = 0L
     while (true) {
-        val items = page(offset, pageSize)
+        val items = page(lastId, pageSize)
         if (items.isEmpty()) break
         for (item in items) {
             sink.rawValue(AppJson.encodeToString(serializer, item))
         }
-        offset += items.size
+        lastId = idOf(items.last())
         onPage(items.size)
         if (items.size < pageSize) break
     }

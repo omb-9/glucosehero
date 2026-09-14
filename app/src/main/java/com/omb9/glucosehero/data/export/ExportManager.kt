@@ -50,16 +50,20 @@ class ExportManager @Inject constructor(
         val file = File(context.cacheDir, CSV_FILE_NAME)
         FileOutputStream(file).bufferedWriter(Charsets.UTF_8).use { writer ->
             writeCsvHeader(writer)
-            var offset = 0
+            var lastTimestamp = Long.MIN_VALUE
+            var lastId = 0L
             while (true) {
                 val page = entryDao.pageSinceByTimestampForExport(
                     exportWindowStart(),
+                    lastTimestamp,
+                    lastId,
                     CSV_PAGE_SIZE,
-                    offset,
                 )
                 if (page.isEmpty()) break
                 page.forEach { writeCsvRow(writer, it) }
-                offset += page.size
+                val last = page.last()
+                lastTimestamp = last.timestamp
+                lastId = last.id
                 if (page.size < CSV_PAGE_SIZE) break
             }
         }

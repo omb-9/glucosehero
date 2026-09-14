@@ -126,8 +126,8 @@ interface FoodDao {
 
     // ---------- Backup/export paged reads (additive) ----------
 
-    @Query("SELECT * FROM foods ORDER BY id LIMIT :limit OFFSET :offset")
-    suspend fun pageForExport(limit: Int, offset: Int): List<FoodEntity>
+    @Query("SELECT * FROM foods WHERE id > :lastId ORDER BY id ASC LIMIT :limit")
+    suspend fun pageForExport(lastId: Long, limit: Int): List<FoodEntity>
 
     @Query("SELECT COUNT(*) FROM foods")
     suspend fun countAll(): Int

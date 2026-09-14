@@ -186,8 +186,8 @@ class BackupDatabaseRoundTripTest {
                 exportedAt = 1_234_567L,
                 earliestEntry = 1_000L,
                 latestEntry = 3_000L,
-                foods = { offset, limit ->
-                    page(
+                foods = { lastId, limit ->
+                    pageById(
                         listOf(
                             BackupFood(
                                 id = 1L,
@@ -198,12 +198,12 @@ class BackupDatabaseRoundTripTest {
                                 createdAt = 900L,
                             ),
                         ),
-                        offset,
+                        lastId,
                         limit,
-                    )
+                    ) { it.id }
                 },
-                entries = { offset, limit ->
-                    page(
+                entries = { lastId, limit ->
+                    pageById(
                         listOf(
                             BackupEntry(
                                 id = 10L,
@@ -218,9 +218,9 @@ class BackupDatabaseRoundTripTest {
                                 uuid = "entry-uuid-new",
                             ),
                         ),
-                        offset,
+                        lastId,
                         limit,
-                    )
+                    ) { it.id }
                 },
                 supplies = { _, _ -> emptyList() },
                 glucoseSamples = { _, _ -> emptyList() },
@@ -379,16 +379,22 @@ class BackupDatabaseRoundTripTest {
             foods = { _, _ -> emptyList() },
             entries = { _, _ -> emptyList() },
             supplies = { _, _ -> emptyList() },
-            glucoseSamples = { offset, limit ->
-                val end = minOf(offset + limit, sampleCount)
-                (offset until end).map { index ->
-                    BackupGlucoseSample(
-                        timestamp = 1_700_000_000_000L + index,
-                        glucoseMgdl = 90.0 + (index % 100),
-                        hcRecordId = "hc-$index",
-                        recordingMethod = 1,
-                        importedAt = 1_700_000_000_000L + index,
-                    )
+            glucoseSamples = { lastId, limit ->
+                val start = lastId + 1
+                if (start > sampleCount) {
+                    emptyList()
+                } else {
+                    val end = minOf(start + limit - 1, sampleCount.toLong())
+                    (start..end).map { index ->
+                        BackupGlucoseSample(
+                            id = index,
+                            timestamp = 1_700_000_000_000L + index,
+                            glucoseMgdl = 90.0 + (index % 100),
+                            hcRecordId = "hc-$index",
+                            recordingMethod = 1,
+                            importedAt = 1_700_000_000_000L + index,
+                        )
+                    }
                 }
             },
             chat = { _, _ -> emptyList() },
@@ -553,8 +559,12 @@ class BackupDatabaseRoundTripTest {
         )
     }
 
-    private fun <T> page(list: List<T>, offset: Int, limit: Int): List<T> =
-        if (offset >= list.size) emptyList() else list.subList(offset, minOf(offset + limit, list.size))
+    private fun <T> pageById(
+        list: List<T>,
+        lastId: Long,
+        limit: Int,
+        idOf: (T) -> Long,
+    ): List<T> = list.filter { idOf(it) > lastId }.take(limit)
 
     private suspend fun counts(): Counts = Counts(
         entries = db.entryDao().countAll(),

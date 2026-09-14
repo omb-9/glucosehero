@@ -202,7 +202,7 @@ private class HandlerFakeDao : GlucoseSampleDao {
     override suspend fun countBySource(source: GlucoseSampleSource): Int = inserted.size
     override suspend fun countSince(source: GlucoseSampleSource, sinceMillis: Long): Int = 0
     override suspend fun clear() = Unit
-    override suspend fun pageForExport(limit: Int, offset: Int): List<GlucoseSampleEntity> = emptyList()
+    override suspend fun pageForExport(lastId: Long, limit: Int): List<GlucoseSampleEntity> = emptyList()
     override suspend fun getAll(): List<GlucoseSampleEntity> = inserted
     override suspend fun insertAll(samples: List<GlucoseSampleEntity>): List<Long> = upsertAll(samples)
     override fun observeReadingsSince(since: Long): Flow<List<GlucosePointRow>> = flowOf(emptyList())

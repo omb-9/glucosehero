@@ -199,7 +199,7 @@ private class FakeIngestDao : GlucoseSampleDao {
         existingKeys.clear()
     }
 
-    override suspend fun pageForExport(limit: Int, offset: Int): List<GlucoseSampleEntity> = emptyList()
+    override suspend fun pageForExport(lastId: Long, limit: Int): List<GlucoseSampleEntity> = emptyList()
     override suspend fun getAll(): List<GlucoseSampleEntity> = inserted
     override suspend fun insertAll(samples: List<GlucoseSampleEntity>): List<Long> = upsertAll(samples)
 

@@ -648,7 +648,7 @@ private class FakeGlucoseSampleDao : GlucoseSampleDao {
         existingKeys.clear()
     }
 
-    override suspend fun pageForExport(limit: Int, offset: Int): List<GlucoseSampleEntity> = emptyList()
+    override suspend fun pageForExport(lastId: Long, limit: Int): List<GlucoseSampleEntity> = emptyList()
     override suspend fun getAll(): List<GlucoseSampleEntity> = inserted
     override suspend fun insertAll(samples: List<GlucoseSampleEntity>): List<Long> = upsertAll(samples)
 
@@ -735,9 +735,18 @@ private class FakeEntryDao : EntryDao {
     override suspend fun glucoseReadingPointsBetween(startMillis: Long, endMillis: Long): List<GlucosePointRow> = emptyList()
     override suspend fun hourlyAveragesSince(since: Long): List<HourlyGlucoseAverageRow> = emptyList()
     override suspend fun hourlyVarianceSince(since: Long): List<HourlyGlucoseVarianceRow> = emptyList()
-    override suspend fun pageForExport(limit: Int, offset: Int): List<EntryEntity> = emptyList()
-    override suspend fun pageByTimestampForExport(limit: Int, offset: Int): List<EntryEntity> = emptyList()
-    override suspend fun pageSinceByTimestampForExport(since: Long, limit: Int, offset: Int): List<EntryEntity> = emptyList()
+    override suspend fun pageForExport(lastId: Long, limit: Int): List<EntryEntity> = emptyList()
+    override suspend fun pageByTimestampForExport(
+        lastTimestamp: Long,
+        lastId: Long,
+        limit: Int,
+    ): List<EntryEntity> = emptyList()
+    override suspend fun pageSinceByTimestampForExport(
+        since: Long,
+        lastTimestamp: Long,
+        lastId: Long,
+        limit: Int,
+    ): List<EntryEntity> = emptyList()
     override suspend fun countAll(): Int = inserted.size
     override suspend fun getAll(): List<EntryEntity> = inserted
     override suspend fun allUuids(): List<String> = emptyList()

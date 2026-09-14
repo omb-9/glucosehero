@@ -45,10 +45,11 @@ class MarkdownExporter @Inject constructor(
         val written = mutableListOf<Uri>()
         var currentMonth: String? = null
         var monthEntries = ArrayList<EntryEntity>()
-        var offset = 0
+        var lastTimestamp = Long.MIN_VALUE
+        var lastId = 0L
 
         while (true) {
-            val page = entryDao.pageByTimestampForExport(PAGE_SIZE, offset)
+            val page = entryDao.pageByTimestampForExport(lastTimestamp, lastId, PAGE_SIZE)
             if (page.isEmpty()) break
 
             for (entry in page) {
@@ -62,7 +63,9 @@ class MarkdownExporter @Inject constructor(
                 monthEntries.add(entry)
             }
 
-            offset += page.size
+            val last = page.last()
+            lastTimestamp = last.timestamp
+            lastId = last.id
             if (page.size < PAGE_SIZE) break
         }
 
@@ -112,9 +115,15 @@ class MarkdownExporter @Inject constructor(
 
     private suspend fun readEntriesBetween(startMillis: Long, endMillis: Long): List<EntryEntity> {
         val entries = ArrayList<EntryEntity>()
-        var offset = 0
+        var lastTimestamp = Long.MIN_VALUE
+        var lastId = 0L
         while (true) {
-            val page = entryDao.pageSinceByTimestampForExport(startMillis, PAGE_SIZE, offset)
+            val page = entryDao.pageSinceByTimestampForExport(
+                startMillis,
+                lastTimestamp,
+                lastId,
+                PAGE_SIZE,
+            )
             if (page.isEmpty()) break
 
             for (entry in page) {
@@ -122,7 +131,9 @@ class MarkdownExporter @Inject constructor(
                 entries.add(entry)
             }
 
-            offset += page.size
+            val last = page.last()
+            lastTimestamp = last.timestamp
+            lastId = last.id
             if (page.size < PAGE_SIZE) break
         }
         return entries
