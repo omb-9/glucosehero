@@ -27,6 +27,22 @@ class OffClientIsolationTest {
     }
 
     @Test
+    fun `off client derived from base does not inherit ai auth interceptor`() {
+        val base = NetworkModule.provideBaseOkHttpClient()
+        val client = NetworkModule.provideOffOkHttpClient(
+            base,
+            OpenFoodFactsUserAgentInterceptor(),
+            OpenFoodFactsThrottleInterceptor(),
+        )
+
+        assertTrue(base.interceptors.none { it is DynamicApiInterceptor })
+        assertTrue(client.interceptors.none { it is DynamicApiInterceptor })
+        assertTrue(client.networkInterceptors.none { it is DynamicApiInterceptor })
+        assertTrue(client.dispatcher === base.dispatcher)
+        assertTrue(client.connectionPool === base.connectionPool)
+    }
+
+    @Test
     fun `off client carries user agent and throttle interceptors`() {
         val client = NetworkModule.provideOpenFoodFactsOkHttpClient()
 
@@ -78,7 +94,7 @@ class OffClientIsolationTest {
     @Test
     fun `provideOffOkHttpClient has Named openfoodfacts qualifier`() {
         val method = NetworkModule::class.java.methods.first {
-            it.name == "provideOffOkHttpClient" && it.parameterCount == 2
+            it.name == "provideOffOkHttpClient" && it.parameterCount == 3
         }
         val named = method.getAnnotation(Named::class.java)
         assertNotNull(named)

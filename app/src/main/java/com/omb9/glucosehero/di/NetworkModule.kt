@@ -38,10 +38,27 @@ object NetworkModule {
     /** Open Food Facts requires a User-Agent identifying the app. */
     val OFF_USER_AGENT = OpenFoodFactsUserAgentInterceptor.DEFAULT_USER_AGENT
 
+    /**
+     * Shared dispatcher, connection pool, and default timeouts. Carries no
+     * interceptors, especially not [DynamicApiInterceptor], so derived clients
+     * cannot inherit the AI bearer token by accident.
+     */
     @Provides
     @Singleton
-    fun provideOkHttpClient(dynamicApiInterceptor: DynamicApiInterceptor): OkHttpClient =
+    @Named("okhttp-base")
+    fun provideBaseOkHttpClient(): OkHttpClient =
         OkHttpClient.Builder()
+            .connectTimeout(Duration.ofSeconds(20))
+            .readTimeout(Duration.ofSeconds(60))
+            .build()
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(
+        @Named("okhttp-base") base: OkHttpClient,
+        dynamicApiInterceptor: DynamicApiInterceptor,
+    ): OkHttpClient =
+        base.newBuilder()
             .addInterceptor(dynamicApiInterceptor)
             .addInterceptor(CleartextGuardInterceptor())
             .addNetworkInterceptor(AuthRedirectSanitizer())
@@ -63,8 +80,8 @@ object NetworkModule {
     @Provides
     @Singleton
     @Named("sse")
-    fun provideSseOkHttpClient(): OkHttpClient =
-        OkHttpClient.Builder()
+    fun provideSseOkHttpClient(@Named("okhttp-base") base: OkHttpClient): OkHttpClient =
+        base.newBuilder()
             .addInterceptor(CleartextGuardInterceptor())
             .addNetworkInterceptor(AuthRedirectSanitizer())
             .connectTimeout(Duration.ofSeconds(20))
@@ -80,8 +97,8 @@ object NetworkModule {
     @Provides
     @Singleton
     @Named("webhook")
-    fun provideWebhookOkHttpClient(): OkHttpClient =
-        OkHttpClient.Builder()
+    fun provideWebhookOkHttpClient(@Named("okhttp-base") base: OkHttpClient): OkHttpClient =
+        base.newBuilder()
             .addInterceptor(CleartextGuardInterceptor())
             .connectTimeout(Duration.ofSeconds(5))
             .readTimeout(Duration.ofSeconds(5))
@@ -96,8 +113,8 @@ object NetworkModule {
     @Provides
     @Singleton
     @Named("webdav")
-    fun provideWebDavOkHttpClient(): OkHttpClient =
-        OkHttpClient.Builder()
+    fun provideWebDavOkHttpClient(@Named("okhttp-base") base: OkHttpClient): OkHttpClient =
+        base.newBuilder()
             .addInterceptor(CleartextGuardInterceptor())
             .connectTimeout(Duration.ofSeconds(20))
             .readTimeout(Duration.ofSeconds(120))
@@ -115,8 +132,8 @@ object NetworkModule {
     @Provides
     @Singleton
     @Named("nightscout")
-    fun provideNightscoutOkHttpClient(): OkHttpClient =
-        OkHttpClient.Builder()
+    fun provideNightscoutOkHttpClient(@Named("okhttp-base") base: OkHttpClient): OkHttpClient =
+        base.newBuilder()
             .addInterceptor(CleartextGuardInterceptor())
             .followRedirects(false)
             .followSslRedirects(false)
@@ -148,19 +165,20 @@ object NetworkModule {
         OpenFoodFactsThrottleInterceptor()
 
     /**
-     * Isolated Open Food Facts client. Deliberately built on a fresh
-     * [OkHttpClient.Builder] that never sees [DynamicApiInterceptor], so
-     * barcode lookups are never rewritten to the user's live AI provider
-     * nor tagged with their AI bearer token.
+     * Isolated Open Food Facts client. Derived from [provideBaseOkHttpClient]
+     * so it shares the dispatcher and pool, but never sees
+     * [DynamicApiInterceptor], so barcode lookups are never rewritten to the
+     * user's live AI provider nor tagged with their AI bearer token.
      */
     @Provides
     @Singleton
     @Named("openfoodfacts")
     fun provideOffOkHttpClient(
+        @Named("okhttp-base") base: OkHttpClient,
         userAgent: OpenFoodFactsUserAgentInterceptor,
         throttle: OpenFoodFactsThrottleInterceptor,
     ): OkHttpClient =
-        OkHttpClient.Builder()
+        base.newBuilder()
             .addInterceptor(userAgent)
             .addInterceptor(throttle)
             .connectTimeout(Duration.ofSeconds(10))
@@ -169,6 +187,7 @@ object NetworkModule {
 
     fun provideOpenFoodFactsOkHttpClient(): OkHttpClient =
         provideOffOkHttpClient(
+            provideBaseOkHttpClient(),
             OpenFoodFactsUserAgentInterceptor(),
             OpenFoodFactsThrottleInterceptor(),
         )
