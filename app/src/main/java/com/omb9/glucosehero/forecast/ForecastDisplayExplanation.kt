@@ -1,6 +1,8 @@
 package com.omb9.glucosehero.forecast
 
 import androidx.compose.runtime.Immutable
+import com.omb9.glucosehero.data.cgm.GlucoseAgeUnit
+import com.omb9.glucosehero.data.cgm.formatGlucoseAge
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.parseSegmentStart
 import com.omb9.glucosehero.util.Formatters
@@ -35,6 +37,8 @@ object ForecastDisplayFormatter {
         return ForecastDisplayExplanation(
             insufficientData = snapshot.insufficientData,
             dosingProfileInvalid = snapshot.dosingProfileInvalid,
+            staleAnchor = snapshot.staleAnchor,
+            anchorAgeMillis = snapshot.anchorAgeMillis,
             startGlucose = Formatters.glucoseWithUnit(snapshot.currentMgdl, unit),
             startTime = Formatters.time(snapshot.currentTimestampMillis, use24HourTime),
             trendContribution = Formatters.signedGlucoseWithUnit(snapshot.trendEffectMgdl60, unit),
@@ -84,6 +88,8 @@ data class ForecastSegmentDisplay(
 data class ForecastDisplayExplanation(
     val insufficientData: Boolean,
     val dosingProfileInvalid: Boolean,
+    val staleAnchor: Boolean,
+    val anchorAgeMillis: Long,
     val startGlucose: String,
     val startTime: String,
     val trendContribution: String,
@@ -101,6 +107,8 @@ data class ForecastDisplayExplanation(
         val clauses = buildList {
             if (dosingProfileInvalid) {
                 add("Cannot project insulin or carb effects until the time-of-day dosing profile is valid.")
+            } else if (staleAnchor) {
+                add(staleAnchorCaptionForTest(anchorAgeMillis))
             } else if (insufficientData) {
                 add("Need a few recent glucose readings to project ahead.")
             } else {
@@ -126,5 +134,15 @@ data class ForecastDisplayExplanation(
             add(disclaimer)
         }
         return com.omb9.glucosehero.util.WhyThisNumberCopy.spokenSentence(clauses)
+    }
+}
+
+private fun staleAnchorCaptionForTest(ageMillis: Long): String {
+    val parts = formatGlucoseAge(ageMillis)
+    val quantity = parts.quantity
+    return when (parts.unit) {
+        GlucoseAgeUnit.MINUTES -> "Latest reading $quantity min ago"
+        GlucoseAgeUnit.HOURS -> "Latest reading $quantity h ago"
+        GlucoseAgeUnit.DAYS -> "Latest reading $quantity d ago"
     }
 }

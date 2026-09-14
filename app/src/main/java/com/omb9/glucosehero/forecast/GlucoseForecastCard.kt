@@ -31,7 +31,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.omb9.glucosehero.R
+import com.omb9.glucosehero.data.cgm.GlucoseAgeUnit
 import com.omb9.glucosehero.data.cgm.GlucoseFreshness
+import com.omb9.glucosehero.data.cgm.formatGlucoseAge
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.ui.cgm.GlucoseFreshnessLabel
 import com.omb9.glucosehero.ui.cgm.glucoseFreshnessSentence
@@ -42,9 +44,13 @@ import com.omb9.glucosehero.util.WhyThisNumberCopy
 /**
  * Compact 30/60-minute projection card for the Log and Stats screens.
  *
- * `snapshot.insufficientData` is "not enough points to model." [freshness]
- * is independently "the newest `glucose_readings` row is missing or old,"
- * so a 40-minute-old stream can still show numbers plus a stale caption.
+ * `snapshot.insufficientData` is "not enough points to model."
+ * `snapshot.staleAnchor` is "the newest modeled sample is older than
+ * [GlucoseForecastEngine.MAX_ANCHOR_AGE_MILLIS]"; the card hides the
+ * projection and shows an age caption from `freshness_stale_*`. Do not
+ * show a projection and that stale caption at the same time.
+ * [freshness] is independently the 8-minute CGM caption for a live
+ * forecast.
  *
  * Contribution copy is rendered from [ForecastDisplayFormatter], never
  * reverse-engineered from the projected points.
@@ -90,13 +96,35 @@ fun GlucoseForecastCard(
             val freshnessCaption = glucoseFreshnessSentence(freshness)
             val label30 = stringResource(R.string.forecast_30_min_label)
             val label60 = stringResource(R.string.forecast_60_min_label)
-            GlucoseFreshnessLabel(freshness = freshness)
-            if (freshness is GlucoseFreshness.Stale || freshness is GlucoseFreshness.NoData) {
-                Spacer(Modifier.height(8.dp))
+            if (!snapshot.staleAnchor) {
+                GlucoseFreshnessLabel(freshness = freshness)
+                if (freshness is GlucoseFreshness.Stale || freshness is GlucoseFreshness.NoData) {
+                    Spacer(Modifier.height(8.dp))
+                }
             }
-            if (!snapshot.insufficientData && !snapshot.dosingProfileInvalid &&
-                at30 != null && at60 != null
-            ) {
+            if (snapshot.dosingProfileInvalid) {
+                Text(
+                    text = stringResource(R.string.forecast_dosing_profile_invalid),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            } else if (snapshot.staleAnchor) {
+                Text(
+                    text = staleAnchorCaption(snapshot.anchorAgeMillis),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(
+                        R.string.forecast_iob_cob,
+                        "%.1f".format(snapshot.iobUnits),
+                        snapshot.cobGrams.toInt(),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (!snapshot.insufficientData && at30 != null && at60 != null) {
                 val value30 = Formatters.glucoseWithUnit(at30.glucoseMgdl, unit)
                 val value60 = Formatters.glucoseWithUnit(at60.glucoseMgdl, unit)
                 val valuesDescription = if (freshnessCaption == null) {
@@ -144,12 +172,6 @@ fun GlucoseForecastCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            } else if (snapshot.dosingProfileInvalid) {
-                Text(
-                    text = stringResource(R.string.forecast_dosing_profile_invalid),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
             } else if (freshness !is GlucoseFreshness.NoData) {
                 Text(
                     text = stringResource(R.string.forecast_insufficient_data),
@@ -194,6 +216,12 @@ private fun ForecastWhyThisNumberBody(
                     text = stringResource(R.string.forecast_dosing_profile_invalid),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
+                )
+            } else if (explanation.staleAnchor) {
+                Text(
+                    text = staleAnchorCaption(explanation.anchorAgeMillis),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else if (explanation.insufficientData) {
                 Text(
@@ -309,6 +337,8 @@ internal fun forecastWhySpokenSentence(
     val clauses = buildList {
         if (explanation.dosingProfileInvalid) {
             add(stringResource(R.string.forecast_dosing_profile_invalid))
+        } else if (explanation.staleAnchor) {
+            add(staleAnchorCaption(explanation.anchorAgeMillis))
         } else if (explanation.insufficientData) {
             add(stringResource(R.string.forecast_insufficient_data))
         } else {
@@ -368,6 +398,16 @@ internal fun forecastWhySpokenSentence(
         add(stringResource(R.string.forecast_disclaimer))
     }
     return WhyThisNumberCopy.spokenSentence(clauses)
+}
+
+@Composable
+private fun staleAnchorCaption(ageMillis: Long): String {
+    val parts = formatGlucoseAge(ageMillis)
+    return when (parts.unit) {
+        GlucoseAgeUnit.MINUTES -> stringResource(R.string.freshness_stale_minutes, parts.quantity)
+        GlucoseAgeUnit.HOURS -> stringResource(R.string.freshness_stale_hours, parts.quantity)
+        GlucoseAgeUnit.DAYS -> stringResource(R.string.freshness_stale_days, parts.quantity)
+    }
 }
 
 @Composable

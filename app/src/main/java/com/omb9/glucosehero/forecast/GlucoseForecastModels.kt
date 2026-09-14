@@ -42,6 +42,19 @@ data class GlucoseForecastSnapshot(
     val points: List<GlucoseForecastPoint>,
     val sampleCount: Int,
     val insufficientData: Boolean = false,
+    /**
+     * Age of the newest lookback sample at [generatedAtMillis], never negative.
+     * Zero when there is no sample. Defaults so DataStore JSON written before
+     * this field still decodes.
+     */
+    val anchorAgeMillis: Long = 0,
+    /**
+     * True when the newest lookback sample is older than
+     * [GlucoseForecastEngine.MAX_ANCHOR_AGE_MILLIS]. Separate from
+     * [insufficientData]: there were enough points to model, but the
+     * anchor is too old to project from.
+     */
+    val staleAnchor: Boolean = false,
     /** True when the stored dosing profile is invalid; UI must not show numbers as a recommendation. FEATURE: dosing-profiles */
     val dosingProfileInvalid: Boolean = false,
     val trendEffectMgdl30: Double = 0.0,

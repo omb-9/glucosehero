@@ -60,8 +60,11 @@ import kotlin.math.sqrt
  * kinematic projection so they are not double-counted in the AR residual.
  *
  * **Clamp.** Projections are clamped to 40-400 mg/dL. Missing CGM data
- * returns [GlucoseForecastSnapshot.insufficientData]. Missing IOB/carb
- * logs are treated as zero. This is an estimate, not a therapy recommendation.
+ * returns [GlucoseForecastSnapshot.insufficientData]. A newest sample older
+ * than [MAX_ANCHOR_AGE_MILLIS] returns [GlucoseForecastSnapshot.staleAnchor]
+ * with no projection points; that is a separate axis from insufficient data.
+ * Missing IOB/carb logs are treated as zero. This is an estimate, not a
+ * therapy recommendation.
  */
 object GlucoseForecastEngine {
 
@@ -71,6 +74,15 @@ object GlucoseForecastEngine {
     const val HIGHLIGHT_MINUTES_60: Int = 60
     const val LOOKBACK_MINUTES: Int = 90
     const val MIN_SAMPLES: Int = 3
+    /**
+     * Refuse to emit projection points when the newest CGM sample is older
+     * than this. Twenty minutes is roughly four missed 5-minute CGM
+     * intervals: long enough that a single missed reading still forecasts,
+     * but a silent sensor does not keep looking live. Intentionally looser
+     * than [com.omb9.glucosehero.data.cgm.GlucoseFreshness.FRESH_MAX_AGE_MILLIS]
+     * (8 minutes), which is a UI caption threshold under a Wear lockstep test.
+     */
+    const val MAX_ANCHOR_AGE_MILLIS: Long = 20L * 60L * 1000L
     const val GRID_MINUTES: Double = 5.0
     const val MAX_AR_SAMPLES: Int = 12
     const val MIN_GLUCOSE_MGDL: Double = 40.0
@@ -105,6 +117,8 @@ object GlucoseForecastEngine {
                         points = emptyList(),
                         sampleCount = 0,
                         insufficientData = true,
+                        anchorAgeMillis = 0L,
+                        staleAnchor = false,
                         dosingProfileInvalid = true,
                     )
                 }
@@ -116,11 +130,18 @@ object GlucoseForecastEngine {
         val samples = input.samples
             .filter { it.glucoseMgdl.isFinite() && it.timestampMillis <= now.toEpochMilli() }
             .sortedBy { it.timestampMillis }
-        val latest = samples.lastOrNull()
+        val lookbackStart = now.toEpochMilli() - LOOKBACK_MINUTES * 60_000L
+        val recent = samples.filter { it.timestampMillis >= lookbackStart }
         val iob = IobCalculator.activeInsulinOnBoard(input.boluses, input.diaHours, now)
         val cob = CarbAbsorptionCalculator.carbsOnBoard(input.meals, input.carbActionHours, now)
 
-        if (latest == null || samples.size < MIN_SAMPLES) {
+        if (recent.size < MIN_SAMPLES) {
+            val latest = recent.lastOrNull() ?: samples.lastOrNull()
+            val anchorAgeMillis = if (latest != null) {
+                (now.toEpochMilli() - latest.timestampMillis).coerceAtLeast(0L)
+            } else {
+                0L
+            }
             return GlucoseForecastSnapshot(
                 generatedAtMillis = now.toEpochMilli(),
                 currentMgdl = latest?.glucoseMgdl ?: 0.0,
@@ -129,14 +150,34 @@ object GlucoseForecastEngine {
                 iobUnits = iob,
                 cobGrams = cob,
                 points = emptyList(),
-                sampleCount = samples.size,
+                sampleCount = recent.size,
                 insufficientData = true,
+                anchorAgeMillis = anchorAgeMillis,
+                staleAnchor = false,
             )
         }
 
-        val lookbackStart = now.toEpochMilli() - LOOKBACK_MINUTES * 60_000L
-        val recent = samples.filter { it.timestampMillis >= lookbackStart }
-        val series = if (recent.size >= MIN_SAMPLES) recent else samples.takeLast(MIN_SAMPLES)
+        val latest = recent.last()
+        val anchorAgeMillis = (now.toEpochMilli() - latest.timestampMillis).coerceAtLeast(0L)
+        val anchorAgeMinutes = anchorAgeMillis / 60_000.0
+
+        if (anchorAgeMillis > MAX_ANCHOR_AGE_MILLIS) {
+            return GlucoseForecastSnapshot(
+                generatedAtMillis = now.toEpochMilli(),
+                currentMgdl = latest.glucoseMgdl,
+                currentTimestampMillis = latest.timestampMillis,
+                velocityMgdlPerMin = 0.0,
+                iobUnits = iob,
+                cobGrams = cob,
+                points = emptyList(),
+                sampleCount = recent.size,
+                insufficientData = false,
+                anchorAgeMillis = anchorAgeMillis,
+                staleAnchor = true,
+            )
+        }
+
+        val series = recent
 
         val kalman = GlucoseKalmanFilter()
         for (i in series.indices) {
@@ -172,7 +213,8 @@ object GlucoseForecastEngine {
         var horizon = STEP_MINUTES
         while (horizon <= HORIZON_MINUTES) {
             val at = now.plusMillis(horizon * 60_000L)
-            val kinematic = latest.glucoseMgdl + blendedVelocity * horizon
+            val trendMinutes = minutesFromAnchor(horizon.toDouble(), anchorAgeMinutes)
+            val kinematic = latest.glucoseMgdl + blendedVelocity * trendMinutes
             val (insulinDrop, carbRise) = if (perStepProfile != null) {
                 perStepGlucoseEffects(input, perStepProfile, zoneId, now, at)
             } else {
@@ -187,7 +229,7 @@ object GlucoseForecastEngine {
             val unclamped = kinematic - insulinDrop + carbRise
             val projected = unclamped.coerceIn(MIN_GLUCOSE_MGDL, MAX_GLUCOSE_MGDL)
             if (horizon == HIGHLIGHT_MINUTES_30) {
-                trendEffectMgdl30 = blendedVelocity * horizon
+                trendEffectMgdl30 = blendedVelocity * trendMinutes
                 insulinEffectMgdl30 = insulinDrop
                 carbEffectMgdl30 = carbRise
                 unclampedMgdl30 = unclamped
@@ -195,7 +237,7 @@ object GlucoseForecastEngine {
                 clampMax30 = unclamped > MAX_GLUCOSE_MGDL
             }
             if (horizon == HIGHLIGHT_MINUTES_60) {
-                trendEffectMgdl60 = blendedVelocity * horizon
+                trendEffectMgdl60 = blendedVelocity * trendMinutes
                 insulinEffectMgdl60 = insulinDrop
                 carbEffectMgdl60 = carbRise
                 unclampedMgdl60 = unclamped
@@ -233,6 +275,8 @@ object GlucoseForecastEngine {
             points = points,
             sampleCount = series.size,
             insufficientData = false,
+            anchorAgeMillis = anchorAgeMillis,
+            staleAnchor = false,
             trendEffectMgdl30 = trendEffectMgdl30,
             insulinEffectMgdl30 = insulinEffectMgdl30,
             carbEffectMgdl30 = carbEffectMgdl30,
@@ -249,6 +293,14 @@ object GlucoseForecastEngine {
             dosingSegmentsUsed = dosingSegmentsUsed,
         )
     }
+
+    /**
+     * Minutes from the CGM anchor timestamp to a forecast horizon, including
+     * how old that anchor already is. Insulin and carb terms still run from
+     * `now` forward; only the kinematic trend uses this span.
+     */
+    internal fun minutesFromAnchor(horizonMinutes: Double, anchorAgeMinutes: Double): Double =
+        horizonMinutes + anchorAgeMinutes
 
     /**
      * 1 g carbohydrate raises glucose by ISF/CIR mg/dL. Guard CIR <= 0.
