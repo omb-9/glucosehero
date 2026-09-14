@@ -18,6 +18,7 @@ import com.omb9.glucosehero.data.security.KeystoreManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * UI state for a Nightscout connection test. [errorCode] is a
@@ -121,9 +123,10 @@ class NightscoutSettingsViewModel @Inject constructor(
             if (trimmed.isEmpty()) {
                 settingsDataStore.setEncryptedNightscoutCredential(null)
             } else {
-                settingsDataStore.setEncryptedNightscoutCredential(
-                    keystoreManager.encrypt(trimmed),
-                )
+                val encrypted = withContext(Dispatchers.IO) {
+                    keystoreManager.encrypt(trimmed)
+                }
+                settingsDataStore.setEncryptedNightscoutCredential(encrypted)
             }
         }
     }

@@ -123,7 +123,8 @@ fun suggestedEncryptedBackupFileName(date: LocalDate = LocalDate.now()): String 
  * somehow added a token field still cannot leak it.
  *
  * PERMANENT SECURITY BOUNDARY: the KeyStore-encrypted API key blob
- * (`ai_api_key_enc`) is wrapped by a hardware-backed, non-exportable key.
+ * (`ai_api_key_enc`) is wrapped by a non-exportable Android Keystore key
+ * (hardware-backed only when KeyInfo reports TEE/StrongBox on this device).
  * The ciphertext is worthless on any other device, which is the same
  * reasoning already documented in `backup_rules.xml`. Do not add the blob
  * to this JSON "for completeness." WebDAV passwords, Drive tokens, OAuth
@@ -200,7 +201,7 @@ data class BackupProfile(
  * Everything a user would want back after reinstalling, minus key material.
  *
  * The KeyStore-encrypted API key blob is intentionally absent: it is wrapped
- * by a hardware-backed, non-exportable key, so the ciphertext is worthless on
+ * by a non-exportable Android Keystore key, so the ciphertext is worthless on
  * any other device (and on this device it already lives in DataStore). This is
  * the same reasoning documented in `backup_rules.xml`.
  */

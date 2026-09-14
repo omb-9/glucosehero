@@ -16,7 +16,9 @@ import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.SettingsRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import java.security.GeneralSecurityException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -88,9 +90,13 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setApiKey(plainKey: String) {
         val trimmed = plainKey.trim()
-        dataStore.setEncryptedApiKey(
-            if (trimmed.isEmpty()) null else keystoreManager.encrypt(trimmed)
-        )
+        val encrypted = if (trimmed.isEmpty()) {
+            null
+        } else {
+            // Keystore generate/encrypt can block; never hold Main across it.
+            withContext(Dispatchers.IO) { keystoreManager.encrypt(trimmed) }
+        }
+        dataStore.setEncryptedApiKey(encrypted)
     }
 
     override suspend fun resolveAiConfig(): ResolvedAiConfig {
@@ -102,7 +108,7 @@ class SettingsRepositoryImpl @Inject constructor(
             // so it can safely cross the OkHttp interceptor boundary, and the
             // remedy — re-entering the key in Settings — is the same.
             encrypted != null -> try {
-                keystoreManager.decrypt(encrypted)
+                withContext(Dispatchers.IO) { keystoreManager.decrypt(encrypted) }
             } catch (e: GeneralSecurityException) {
                 throw ApiKeyMissingException(
                     "Stored API key could not be decrypted. " +

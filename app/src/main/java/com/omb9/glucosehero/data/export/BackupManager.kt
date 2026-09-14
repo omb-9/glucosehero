@@ -361,7 +361,8 @@ class BackupManager @Inject constructor(
         // PERMANENT SECURITY BOUNDARY
         // The KeyStore-encrypted API key blob (DataStore key `ai_api_key_enc`)
         // and Nightscout credential blob (`cgm_nightscout_credential_enc`) are
-        // wrapped by a hardware-backed, non-exportable Android Keystore key.
+        // wrapped by a non-exportable Android Keystore key (hardware-backed
+        // only when KeyInfo reports TEE/StrongBox on this device).
         // That wrapping key does not travel with backups, so the ciphertext is
         // worthless on any other device (and after a factory reset on this one).
         // This is the same reasoning documented in backup_rules.xml. Do not add

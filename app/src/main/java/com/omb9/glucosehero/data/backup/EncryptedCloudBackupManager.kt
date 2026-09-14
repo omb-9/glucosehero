@@ -84,7 +84,10 @@ class EncryptedCloudBackupManager @Inject constructor(
         settingsDataStore.setWebDavUsername(username.trim())
         val trimmedPassword = password.trim()
         if (trimmedPassword.isNotEmpty()) {
-            settingsDataStore.setWebDavPasswordEnc(keystoreManager.encrypt(trimmedPassword))
+            val encrypted = withContext(Dispatchers.IO) {
+                keystoreManager.encrypt(trimmedPassword)
+            }
+            settingsDataStore.setWebDavPasswordEnc(encrypted)
         }
     }
 
@@ -94,7 +97,10 @@ class EncryptedCloudBackupManager @Inject constructor(
         if (trimmed.isEmpty()) {
             settingsDataStore.setDriveAccessTokenEnc(null)
         } else {
-            settingsDataStore.setDriveAccessTokenEnc(keystoreManager.encrypt(trimmed))
+            val encrypted = withContext(Dispatchers.IO) {
+                keystoreManager.encrypt(trimmed)
+            }
+            settingsDataStore.setDriveAccessTokenEnc(encrypted)
         }
     }
 
@@ -129,7 +135,7 @@ class EncryptedCloudBackupManager @Inject constructor(
             throw CloudBackupException("WebDAV URL, username, and password are required.")
         }
         val password = try {
-            keystoreManager.decrypt(encryptedPassword)
+            withContext(Dispatchers.IO) { keystoreManager.decrypt(encryptedPassword) }
         } catch (_: Exception) {
             throw CloudBackupException("Could not unwrap the stored WebDAV password on this device.")
         }
@@ -140,7 +146,7 @@ class EncryptedCloudBackupManager @Inject constructor(
         val encrypted = settingsDataStore.driveAccessTokenEnc.first()
             ?: throw CloudBackupException("A Google Drive access token is required.")
         val token = try {
-            keystoreManager.decrypt(encrypted)
+            withContext(Dispatchers.IO) { keystoreManager.decrypt(encrypted) }
         } catch (_: Exception) {
             throw CloudBackupException("Could not unwrap the stored Drive token on this device.")
         }
