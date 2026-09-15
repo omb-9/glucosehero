@@ -2,6 +2,7 @@ package com.omb9.glucosehero.data.export
 
 import android.content.Context
 import android.util.Log
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import androidx.test.platform.app.InstrumentationRegistry
 import com.omb9.glucosehero.data.backup.EncryptedBackupCipher
@@ -26,6 +27,7 @@ import com.omb9.glucosehero.domain.model.SupplyType
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.time.Clock
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -48,7 +50,15 @@ class BackupDatabaseRoundTripTest {
         backupManager = BackupManager(
             context,
             db,
-            SettingsDataStore(context),
+            SettingsDataStore(
+                Clock.systemUTC(),
+                PreferenceDataStoreFactory.create(
+                    produceFile = { File(context.filesDir, "test_settings.preferences_pb") },
+                ),
+                PreferenceDataStoreFactory.create(
+                    produceFile = { File(context.filesDir, "test_runtime_state.preferences_pb") },
+                ),
+            ),
             EncryptedBackupCipher(KeystoreDataKeyWrapper(KeystoreManager())),
         )
     }

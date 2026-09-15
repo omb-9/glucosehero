@@ -1,6 +1,7 @@
 package com.omb9.glucosehero.ui.log
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,7 +53,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +60,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +68,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.paging.LoadState
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemContentType
+import androidx.paging.compose.itemKey
 import com.omb9.glucosehero.R
 import com.omb9.glucosehero.util.Formatters
 import java.time.Instant
@@ -96,8 +101,10 @@ fun LogScreen(
     addBolusTick: Int = 0,
     viewModel: LogViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val pagedLogItems = viewModel.pagedLogItems.collectAsLazyPagingItems()
+    val searchItems by viewModel.searchItems.collectAsStateWithLifecycle()
+    val dayItems by viewModel.dayItems.collectAsStateWithLifecycle()
+    val settingsState by viewModel.settings.collectAsStateWithLifecycle()
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val canSave by viewModel.canSave.collectAsStateWithLifecycle()
     val activeInsulin by viewModel.activeInsulin.collectAsStateWithLifecycle()
@@ -120,24 +127,33 @@ fun LogScreen(
         }
     }
 
-    val pendingPrefill by viewModel.pendingHeroAiPrefill.collectAsStateWithLifecycle()
-    LaunchedEffect(pendingPrefill) {
-        val prefill = pendingPrefill ?: return@LaunchedEffect
-        viewModel.applyHeroAiPrefill(prefill)
-        viewModel.consumeHeroAiPrefill()
-        showSheet = true
+    val settings = settingsState
+
+    // [settings] gates every surface below. It must be resolved BEFORE the prefill
+    // effect: applyHeroAiPrefill bails out on a null settings.value (LogViewModel),
+    // yet the caller still consumes the prefill and opens the sheet — so wiring it
+    // during the loading window silently drops the prefill and opens an empty
+    // sheet. Wiring it only once settings are non-null closes that gap.
+    if (settings != null) {
+        val pendingPrefill by viewModel.pendingHeroAiPrefill.collectAsStateWithLifecycle()
+        LaunchedEffect(pendingPrefill) {
+            val prefill = pendingPrefill ?: return@LaunchedEffect
+            viewModel.applyHeroAiPrefill(prefill)
+            viewModel.consumeHeroAiPrefill()
+            showSheet = true
+        }
     }
 
     LaunchedEffect(addGlucoseTick) {
         if (addGlucoseTick > 0) {
-            viewModel.openNewDraft(settings.postMealRemindersEnabled)
+            viewModel.openNewDraft(settings?.postMealRemindersEnabled ?: true)
             showSheet = true
         }
     }
 
     LaunchedEffect(addMealTick) {
         if (addMealTick > 0) {
-            viewModel.openNewDraft(settings.postMealRemindersEnabled)
+            viewModel.openNewDraft(settings?.postMealRemindersEnabled ?: true)
             viewModel.onCategorySelected(EntryType.MEAL)
             showSheet = true
         }
@@ -145,7 +161,7 @@ fun LogScreen(
 
     LaunchedEffect(addBolusTick) {
         if (addBolusTick > 0) {
-            viewModel.openNewDraft(settings.postMealRemindersEnabled)
+            viewModel.openNewDraft(settings?.postMealRemindersEnabled ?: true)
             viewModel.onCategorySelected(EntryType.INSULIN)
             showSheet = true
         }
@@ -178,7 +194,7 @@ fun LogScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    viewModel.openNewDraft(settings.postMealRemindersEnabled)
+                    viewModel.openNewDraft(settings?.postMealRemindersEnabled ?: true)
                     showSheet = true
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -279,80 +295,123 @@ fun LogScreen(
                     )
                 }
 
-                val forecastUnit by remember { derivedStateOf { settings.unit } }
-                LogForecastSlot(
-                    snapshot = glucoseForecast,
-                    unit = forecastUnit,
-                    freshness = glucoseFreshness,
-                    use24HourTime = settings.use24HourTime,
-                    onOpenDosingProfile = onOpenDosingProfile,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
+                // Forecast + list read the display unit, so they are gated on loaded
+                // settings. The top bar, FAB and snackbar stay composed throughout.
+                if (settings != null) {
+                    LogForecastSlot(
+                        snapshot = glucoseForecast,
+                        unit = settings.unit,
+                        freshness = glucoseFreshness,
+                        use24HourTime = settings.use24HourTime,
+                        onOpenDosingProfile = onOpenDosingProfile,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
 
-                when {
-                    state.isLoading -> Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator()
-                    }
+                val hasSearch = searchQuery.isNotBlank()
+                val hasDate = selectedDate != null
+                val pagedRefreshLoading =
+                    !hasSearch && !hasDate && pagedLogItems.itemCount == 0 &&
+                        (pagedLogItems.loadState.refresh is LoadState.Loading)
+                val pagedEmpty =
+                    !hasSearch && !hasDate && pagedLogItems.itemCount == 0 &&
+                        (pagedLogItems.loadState.refresh !is LoadState.Loading)
+                val staticItems = when {
+                    hasSearch -> searchItems
+                    hasDate -> dayItems
+                    else -> emptyList()
+                }
+                val staticEmpty = (hasSearch || hasDate) && staticItems.isEmpty()
 
-                    state.days.isEmpty() -> {
-                        val hasSearch = searchQuery.isNotBlank()
-                        val hasDate = selectedDate != null
-                        Box(
+                if (settings == null) {
+                    // Display unit not loaded yet: show placeholder rows shaped like
+                    // real log rows so the swap-in does not jump.
+                    LogListPlaceholder()
+                } else {
+                    when {
+                        pagedRefreshLoading -> Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .verticalScroll(rememberScrollState()),
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (hasSearch || hasDate) {
-                                LogFilteredEmptyState(
-                                    searchQuery = searchQuery,
-                                    selectedDate = selectedDate,
-                                    onClear = {
-                                        if (hasSearch) viewModel.clearSearch()
-                                        if (hasDate) viewModel.clearDateFilter()
-                                    },
-                                )
-                            } else {
-                                LogEmptyState()
-                            }
+                            CircularProgressIndicator()
                         }
-                    }
 
-                    else -> LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    ) {
-                        state.days.forEach { day ->
-                            item(key = "day-${day.epochDay}") {
-                                Text(
-                                    day.header,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-                                )
-                            }
-                            items(day.entries, key = { it.id }) { entry ->
-                                EntryRow(
-                                    item = entry,
-                                    unitLabel = state.unit.label,
-                                    onClick = { onEntryClick(entry.id) },
-                                )
-                                Spacer(Modifier.height(8.dp))
+                        pagedEmpty || staticEmpty -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(rememberScrollState()),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (hasSearch || hasDate) {
+                                    LogFilteredEmptyState(
+                                        searchQuery = searchQuery,
+                                        selectedDate = selectedDate,
+                                        onClear = {
+                                            if (hasSearch) viewModel.clearSearch()
+                                            if (hasDate) viewModel.clearDateFilter()
+                                        },
+                                    )
+                                } else {
+                                    LogEmptyState()
+                                }
                             }
                         }
-                        item { Spacer(Modifier.height(72.dp)) }
+
+                        else -> LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        ) {
+                            when {
+                                hasSearch -> items(
+                                    items = searchItems,
+                                    key = ::logListItemKey,
+                                    contentType = ::logListItemContentType,
+                                ) { item ->
+                                    LogListItemRow(
+                                        item = item,
+                                        unitLabel = settings.unit.label,
+                                        onEntryClick = onEntryClick,
+                                    )
+                                }
+
+                                hasDate -> items(
+                                    items = dayItems,
+                                    key = ::logListItemKey,
+                                    contentType = ::logListItemContentType,
+                                ) { item ->
+                                    LogListItemRow(
+                                        item = item,
+                                        unitLabel = settings.unit.label,
+                                        onEntryClick = onEntryClick,
+                                    )
+                                }
+
+                                else -> items(
+                                    count = pagedLogItems.itemCount,
+                                    key = pagedLogItems.itemKey(::logListItemKey),
+                                    contentType = pagedLogItems.itemContentType(::logListItemContentType),
+                                ) { index ->
+                                    pagedLogItems[index]?.let {
+                                        LogListItemRow(
+                                            item = it,
+                                            unitLabel = settings.unit.label,
+                                            onEntryClick = onEntryClick,
+                                        )
+                                    }
+                                }
+                            }
+                            item { Spacer(Modifier.height(72.dp)) }
+                        }
                     }
                 }
             }
         }
     }
 
-    if (showSheet) {
+    if (showSheet && settings != null) {
         AddEntrySheet(
             draft = draft,
             unit = settings.unit,
@@ -421,6 +480,64 @@ fun LogScreen(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+}
+
+/**
+ * A skeleton log row sized to match [EntryRow] (40.dp leading avatar, 12.dp
+ * row padding) so the loading → loaded swap does not jump.
+ */
+@Composable
+private fun LogRowPlaceholder() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.5f)
+                        .height(16.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.7f)
+                        .height(12.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                )
+            }
+        }
+    }
+}
+
+/** Placeholder list shown while settings — and therefore the display unit — load. */
+@Composable
+private fun LogListPlaceholder(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        repeat(6) { LogRowPlaceholder() }
     }
 }
 
@@ -587,6 +704,41 @@ private fun HealthConnectBadge() {
             color = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
         )
+    }
+}
+
+private fun logListItemKey(item: LogListItem): Any = when (item) {
+    is LogListItem.Header -> item.date
+    is LogListItem.Entry -> item.item.id
+}
+
+private fun logListItemContentType(item: LogListItem): Any = when (item) {
+    is LogListItem.Header -> "header"
+    is LogListItem.Entry -> "entry"
+}
+
+@Composable
+private fun LogListItemRow(
+    item: LogListItem,
+    unitLabel: String,
+    onEntryClick: (Long) -> Unit,
+) {
+    when (item) {
+        is LogListItem.Header -> Text(
+            item.label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+        )
+
+        is LogListItem.Entry -> {
+            EntryRow(
+                item = item.item,
+                unitLabel = unitLabel,
+                onClick = { onEntryClick(item.item.id) },
+            )
+            Spacer(Modifier.height(8.dp))
+        }
     }
 }
 

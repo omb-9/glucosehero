@@ -1,7 +1,7 @@
 package com.omb9.glucosehero.data.local.datastore
 
-import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
@@ -11,7 +11,6 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.omb9.glucosehero.data.backup.CloudBackupProvider
 import com.omb9.glucosehero.data.cgm.CgmGlucose
 import com.omb9.glucosehero.data.cgm.CgmIngestSettings
@@ -37,24 +36,45 @@ import com.omb9.glucosehero.util.AiQuota
 import com.omb9.glucosehero.util.AppJson
 import com.omb9.glucosehero.util.CrisisDetector
 import kotlinx.serialization.encodeToString
-import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+private const val MAX_READ_RETRIES = 3L
+private const val READ_RETRY_BACKOFF_MILLIS = 250L
+
+private fun Flow<Preferences>.resilient(): Flow<Preferences> =
+    retryWhen { cause, attempt ->
+        if (cause is IOException && attempt < MAX_READ_RETRIES) {
+            delay(READ_RETRY_BACKOFF_MILLIS * (attempt + 1))
+            true
+        } else {
+            false
+        }
+    }.catch { e ->
+        if (e is IOException || e is ClassCastException) emit(emptyPreferences())
+        else throw e
+    }
 
 @Singleton
 class SettingsDataStore @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val clock: Clock = Clock.systemUTC(),
+    @Named("settings") private val settingsStore: DataStore<Preferences>,
+    @Named("runtime_state") private val runtimeStore: DataStore<Preferences>,
 ) {
 
     private object Keys {
@@ -151,22 +171,36 @@ class SettingsDataStore @Inject constructor(
     }
 
     /**
-     * All reads go through this flow: DataStore surfaces disk/corruption
-     * problems as an IOException thrown *into the flow*, which would
-     * otherwise propagate through MainActivity's eager stateIn and crash the
-     * app on every launch. On a fresh install with a restored backup
-     * (allowBackup=true) the preferences file can also contain a stale type
-     * for [Keys.HERO_AI_ENABLED] (e.g. String from a dev build where the
-     * toggle was prototyped as a string) — reading it with
-     * [booleanPreferencesKey] throws [ClassCastException]. That is a
-     * framework-level mismatch, not a programming error, so we degrade to
-     * empty preferences (all defaults) instead of crashing. Any other
-     * non-IO failure still propagates.
+     * All reads go through this flow. DataStore surfaces disk/corruption
+     * problems as an IOException thrown *into* the flow, which would otherwise
+     * propagate through MainActivity's eager stateIn and crash the app on
+     * every launch. [resilient] retries transient IOExceptions with bounded
+     * backoff and only falls back to empty preferences once retries are
+     * exhausted, so a single failed read no longer freezes every setting at
+     * its default for the rest of the process.
+     *
+     * A restored backup (allowBackup=true) can also contain a stale type for
+     * [Keys.HERO_AI_ENABLED] (e.g. String from a dev build where the toggle
+     * was prototyped as a string); reading it with [booleanPreferencesKey]
+     * throws [ClassCastException]. That is a framework-level mismatch, not a
+     * programming error, so we degrade to empty preferences (all defaults).
+     * Any other non-IO failure still propagates.
      */
-    private val safeData: Flow<Preferences> = context.dataStore.data
-        .catch { e ->
-            if (e is IOException || e is ClassCastException) emit(emptyPreferences()) else throw e
-        }
+    private val safeData: Flow<Preferences> = settingsStore.data.resilient()
+
+    /**
+     * High-churn machine-written state (forecast JSON and SOS pending/cooldown
+     * timestamps) lives in a separate DataStore file so writes here do not
+     * invalidate every settings-derived flow. Legacy values are migrated once
+     * on first collection.
+     */
+    private val runtimeData: Flow<Preferences> =
+        runtimeStore.data
+            .onStart { migrateRuntimeStateOnce() }
+            .resilient()
+
+    private val runtimeMigrationMutex = Mutex()
+    private var runtimeMigrationDone = false
 
     val settings: Flow<UserSettings> = safeData.map { p ->
         UserSettings(
@@ -193,20 +227,20 @@ class SettingsDataStore @Inject constructor(
             targetLowMgdl = runCatching { p[Keys.TARGET_LOW] }.getOrNull() ?: 70f,
             targetHighMgdl = runCatching { p[Keys.TARGET_HIGH] }.getOrNull() ?: 180f,
         )
-    }
+    }.distinctUntilChanged()
 
     val barcodeLookupEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.BARCODE_LOOKUP_ENABLED] }.getOrNull() ?: true
-    }
+    }.distinctUntilChanged()
 
     val notificationsEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.NOTIFICATIONS_ENABLED] }.getOrNull() ?: true
-    }
+    }.distinctUntilChanged()
 
     /** Hosts the user explicitly trusted for a custom OpenAI-compatible endpoint. */
     val acknowledgedAiHosts: Flow<Set<String>> = safeData.map { p ->
         runCatching { p[Keys.AI_ACKNOWLEDGED_HOSTS] }.getOrNull() ?: emptySet()
-    }
+    }.distinctUntilChanged()
 
     suspend fun acknowledgedAiHostsSnapshot(): Set<String> =
         runCatching { safeData.first()[Keys.AI_ACKNOWLEDGED_HOSTS] }.getOrNull() ?: emptySet()
@@ -214,16 +248,16 @@ class SettingsDataStore @Inject constructor(
     /** Tags dismissed on the Food impact screen; persists across nightly recomputation. */
     val dismissedFoodTags: Flow<Set<String>> = safeData.map { p ->
         runCatching { p[Keys.DISMISSED_FOOD_TAGS] }.getOrNull() ?: emptySet()
-    }
+    }.distinctUntilChanged()
 
-    val aiConfig: Flow<AiConfig> = safeData.map { p -> p.toAiConfig() }
+    val aiConfig: Flow<AiConfig> = safeData.map { p -> p.toAiConfig() }.distinctUntilChanged()
 
     /** Effective "used today" count after applying the local-day reset rule. */
-    val aiQuotaUsedToday: Flow<Int> = safeData.map { p -> p.aiQuotaUsedToday() }
+    val aiQuotaUsedToday: Flow<Int> = safeData.map { p -> p.aiQuotaUsedToday() }.distinctUntilChanged()
 
-    val profile: Flow<UserProfile> = safeData.map { p -> p.toUserProfile() }
+    val profile: Flow<UserProfile> = safeData.map { p -> p.toUserProfile() }.distinctUntilChanged()
 
-    val bolusSettings: Flow<BolusSettings> = safeData.map { p -> p.toBolusSettings() }
+    val bolusSettings: Flow<BolusSettings> = safeData.map { p -> p.toBolusSettings() }.distinctUntilChanged()
 
     /**
      * Stored time-of-day profile. Absent JSON migrates from the four flat keys.
@@ -232,206 +266,206 @@ class SettingsDataStore @Inject constructor(
      *
      * FEATURE: dosing-profiles
      */
-    val dosingProfile: Flow<DosingProfileLoad> = safeData.map { p -> p.toDosingProfileLoad() }
+    val dosingProfile: Flow<DosingProfileLoad> = safeData.map { p -> p.toDosingProfileLoad() }.distinctUntilChanged()
 
     val dosingProfileExplainerSeen: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.DOSING_PROFILE_EXPLAINER_SEEN] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     val healthConnectSyncEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.HEALTH_CONNECT_SYNC_ENABLED] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     val healthConnectRevoked: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.HEALTH_CONNECT_REVOKED] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     val healthConnectChangesToken: Flow<String?> = safeData.map { p ->
         runCatching { p[Keys.HEALTH_CONNECT_CHANGES_TOKEN] }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
     val healthConnectLastSync: Flow<Long?> = safeData.map { p ->
         runCatching { p[Keys.HEALTH_CONNECT_LAST_SYNC] }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
     val glucoseImportEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.GLUCOSE_IMPORT_ENABLED] }.getOrNull() ?: true
-    }
+    }.distinctUntilChanged()
 
     val nutritionImportEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.NUTRITION_IMPORT_ENABLED] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     val exerciseImportEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.EXERCISE_IMPORT_ENABLED] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     val sleepImportEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.SLEEP_IMPORT_ENABLED] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     val cycleImportEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.CYCLE_IMPORT_ENABLED] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     val healthConnectInitialImportRange: Flow<InitialImportRange> = safeData.map { p ->
         runCatching { p[Keys.HEALTH_CONNECT_INITIAL_IMPORT_RANGE] }
             .getOrNull().toEnum(InitialImportRange.DAYS_90)
-    }
+    }.distinctUntilChanged()
 
     /** Persisted document-tree URI nominated for scheduled auto-backups. */
     val backupDirUri: Flow<String?> = safeData.map { p ->
         runCatching { p[Keys.BACKUP_DIR_URI] }.getOrNull()?.takeIf { it.isNotBlank() }
-    }
+    }.distinctUntilChanged()
 
     /** Whether the daily auto-backup schedule is enabled. */
     val backupEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.BACKUP_ENABLED] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     /** Epoch millis of the last successful auto-backup, if any. */
     val backupLastRun: Flow<Long?> = safeData.map { p ->
         runCatching { p[Keys.BACKUP_LAST_RUN] }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
     val webhookUrl: Flow<String> = safeData.map { p ->
         runCatching { p[Keys.WEBHOOK_URL] }.getOrNull().orEmpty()
-    }
+    }.distinctUntilChanged()
 
     // FEATURE: cgm-direct-ingest
     val cgmDedupWindowMillis: Flow<Long> = safeData.map { p ->
         runCatching { p[Keys.CGM_DEDUP_WINDOW_MILLIS] }.getOrNull()
             ?: CgmGlucose.DEFAULT_DEDUP_WINDOW_MILLIS
-    }
+    }.distinctUntilChanged()
 
     val nightscoutEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.CGM_NIGHTSCOUT_ENABLED] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     val nightscoutUrl: Flow<String> = safeData.map { p ->
         runCatching { p[Keys.CGM_NIGHTSCOUT_URL] }.getOrNull().orEmpty()
-    }
+    }.distinctUntilChanged()
 
     val nightscoutAuthMode: Flow<NightscoutAuthMode> = safeData.map { p ->
         runCatching { p[Keys.CGM_NIGHTSCOUT_AUTH_MODE] }.getOrNull()
             .toEnum(NightscoutAuthMode.TOKEN)
-    }
+    }.distinctUntilChanged()
 
     val hasNightscoutCredential: Flow<Boolean> = safeData.map { p ->
         !runCatching { p[Keys.CGM_NIGHTSCOUT_CREDENTIAL_ENC] }.getOrNull().isNullOrBlank()
-    }
+    }.distinctUntilChanged()
 
     val acknowledgedNightscoutHosts: Flow<Set<String>> = safeData.map { p ->
         runCatching { p[Keys.CGM_NIGHTSCOUT_ACKNOWLEDGED_HOSTS] }.getOrNull() ?: emptySet()
-    }
+    }.distinctUntilChanged()
 
     val nightscoutBackfillHours: Flow<Int> = safeData.map { p ->
         NightscoutLimits.clampBackfillHours(
             runCatching { p[Keys.CGM_NIGHTSCOUT_BACKFILL_HOURS] }.getOrNull()
                 ?: NightscoutLimits.DEFAULT_BACKFILL_HOURS,
         )
-    }
+    }.distinctUntilChanged()
 
     val nightscoutForegroundService: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.CGM_NIGHTSCOUT_FOREGROUND_SERVICE] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     val xdripBroadcastEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.CGM_XDRIP_BROADCAST_ENABLED] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     val libreLinkUpEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.CGM_LIBRE_LINK_UP_ENABLED] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
-    val cgmIngestSettings: Flow<CgmIngestSettings> = safeData.map { p -> p.toCgmIngestSettings() }
+    val cgmIngestSettings: Flow<CgmIngestSettings> = safeData.map { p -> p.toCgmIngestSettings() }.distinctUntilChanged()
 
     val cloudBackupProvider: Flow<CloudBackupProvider> = safeData.map { p ->
         runCatching { p[Keys.CLOUD_BACKUP_PROVIDER] }.getOrNull().toEnum(CloudBackupProvider.NONE)
-    }
+    }.distinctUntilChanged()
 
     val webDavUrl: Flow<String> = safeData.map { p ->
         runCatching { p[Keys.WEBDAV_URL] }.getOrNull().orEmpty()
-    }
+    }.distinctUntilChanged()
 
     val webDavUsername: Flow<String> = safeData.map { p ->
         runCatching { p[Keys.WEBDAV_USERNAME] }.getOrNull().orEmpty()
-    }
+    }.distinctUntilChanged()
 
     val webDavPasswordEnc: Flow<String?> = safeData.map { p ->
         runCatching { p[Keys.WEBDAV_PASSWORD_ENC] }.getOrNull()?.takeIf { it.isNotBlank() }
-    }
+    }.distinctUntilChanged()
 
-    val hasWebDavPassword: Flow<Boolean> = webDavPasswordEnc.map { !it.isNullOrBlank() }
+    val hasWebDavPassword: Flow<Boolean> = webDavPasswordEnc.map { !it.isNullOrBlank() }.distinctUntilChanged()
 
     val driveAccessTokenEnc: Flow<String?> = safeData.map { p ->
         runCatching { p[Keys.DRIVE_ACCESS_TOKEN_ENC] }.getOrNull()?.takeIf { it.isNotBlank() }
-    }
+    }.distinctUntilChanged()
 
-    val hasDriveAccessToken: Flow<Boolean> = driveAccessTokenEnc.map { !it.isNullOrBlank() }
+    val hasDriveAccessToken: Flow<Boolean> = driveAccessTokenEnc.map { !it.isNullOrBlank() }.distinctUntilChanged()
 
     val cloudBackupLastRun: Flow<Long?> = safeData.map { p ->
         runCatching { p[Keys.CLOUD_BACKUP_LAST_RUN] }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
     val cloudBackupRemoteName: Flow<String?> = safeData.map { p ->
         runCatching { p[Keys.CLOUD_BACKUP_REMOTE_NAME] }.getOrNull()?.takeIf { it.isNotBlank() }
-    }
+    }.distinctUntilChanged()
 
     val cloudBackupRemoteId: Flow<String?> = safeData.map { p ->
         runCatching { p[Keys.CLOUD_BACKUP_REMOTE_ID] }.getOrNull()?.takeIf { it.isNotBlank() }
-    }
+    }.distinctUntilChanged()
 
-    val glucoseForecastJson: Flow<String?> = safeData.map { p ->
+    val glucoseForecastJson: Flow<String?> = runtimeData.map { p ->
         runCatching { p[Keys.GLUCOSE_FORECAST_JSON] }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
     val exerciseFuelingAlertsEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.EXERCISE_FUELING_ALERTS_ENABLED] }.getOrNull() ?: true
-    }
+    }.distinctUntilChanged()
 
     val exerciseFuelingLastAlertMillis: Flow<Long?> = safeData.map { p ->
         runCatching { p[Keys.EXERCISE_FUELING_LAST_ALERT] }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
     val hypoSosEnabled: Flow<Boolean> = safeData.map { p ->
         runCatching { p[Keys.HYPO_SOS_ENABLED] }.getOrNull() ?: false
-    }
+    }.distinctUntilChanged()
 
     val hypoSosTimeoutMinutes: Flow<Int> = safeData.map { p ->
         CrisisDetector.clampSosTimeoutMinutes(
             runCatching { p[Keys.HYPO_SOS_TIMEOUT_MINUTES] }.getOrNull()
                 ?: CrisisDetector.DEFAULT_SOS_TIMEOUT_MINUTES,
         )
-    }
+    }.distinctUntilChanged()
 
-    val hypoSosPendingJson: Flow<String?> = safeData.map { p ->
+    val hypoSosPendingJson: Flow<String?> = runtimeData.map { p ->
         runCatching { p[Keys.HYPO_SOS_PENDING_JSON] }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
     val hypoSosPending: Flow<HypoSosPending?> = hypoSosPendingJson.map { raw ->
         if (raw.isNullOrBlank()) null
         else runCatching { AppJson.decodeFromString<HypoSosPending>(raw) }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
-    val hypoSosLastDismissMillis: Flow<Long?> = safeData.map { p ->
+    val hypoSosLastDismissMillis: Flow<Long?> = runtimeData.map { p ->
         runCatching { p[Keys.HYPO_SOS_LAST_DISMISS] }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
-    val hypoSosLastSentMillis: Flow<Long?> = safeData.map { p ->
+    val hypoSosLastSentMillis: Flow<Long?> = runtimeData.map { p ->
         runCatching { p[Keys.HYPO_SOS_LAST_SENT] }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
     val caregiverContacts: Flow<List<CaregiverContact>> = safeData.map { p ->
         val raw = runCatching { p[Keys.CAREGIVER_CONTACTS_JSON] }.getOrNull()
         if (raw.isNullOrBlank()) emptyList()
         else runCatching { AppJson.decodeFromString<List<CaregiverContact>>(raw) }.getOrNull()
             ?: emptyList()
-    }
+    }.distinctUntilChanged()
 
     val clinicalTestSessionJson: Flow<String?> = safeData.map { p ->
         runCatching { p[Keys.CLINICAL_TEST_SESSION_JSON] }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
     /** Single fresh snapshot used by the export utility when assembling a report. */
     suspend fun profileSnapshot(): UserProfile = safeData.first().toUserProfile()
@@ -515,11 +549,11 @@ class SettingsDataStore @Inject constructor(
 
     fun cgmLastIngestSuccess(source: GlucoseSampleSource): Flow<Long?> = safeData.map { p ->
         runCatching { p[lastSuccessKey(source)] }.getOrNull()
-    }
+    }.distinctUntilChanged()
 
     fun cgmLastIngestError(source: GlucoseSampleSource): Flow<String?> = safeData.map { p ->
         runCatching { p[lastErrorKey(source)] }.getOrNull()?.takeIf { it.isNotBlank() }
-    }
+    }.distinctUntilChanged()
 
     private fun Preferences.aiQuotaUsedToday(): Int {
         val storedDay = runCatching { this[Keys.AI_QUOTA_DAY] }.getOrNull()
@@ -796,7 +830,7 @@ class SettingsDataStore @Inject constructor(
         else it[Keys.CLOUD_BACKUP_REMOTE_ID] = id
     }
 
-    suspend fun setGlucoseForecastJson(json: String?) = edit {
+    suspend fun setGlucoseForecastJson(json: String?) = editRuntime {
         if (json.isNullOrBlank()) it.remove(Keys.GLUCOSE_FORECAST_JSON)
         else it[Keys.GLUCOSE_FORECAST_JSON] = json
     }
@@ -813,16 +847,16 @@ class SettingsDataStore @Inject constructor(
     suspend fun setHypoSosTimeoutMinutes(minutes: Int) =
         edit { it[Keys.HYPO_SOS_TIMEOUT_MINUTES] = CrisisDetector.clampSosTimeoutMinutes(minutes) }
 
-    suspend fun setHypoSosPendingJson(json: String?) = edit {
+    suspend fun setHypoSosPendingJson(json: String?) = editRuntime {
         if (json.isNullOrBlank()) it.remove(Keys.HYPO_SOS_PENDING_JSON)
         else it[Keys.HYPO_SOS_PENDING_JSON] = json
     }
 
     suspend fun setHypoSosLastDismissMillis(timestamp: Long) =
-        edit { it[Keys.HYPO_SOS_LAST_DISMISS] = timestamp }
+        editRuntime { it[Keys.HYPO_SOS_LAST_DISMISS] = timestamp }
 
     suspend fun setHypoSosLastSentMillis(timestamp: Long) =
-        edit { it[Keys.HYPO_SOS_LAST_SENT] = timestamp }
+        editRuntime { it[Keys.HYPO_SOS_LAST_SENT] = timestamp }
 
     suspend fun caregiverContactsSnapshot(): List<CaregiverContact> =
         caregiverContacts.first()
@@ -961,8 +995,39 @@ class SettingsDataStore @Inject constructor(
         prefs[Keys.AI_QUOTA_COUNT] = effective + 1
     }
 
+    private suspend fun editRuntime(block: (MutablePreferences) -> Unit) {
+        runtimeStore.edit(block)
+    }
+
+    /**
+     * Best-effort one-time move of the four high-churn keys from the legacy
+     * "settings" file into "runtime_state". These are transient machine state;
+     * if migration fails the app simply continues with defaults.
+     */
+    private suspend fun migrateRuntimeStateOnce() {
+        runtimeMigrationMutex.withLock {
+            if (runtimeMigrationDone) return@withLock
+            runCatching {
+                val legacy = settingsStore.data.first()
+                runtimeStore.edit { runtime ->
+                    legacy[Keys.GLUCOSE_FORECAST_JSON]?.let { runtime[Keys.GLUCOSE_FORECAST_JSON] = it }
+                    legacy[Keys.HYPO_SOS_PENDING_JSON]?.let { runtime[Keys.HYPO_SOS_PENDING_JSON] = it }
+                    legacy[Keys.HYPO_SOS_LAST_DISMISS]?.let { runtime[Keys.HYPO_SOS_LAST_DISMISS] = it }
+                    legacy[Keys.HYPO_SOS_LAST_SENT]?.let { runtime[Keys.HYPO_SOS_LAST_SENT] = it }
+                }
+                settingsStore.edit { legacyPrefs ->
+                    legacyPrefs.remove(Keys.GLUCOSE_FORECAST_JSON)
+                    legacyPrefs.remove(Keys.HYPO_SOS_PENDING_JSON)
+                    legacyPrefs.remove(Keys.HYPO_SOS_LAST_DISMISS)
+                    legacyPrefs.remove(Keys.HYPO_SOS_LAST_SENT)
+                }
+            }
+            runtimeMigrationDone = true
+        }
+    }
+
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
-        context.dataStore.edit(block)
+        settingsStore.edit(block)
     }
 
     private inline fun <reified T : Enum<T>> String?.toEnum(default: T): T =

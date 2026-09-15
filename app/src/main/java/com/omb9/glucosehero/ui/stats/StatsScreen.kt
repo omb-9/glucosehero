@@ -12,9 +12,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,7 +29,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowForward
@@ -196,86 +197,88 @@ fun StatsScreen(
                 )
             },
         ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (state.loadFailed) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.errorContainer,
-                ) {
-                    Text(
-                        text = "Couldn't load glucose data. Showing the last available values.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(12.dp),
-                    )
+                item(key = "load_failed", contentType = "error") {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.errorContainer,
+                    ) {
+                        Text(
+                            text = "Couldn't load glucose data. Showing the last available values.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
                 }
-                Spacer(Modifier.height(16.dp))
             }
 
-            StreakIndicator(
-                streakDays = streak,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            item(key = "streak", contentType = "section") {
+                StreakIndicator(
+                    streakDays = streak,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
-            Spacer(Modifier.height(16.dp))
+            item(key = "supplies", contentType = "section") {
+                ActiveSuppliesSection(
+                    supplies = supplies,
+                    use24HourTime = state.use24HourTime,
+                    onAdd = {
+                        preselectedSupplyType = null
+                        showSupplySheet = true
+                    },
+                    onReplace = { type ->
+                        preselectedSupplyType = type
+                        showSupplySheet = true
+                    },
+                    onEdit = { supply -> editingSupply = supply },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
-            ActiveSuppliesSection(
-                supplies = supplies,
-                use24HourTime = state.use24HourTime,
-                onAdd = {
-                    preselectedSupplyType = null
-                    showSupplySheet = true
-                },
-                onReplace = { type ->
-                    preselectedSupplyType = type
-                    showSupplySheet = true
-                },
-                onEdit = { supply -> editingSupply = supply },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            item(key = "insights", contentType = "section") {
+                InsightsSection(
+                    insights = insights,
+                    weeklySummaryState = weeklySummaryState,
+                    onGenerateWeeklySummary = viewModel::generateWeeklySummary,
+                    onDismissWeeklySummary = viewModel::dismissWeeklySummary,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
-            Spacer(Modifier.height(16.dp))
-
-            InsightsSection(
-                insights = insights,
-                weeklySummaryState = weeklySummaryState,
-                onGenerateWeeklySummary = viewModel::generateWeeklySummary,
-                onDismissWeeklySummary = viewModel::dismissWeeklySummary,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            FoodImpactSection(
-                tags = foodImpactTags,
-                onSeeAll = onSeeAllFoodImpact,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            if (moodImpactTags.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
-                MoodImpactSection(
-                    moods = moodImpactTags,
+            item(key = "food_impact", contentType = "section") {
+                FoodImpactSection(
+                    tags = foodImpactTags,
                     onSeeAll = onSeeAllFoodImpact,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
+            if (moodImpactTags.isNotEmpty()) {
+                item(key = "mood_impact", contentType = "section") {
+                    MoodImpactSection(
+                        moods = moodImpactTags,
+                        onSeeAll = onSeeAllFoodImpact,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
 
-            EstimatedA1cCard(
-                state = state,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            item(key = "estimated_a1c", contentType = "section") {
+                EstimatedA1cCard(
+                    state = state,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
 
-            Spacer(Modifier.height(16.dp))
-
+            item(key = "glucose_trend", contentType = "section") {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
@@ -369,9 +372,9 @@ fun StatsScreen(
                     }
                 }
             }
+            }
 
-            Spacer(Modifier.height(16.dp))
-
+            item(key = "stat_cards", contentType = "section") {
             // --- Stat cards ---
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 StatCard(
@@ -401,7 +404,7 @@ fun StatsScreen(
                 suffix = null,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(24.dp))
+            }
         }
         }
     }

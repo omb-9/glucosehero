@@ -1,5 +1,6 @@
 package com.omb9.glucosehero.data.local.db
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -65,6 +66,24 @@ interface EntryDao {
     fun observeEventsSince(since: Long): Flow<List<EntryEntity>>
 
     /**
+     * Room-generated paging source for the rolling log. The `timestamp` index
+     * covers the sort, and the `id` tiebreaker keeps the order stable when
+     * multiple rows share a timestamp.
+     */
+    @Query("SELECT * FROM entries ORDER BY timestamp DESC, id DESC")
+    fun pagingSource(): PagingSource<Int, EntryEntity>
+
+    /** Single local-day window for the date filter (midnight-to-midnight). */
+    @Query(
+        """
+        SELECT * FROM entries
+        WHERE timestamp >= :startMillis AND timestamp < :endMillis
+        ORDER BY timestamp DESC, id DESC
+        """
+    )
+    fun observeEntriesBetween(startMillis: Long, endMillis: Long): Flow<List<EntryEntity>>
+
+    /**
      * Any event carrying a glucose reading, regardless of what else it also
      * logged (insulin/carbs/exercise can now ride on the same row). There is
      * no `type` column to filter on — `glucose_mgdl IS NOT NULL` alone is the
@@ -92,6 +111,15 @@ interface EntryDao {
         """
     )
     fun observeGlucoseReadingsPoints(since: Long): Flow<List<GlucosePointRow>>
+
+    /**
+     * Cheap invalidation signal for `glucose_readings`. Emits the newest
+     * timestamp (or null when empty) whenever the view's backing tables
+     * change. Forecast observation uses this so the row payload is loaded
+     * once per recomputation rather than twice.
+     */
+    @Query("SELECT MAX(timestamp) FROM glucose_readings")
+    fun observeGlucoseReadingsMaxTimestamp(): Flow<Long?>
 
     @Query("SELECT * FROM entries WHERE id = :id")
     fun observeById(id: Long): Flow<EntryEntity?>

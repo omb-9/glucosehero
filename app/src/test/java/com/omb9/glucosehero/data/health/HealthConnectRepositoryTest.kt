@@ -15,6 +15,7 @@ import androidx.health.connect.client.response.InsertRecordsResponse
 import androidx.health.connect.client.response.ReadRecordsResponse
 import androidx.health.connect.client.testing.populatedWithTestValues
 import androidx.health.connect.client.time.TimeRangeFilter
+import androidx.paging.PagingSource
 import androidx.health.connect.client.units.BloodGlucose
 import androidx.health.connect.client.units.Mass
 import com.omb9.glucosehero.BuildConfig
@@ -706,8 +707,12 @@ private class FakeEntryDao : EntryDao {
     }
 
     override fun observeEventsSince(since: Long): Flow<List<EntryEntity>> = throw UnsupportedOperationException()
+    override fun observeEntriesBetween(startMillis: Long, endMillis: Long): Flow<List<EntryEntity>> =
+        throw UnsupportedOperationException()
+    override fun pagingSource(): PagingSource<Int, EntryEntity> = throw UnsupportedOperationException()
     override fun observeGlucoseEventsSince(since: Long): Flow<List<EntryEntity>> = throw UnsupportedOperationException()
     override fun observeGlucoseReadingsPoints(since: Long): Flow<List<GlucosePointRow>> = throw UnsupportedOperationException()
+    override fun observeGlucoseReadingsMaxTimestamp(): Flow<Long?> = throw UnsupportedOperationException()
     override fun observeById(id: Long): Flow<EntryEntity?> = throw UnsupportedOperationException()
     override suspend fun searchEntries(query: String): List<EntryEntity> = emptyList()
     override suspend fun insert(entity: EntryEntity): Long = 1L

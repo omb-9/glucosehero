@@ -10,6 +10,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
+/**
+ * Non-exported receiver for the app's own SOS timeout and dismiss
+ * PendingIntents. External senders (notably arbitrary installed apps) must
+ * not be able to cancel a live severe-hypo countdown, so this receiver has no
+ * intent-filter and is not exported.
+ */
 @AndroidEntryPoint
 class HypoSosAlarmReceiver : BroadcastReceiver() {
 
@@ -22,7 +28,6 @@ class HypoSosAlarmReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     HypoSosManager.ACTION_TIMEOUT -> manager.onTimeout()
                     HypoSosManager.ACTION_DISMISS -> manager.dismissPrompt()
-                    Intent.ACTION_BOOT_COMPLETED -> manager.evaluateLatest()
                 }
             } finally {
                 pending.finish()

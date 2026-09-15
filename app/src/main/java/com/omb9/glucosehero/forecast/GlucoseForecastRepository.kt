@@ -31,7 +31,7 @@ class GlucoseForecastRepository @Inject constructor(
 ) {
 
     fun observeForecast(): Flow<GlucoseForecastSnapshot?> = combine(
-        entryDao.observeGlucoseReadingsPoints(System.currentTimeMillis() - LOOKBACK_MILLIS),
+        entryDao.observeGlucoseReadingsMaxTimestamp(),
         settingsDataStore.dosingProfile,
         ticker(),
     ) { _, _, _ ->
@@ -51,18 +51,18 @@ class GlucoseForecastRepository @Inject constructor(
     }
 
     private suspend fun compute(now: Instant): GlucoseForecastSnapshot {
-        val since = now.toEpochMilli() - LOOKBACK_MILLIS
-        val points = entryDao.glucoseReadingPointsSince(since)
-        val entries = entryDao.entriesSince(since)
+        val nowMillis = now.toEpochMilli()
+        val points = entryDao.glucoseReadingPointsSince(nowMillis - GLUCOSE_LOOKBACK_MILLIS)
+        val samples = points.map {
+            GlucoseForecastInput.GlucoseSample(it.timestamp, it.glucoseMgdl)
+        }
         val load = settingsDataStore.dosingProfileSnapshot()
         val zoneId = ZoneId.systemDefault()
         when (load) {
             is DosingProfileLoad.Invalid -> {
                 return GlucoseForecastEngine.forecast(
                     GlucoseForecastInput(
-                        samples = points.map {
-                            GlucoseForecastInput.GlucoseSample(it.timestamp, it.glucoseMgdl)
-                        },
+                        samples = samples,
                         boluses = emptyList(),
                         meals = emptyList(),
                         diaHours = load.diaHours.toDouble(),
@@ -78,11 +78,15 @@ class GlucoseForecastRepository @Inject constructor(
                 )
             }
             is DosingProfileLoad.Valid -> {
+                val diaHours = load.profile.diaHours.toDouble()
+                val entriesSince = nowMillis - maxOf(
+                    IobCalculator.lookbackMillis(diaHours),
+                    MEAL_LOOKBACK_MILLIS,
+                )
+                val entries = entryDao.entriesSince(entriesSince)
                 val resolved = load.profile.toBolusSettings(now, zoneId)
                 val input = GlucoseForecastInput(
-                    samples = points.map {
-                        GlucoseForecastInput.GlucoseSample(it.timestamp, it.glucoseMgdl)
-                    },
+                    samples = samples,
                     boluses = entries.mapNotNull { entry ->
                         val units = entry.insulinBolusUnits ?: return@mapNotNull null
                         IobCalculator.BolusEntry(entry.timestamp, units)
@@ -91,7 +95,7 @@ class GlucoseForecastRepository @Inject constructor(
                         val grams = entry.carbsGrams ?: return@mapNotNull null
                         CarbAbsorptionCalculator.CarbEntry(entry.timestamp, grams.toDouble())
                     },
-                    diaHours = load.profile.diaHours.toDouble(),
+                    diaHours = diaHours,
                     cirRatio = resolved.cirRatio.toDouble(),
                     isfMgdl = resolved.isfMgdl.toDouble(),
                     dosingProfile = load.profile,
@@ -110,8 +114,17 @@ class GlucoseForecastRepository @Inject constructor(
     }
 
     companion object {
-        private val LOOKBACK_MILLIS: Long =
-            6L * IobCalculator.MILLIS_PER_HOUR
+        /** Matches [GlucoseForecastEngine.LOOKBACK_MINUTES]; older CGM is unused. */
+        private val GLUCOSE_LOOKBACK_MILLIS: Long =
+            GlucoseForecastEngine.LOOKBACK_MINUTES * 60_000L
+
+        /**
+         * Matches [GlucoseForecastInput.carbActionHours] default
+         * ([CarbAbsorptionCalculator.DEFAULT_ACTION_HOURS]).
+         */
+        private val MEAL_LOOKBACK_MILLIS: Long =
+            (CarbAbsorptionCalculator.DEFAULT_ACTION_HOURS * IobCalculator.MILLIS_PER_HOUR).toLong()
+
         private const val TICK_MILLIS: Long = 60_000L
     }
 }

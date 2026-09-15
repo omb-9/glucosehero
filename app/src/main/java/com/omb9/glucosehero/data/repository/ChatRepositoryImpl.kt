@@ -77,7 +77,7 @@ class ChatRepositoryImpl @Inject constructor(
 ) : ChatRepository {
 
     override fun observeHistory(): Flow<List<ChatTurn>> =
-        chatMessageDao.observeAll().map { list -> list.map { it.toDomain() } }
+        chatMessageDao.observeAll().map { list -> list.asReversed().map { it.toDomain() } }
 
     override fun observePendingCount(): Flow<Int> = pendingAiQueryDao.observeCount()
 

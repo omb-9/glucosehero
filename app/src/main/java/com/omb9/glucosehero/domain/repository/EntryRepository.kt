@@ -3,6 +3,7 @@ package com.omb9.glucosehero.domain.repository
 import com.omb9.glucosehero.domain.model.DailyGlucoseSummary
 import com.omb9.glucosehero.domain.model.GlucosePointRow
 import com.omb9.glucosehero.domain.model.GlucoseStats
+import androidx.paging.PagingData
 import com.omb9.glucosehero.domain.model.LogEvent
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
@@ -10,6 +11,9 @@ import kotlinx.coroutines.flow.Flow
 interface EntryRepository {
     /** Events from [sinceMillis], newest first (log screen). */
     fun observeEntries(sinceMillis: Long): Flow<List<LogEvent>>
+
+    /** Room-paged events, newest first (log screen). */
+    fun observePagedEntries(): Flow<PagingData<LogEvent>>
 
     /** Events carrying a glucose reading from [sinceMillis], oldest first (charting). */
     fun observeGlucose(sinceMillis: Long): Flow<List<LogEvent>>

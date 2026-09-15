@@ -1,5 +1,6 @@
 package com.omb9.glucosehero.util
 
+import com.omb9.glucosehero.domain.model.DosingBounds
 import java.time.Instant
 import kotlin.math.min
 
@@ -39,6 +40,34 @@ import kotlin.math.min
 object IobCalculator {
 
     const val MILLIS_PER_HOUR: Long = 3_600_000L
+
+    /**
+     * Extra lookback beyond DIA when loading boluses for IOB. [remainingFraction]
+     * is already exactly 0.0 at elapsed >= DIA, so this margin is not part of
+     * the decay math; it only absorbs clock skew and backdated manual entries.
+     */
+    const val WINDOW_MARGIN_MILLIS: Long = 30L * 60_000L
+
+    /**
+     * Room/DAO lookback window for boluses that may still contribute to IOB.
+     *
+     * [remainingFraction] returns exactly 0.0 once elapsed >= DIA, so DIA alone
+     * is mathematically sufficient. The extra [WINDOW_MARGIN_MILLIS] exists only
+     * to absorb clock skew and backdated manual bolus entries.
+     *
+     * [diaHours] is coerced into [DosingBounds.MIN_DIA_HOURS]–
+     * [DosingBounds.MAX_DIA_HOURS] **before** conversion. That is required:
+     * [com.omb9.glucosehero.domain.model.DosingProfileLoad.Invalid.diaHoursOrDefault]
+     * returns the raw stored value, so a corrupted or hand-edited DataStore
+     * entry could otherwise produce an unbounded table scan.
+     */
+    fun lookbackMillis(diaHours: Double): Long {
+        val coerced = diaHours.coerceIn(
+            DosingBounds.MIN_DIA_HOURS.toDouble(),
+            DosingBounds.MAX_DIA_HOURS.toDouble(),
+        )
+        return (coerced * MILLIS_PER_HOUR).toLong() + WINDOW_MARGIN_MILLIS
+    }
 
     /**
      * Target minutes from delivery to peak insulin *activity* (not peak IOB).

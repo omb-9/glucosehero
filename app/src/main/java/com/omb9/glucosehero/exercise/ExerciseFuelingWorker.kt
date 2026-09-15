@@ -52,7 +52,9 @@ class ExerciseFuelingWorker @AssistedInject constructor(
                     return Result.success()
                 }
             }
-            val entries = entryDao.entriesSince(now.toEpochMilli() - 6 * IobCalculator.MILLIS_PER_HOUR)
+            val entries = entryDao.entriesSince(
+                now.toEpochMilli() - IobCalculator.lookbackMillis(diaHours),
+            )
             val iob = IobCalculator.activeInsulinOnBoard(
                 boluses = entries.mapNotNull { entry ->
                     val units = entry.insulinBolusUnits ?: return@mapNotNull null

@@ -23,6 +23,7 @@ import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -83,8 +84,16 @@ class EntryDetailViewModel @Inject constructor(
     val entry: StateFlow<LogEvent?> = entryRepository.observeEntry(entryId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val settings: StateFlow<UserSettings> = settingsRepository.settings
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserSettings())
+    /**
+     * Persisted settings, or `null` until the first DataStore value arrives.
+     *
+     * Deliberately *not* seeded with a fabricated [UserSettings]: seeding the form
+     * against a default unit formatted a stored 110 mg/dL as "110" for an mmol/L
+     * user, and because the form is never re-seeded a later save re-parsed "110"
+     * as mmol/L and wrote back ~1982 mg/dL.
+     */
+    val settings: StateFlow<UserSettings?> = settingsRepository.settings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _form = MutableStateFlow(EntryDetailFormState())
     val form: StateFlow<EntryDetailFormState> = _form.asStateFlow()
@@ -94,6 +103,7 @@ class EntryDetailViewModel @Inject constructor(
 
     val canSave: StateFlow<Boolean> = combine(_form, entry, settings) { form, current, settings ->
         current != null &&
+            settings != null &&
             current.source != EntrySource.HEALTH_CONNECT &&
             form.isSeeded &&
             form.toDraft().toLogEvent(settings, form.timestamp) != null
@@ -110,6 +120,7 @@ class EntryDetailViewModel @Inject constructor(
      */
     val isDirty: StateFlow<Boolean> = combine(_form, entry, settings) { form, current, settings ->
         current != null &&
+            settings != null &&
             current.source != EntrySource.HEALTH_CONNECT &&
             form.isSeeded &&
             form.changedFrom(seededForm, settings)
@@ -128,40 +139,22 @@ class EntryDetailViewModel @Inject constructor(
     }
 
     init {
-        // Seed the editable form exactly once from the Room StateFlow. The VM
+        // Seed the editable form exactly once, and only once BOTH the entry and
+        // the real settings have loaded. Seeding with a fabricated default unit
+        // would format a stored value in the wrong unit — and, because the form
+        // is never re-seeded, a later save would re-parse that string against the
+        // real (different) unit and persist a corrupted glucose value. The VM
         // survives recomposition/rotation, so the user never loses in-progress
         // edits when the screen is rebuilt.
         viewModelScope.launch {
-            val loaded = withTimeoutOrNull(5_000) { entry.filterNotNull().first() }
-            if (loaded == null) {
+            val seeded = awaitEntryAndSettings(entry, settingsRepository.settings, 5_000L)
+            if (seeded == null) {
                 _form.update { it.copy(loadFailed = true) }
             } else {
-                seed(loaded, settings.value)
+                seededForm = seeded
+                _form.value = seeded
             }
         }
-    }
-
-    private fun seed(event: LogEvent, settings: UserSettings) {
-        val seeded = EntryDetailFormState(
-            isSeeded = true,
-            timestamp = event.timestamp,
-            activeCategories = event.presentCategories(),
-            glucose = event.glucoseMgdl?.let { Formatters.glucose(it, settings.unit) } ?: "",
-            mealContext = event.mealContext ?: MealContext.NONE,
-            insulinBasal = event.insulinBasalUnits?.let(::trimDouble) ?: "",
-            insulinBolus = event.insulinBolusUnits?.let(::trimDouble) ?: "",
-            carbs = event.carbsGrams?.toString() ?: "",
-            protein = event.proteinGrams?.toString() ?: "",
-            fat = event.fatGrams?.toString() ?: "",
-            mealDescription = event.mealDescription.orEmpty(),
-            exerciseMinutes = event.exerciseMinutes?.toString() ?: "",
-            exerciseIntensity = event.exerciseIntensity ?: ActivityIntensity.MODERATE,
-            note = event.note.orEmpty(),
-            moodScore = event.moodScore,
-            moodLabel = event.moodLabel,
-        )
-        seededForm = seeded
-        _form.value = seeded
     }
 
     fun onEditToggle() {
@@ -235,19 +228,21 @@ class EntryDetailViewModel @Inject constructor(
      */
     fun buildUpdatedEvent(): LogEvent? {
         val current = entry.value ?: return null
+        val settings = settings.value ?: return null
         if (!_form.value.isSeeded) return null
-        return _form.value.toDraft().toLogEvent(settings.value, _form.value.timestamp)
+        return _form.value.toDraft().toLogEvent(settings, _form.value.timestamp)
             ?.copy(id = current.id)
     }
 
     fun save(onDone: () -> Unit) {
         val current = entry.value ?: return
+        val settings = settings.value ?: return
         val formState = _form.value
         if (current.source == EntrySource.HEALTH_CONNECT) return
         if (formState.isSaving || !formState.isSeeded) return
 
         val updated = formState.toDraft()
-            .toLogEvent(settings.value, formState.timestamp)
+            .toLogEvent(settings, formState.timestamp)
             ?.copy(id = current.id)
             ?: return
 
@@ -296,23 +291,6 @@ class EntryDetailViewModel @Inject constructor(
         }
     }
 
-    private fun EntryDetailFormState.toDraft(): DraftEventState = DraftEventState(
-        activeCategory = EntryType.GLUCOSE,
-        glucose = if (EntryType.GLUCOSE in activeCategories) glucose else "",
-        mealContext = mealContext,
-        insulinBasal = if (EntryType.INSULIN in activeCategories) insulinBasal else "",
-        insulinBolus = if (EntryType.INSULIN in activeCategories) insulinBolus else "",
-        carbsGrams = if (EntryType.MEAL in activeCategories) carbs else "",
-        proteinGrams = if (EntryType.MEAL in activeCategories) protein else "",
-        fatGrams = if (EntryType.MEAL in activeCategories) fat else "",
-        mealDescription = if (EntryType.MEAL in activeCategories) mealDescription else "",
-        exerciseMinutes = if (EntryType.ACTIVITY in activeCategories) exerciseMinutes else "",
-        exerciseIntensity = exerciseIntensity,
-        note = note,
-        moodScore = moodScore,
-        moodLabel = moodLabel,
-    )
-
     /**
      * Compares an editable form against the freshly seeded baseline to decide
      * whether the user has made a real change. Compares the *parsed* [LogEvent]
@@ -328,6 +306,70 @@ class EntryDetailViewModel @Inject constructor(
         return currentEvent != baselineEvent
     }
 }
+
+/**
+ * Builds the freshly seeded detail form for [event] using the *real* [settings].
+ * Pure and Android-free so the seeding rule can be unit-tested without standing
+ * up the ViewModel's Context-bound collaborators.
+ */
+internal fun seedEntryDetailForm(event: LogEvent, settings: UserSettings): EntryDetailFormState =
+    EntryDetailFormState(
+        isSeeded = true,
+        timestamp = event.timestamp,
+        activeCategories = event.presentCategories(),
+        glucose = event.glucoseMgdl?.let { Formatters.glucose(it, settings.unit) } ?: "",
+        mealContext = event.mealContext ?: MealContext.NONE,
+        insulinBasal = event.insulinBasalUnits?.let(::trimDouble) ?: "",
+        insulinBolus = event.insulinBolusUnits?.let(::trimDouble) ?: "",
+        carbs = event.carbsGrams?.toString() ?: "",
+        protein = event.proteinGrams?.toString() ?: "",
+        fat = event.fatGrams?.toString() ?: "",
+        mealDescription = event.mealDescription.orEmpty(),
+        exerciseMinutes = event.exerciseMinutes?.toString() ?: "",
+        exerciseIntensity = event.exerciseIntensity ?: ActivityIntensity.MODERATE,
+        note = event.note.orEmpty(),
+        moodScore = event.moodScore,
+        moodLabel = event.moodLabel,
+    )
+
+/**
+ * Awaits BOTH the entry and the persisted settings before seeding.
+ *
+ * Seeding from the entry alone — or with a fabricated default [UserSettings] —
+ * formats a stored glucose in the wrong unit and never re-seeds, so a later save
+ * re-parses it against the real unit and persists a corrupted value. Returns
+ * null on timeout so the caller can surface its load-failed state.
+ */
+internal suspend fun awaitEntryAndSettings(
+    entryFlow: Flow<LogEvent?>,
+    settingsFlow: Flow<UserSettings>,
+    timeoutMillis: Long,
+): EntryDetailFormState? {
+    val loaded = withTimeoutOrNull(timeoutMillis) {
+        combine(entryFlow.filterNotNull(), settingsFlow) { event, settings -> event to settings }
+            .first()
+    } ?: return null
+    val (event, settings) = loaded
+    return seedEntryDetailForm(event, settings)
+}
+
+/** Collapses the editable form into the shared draft shape the savable mapper consumes. */
+internal fun EntryDetailFormState.toDraft(): DraftEventState = DraftEventState(
+    activeCategory = EntryType.GLUCOSE,
+    glucose = if (EntryType.GLUCOSE in activeCategories) glucose else "",
+    mealContext = mealContext,
+    insulinBasal = if (EntryType.INSULIN in activeCategories) insulinBasal else "",
+    insulinBolus = if (EntryType.INSULIN in activeCategories) insulinBolus else "",
+    carbsGrams = if (EntryType.MEAL in activeCategories) carbs else "",
+    proteinGrams = if (EntryType.MEAL in activeCategories) protein else "",
+    fatGrams = if (EntryType.MEAL in activeCategories) fat else "",
+    mealDescription = if (EntryType.MEAL in activeCategories) mealDescription else "",
+    exerciseMinutes = if (EntryType.ACTIVITY in activeCategories) exerciseMinutes else "",
+    exerciseIntensity = exerciseIntensity,
+    note = note,
+    moodScore = moodScore,
+    moodLabel = moodLabel,
+)
 
 /** Which removable sub-categories this event currently carries data for. */
 private fun LogEvent.presentCategories(): ImmutableSet<EntryType> = buildSet {

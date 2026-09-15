@@ -175,6 +175,7 @@ fun EntryDetailScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
+        val currentSettings = settings
         if (form.loadFailed) {
             Box(
                 modifier = Modifier
@@ -195,7 +196,7 @@ fun EntryDetailScreen(
                     )
                 }
             }
-        } else if (entry == null || !form.isSeeded) {
+        } else if (entry == null || !form.isSeeded || currentSettings == null) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -224,7 +225,7 @@ fun EntryDetailScreen(
                     Text(
                         Formatters.dayHeader(Formatters.localDate(form.timestamp)) +
                             " · " +
-                            Formatters.time(form.timestamp, settings.use24HourTime),
+                            Formatters.time(form.timestamp, currentSettings.use24HourTime),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
@@ -279,7 +280,7 @@ fun EntryDetailScreen(
                         enabled = !isHealthConnect,
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("Glucose", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                        suffix = { Text(settings.unit.label) },
+                        suffix = { Text(currentSettings.unit.label) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     )
@@ -359,7 +360,7 @@ fun EntryDetailScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     )
                     Spacer(Modifier.height(12.dp))
-                    if (settings.showAdvancedMacros || form.protein.isNotBlank() || form.fat.isNotBlank()) {
+                    if (currentSettings.showAdvancedMacros || form.protein.isNotBlank() || form.fat.isNotBlank()) {
                         OutlinedTextField(
                             value = form.protein,
                             onValueChange = viewModel::onProteinChange,
@@ -564,7 +565,7 @@ fun EntryDetailScreen(
         val timePickerState = rememberTimePickerState(
             initialHour = zoned.hour,
             initialMinute = zoned.minute,
-            is24Hour = settings.use24HourTime,
+            is24Hour = settings?.use24HourTime ?: false,
         )
         TimePickerDialog(
             onDismiss = { showTimePicker = false },

@@ -15,6 +15,10 @@ import com.omb9.glucosehero.domain.model.LogEvent
 import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.util.AppJson
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.map
 import com.omb9.glucosehero.util.StreakCalculator
 import java.io.IOException
 import java.time.LocalDate
@@ -43,6 +47,12 @@ class EntryRepositoryImpl @Inject constructor(
 
     override fun observeEntries(sinceMillis: Long): Flow<List<LogEvent>> =
         entryDao.observeEventsSince(sinceMillis).map { list -> list.map { it.toLogEvent() } }
+
+    override fun observePagedEntries(): Flow<PagingData<LogEvent>> =
+        Pager(
+            config = PagingConfig(pageSize = 50, enablePlaceholders = false),
+            pagingSourceFactory = { entryDao.pagingSource() },
+        ).flow.map { pagingData -> pagingData.map { it.toLogEvent() } }
 
     override fun observeGlucose(sinceMillis: Long): Flow<List<LogEvent>> =
         entryDao.observeGlucoseEventsSince(sinceMillis).map { list -> list.map { it.toLogEvent() } }

@@ -9,7 +9,8 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ChatMessageDao {
 
-    @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC, id ASC")
+    /** Newest 200 messages, newest-first; callers reverse to keep oldest-first display order. */
+    @Query("SELECT * FROM chat_messages ORDER BY timestamp DESC, id DESC LIMIT 200")
     fun observeAll(): Flow<List<ChatMessageEntity>>
 
     @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC, id ASC")

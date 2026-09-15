@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 rootProject.name = "GlucoseHero"
 include(":app")
 include(":wear") // FEATURE: wear-os-companion
+include(":baselineprofile")

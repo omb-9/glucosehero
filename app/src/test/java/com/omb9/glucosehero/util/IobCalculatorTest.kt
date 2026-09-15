@@ -1,5 +1,6 @@
 package com.omb9.glucosehero.util
 
+import com.omb9.glucosehero.domain.model.DosingBounds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -125,6 +126,72 @@ class IobCalculatorTest {
         assertTrue(later > 0.0)
         val absorbed = IobCalculator.insulinAbsorbedBetween(boluses, diaHours, now, now.plusSeconds(3600))
         assertEquals(start - later, absorbed, 1e-9)
+    }
+
+    @Test
+    fun `lookbackMillis is strictly greater than DIA across the configured range`() {
+        for (dia in listOf(2.0, 4.0, 6.0, 8.0)) {
+            val window = IobCalculator.lookbackMillis(dia)
+            val diaMillis = (dia * IobCalculator.MILLIS_PER_HOUR).toLong()
+            assertTrue(
+                "lookback for DIA=$dia ($window) should exceed DIA millis ($diaMillis)",
+                window > diaMillis,
+            )
+            assertEquals(diaMillis + IobCalculator.WINDOW_MARGIN_MILLIS, window)
+        }
+    }
+
+    @Test
+    fun `lookbackMillis clamps DIA below min and above max`() {
+        assertEquals(
+            IobCalculator.lookbackMillis(DosingBounds.MIN_DIA_HOURS.toDouble()),
+            IobCalculator.lookbackMillis(0.0),
+        )
+        assertEquals(
+            IobCalculator.lookbackMillis(DosingBounds.MAX_DIA_HOURS.toDouble()),
+            IobCalculator.lookbackMillis(500.0),
+        )
+    }
+
+    @Test
+    fun `DIA 8 still reports IOB for a 5U bolus from 7 hours ago`() {
+        val delivered = now.minusSeconds(7 * 3600L).toEpochMilli()
+        val windowStart = now.toEpochMilli() - IobCalculator.lookbackMillis(8.0)
+        assertTrue(
+            "7h bolus must sit inside the DIA=8 lookback, not a 6h window",
+            delivered >= windowStart,
+        )
+        val loaded = listOf(IobCalculator.BolusEntry(delivered, 5.0))
+            .filter { it.timestampMillis >= windowStart }
+        val iob = IobCalculator.activeInsulinOnBoard(loaded, 8.0, now = now)
+        assertTrue("IOB for a 7h-old bolus at DIA=8 should be > 0, was $iob", iob > 0.0)
+    }
+
+    @Test
+    fun `DIA 4 reports exactly zero IOB for a bolus from 5 hours ago`() {
+        val delivered = now.minusSeconds(5 * 3600L).toEpochMilli()
+        val windowStart = now.toEpochMilli() - IobCalculator.lookbackMillis(4.0)
+        val loaded = listOf(IobCalculator.BolusEntry(delivered, 5.0))
+            .filter { it.timestampMillis >= windowStart }
+        assertEquals(
+            0.0,
+            IobCalculator.activeInsulinOnBoard(loaded, 4.0, now = now),
+            1e-9,
+        )
+        val stillLoadedPastDia = listOf(
+            IobCalculator.BolusEntry(
+                now.minusMillis(
+                    (4.0 * IobCalculator.MILLIS_PER_HOUR).toLong() +
+                        IobCalculator.WINDOW_MARGIN_MILLIS / 2,
+                ).toEpochMilli(),
+                5.0,
+            ),
+        )
+        assertEquals(
+            0.0,
+            IobCalculator.activeInsulinOnBoard(stillLoadedPastDia, 4.0, now = now),
+            1e-9,
+        )
     }
 
     private fun linearRemaining(elapsedHours: Double, dia: Double): Double =

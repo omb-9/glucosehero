@@ -176,7 +176,6 @@ fun AddEntrySheet(
     val context = LocalContext.current
 
     var photoDeniedFlag by remember { mutableStateOf(false) }
-    var speechDeniedFlag by remember { mutableStateOf(false) }
     var speechUnavailableFlag by remember { mutableStateOf(false) }
 
     // Camera capture: permission is requested only when the button is tapped.
@@ -229,45 +228,18 @@ fun AddEntrySheet(
         }
     }
 
-    val micPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) {
-            launchSpeechRecognizer(
-                context = context,
-                launcher = { intent ->
-                    try {
-                        speechUnavailableFlag = false
-                        speechLauncher.launch(intent)
-                    } catch (_: ActivityNotFoundException) {
-                        speechUnavailableFlag = true
-                    }
-                },
-            )
-        } else {
-            speechDeniedFlag = true
-        }
-    }
-
     val onMicClick = {
-        speechDeniedFlag = false
         speechUnavailableFlag = false
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            launchSpeechRecognizer(
-                context = context,
-                launcher = { intent ->
-                    try {
-                        speechLauncher.launch(intent)
-                    } catch (_: ActivityNotFoundException) {
-                        speechUnavailableFlag = true
-                    }
-                },
-            )
-        } else {
-            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
+        launchSpeechRecognizer(
+            context = context,
+            launcher = { intent ->
+                try {
+                    speechLauncher.launch(intent)
+                } catch (_: ActivityNotFoundException) {
+                    speechUnavailableFlag = true
+                }
+            },
+        )
     }
 
     val isLookingUp = foodLookupState is FoodLookupState.Loading
@@ -307,7 +279,6 @@ fun AddEntrySheet(
             QuickLogRow(
                 text = quickLogText,
                 state = quickLogState,
-                speechDenied = speechDeniedFlag,
                 speechUnavailable = speechUnavailableFlag,
                 onTextChange = viewModel::onQuickLogTextChange,
                 onMicClick = onMicClick,
@@ -793,7 +764,6 @@ private fun MealPhotoCaptureRow(
 private fun QuickLogRow(
     text: String,
     state: QuickLogState,
-    speechDenied: Boolean,
     speechUnavailable: Boolean,
     onTextChange: (String) -> Unit,
     onMicClick: () -> Unit,
@@ -833,7 +803,6 @@ private fun QuickLogRow(
         }
     }
     val helper = when {
-        speechDenied -> stringResource(R.string.quick_log_mic_denied)
         speechUnavailable -> stringResource(R.string.quick_log_mic_unavailable)
         state is QuickLogState.Failed -> state.message
         state is QuickLogState.Filled && state.onDeviceFallback ->
@@ -845,7 +814,7 @@ private fun QuickLogRow(
         Text(
             helper,
             style = MaterialTheme.typography.labelMedium,
-            color = if (state is QuickLogState.Failed || speechDenied || speechUnavailable) {
+            color = if (state is QuickLogState.Failed || speechUnavailable) {
                 MaterialTheme.colorScheme.error
             } else {
                 MaterialTheme.colorScheme.onSurfaceVariant

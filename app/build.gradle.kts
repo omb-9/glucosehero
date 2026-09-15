@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -63,6 +64,12 @@ kotlin {
     }
 }
 
+baselineProfile {
+    // Persist the generated profile under src/release/generated/baselineProfiles
+    // so it is committed and packaged into release builds.
+    saveInSrc = true
+}
+
 // Kotlin 2.0.20+ Compose compiler: Strong Skipping mode is enabled by default,
 // which (together with @Immutable state + kotlinx immutable collections)
 // keeps the 90-day log list recomposition-cheap.
@@ -82,6 +89,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.process)
+    implementation(libs.androidx.profileinstaller)
 
     // Compose
     implementation(platform(libs.compose.bom))
@@ -90,6 +98,7 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.extended)
+    implementation(libs.androidx.paging.compose)
     implementation(libs.markdown.core)
     implementation(libs.markdown.m3)
     implementation(libs.androidx.navigation.compose)
@@ -105,6 +114,7 @@ dependencies {
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    implementation(libs.room.paging)
     ksp(libs.room.compiler)
 
     // FEATURE: sqlcipher-migrations
@@ -165,6 +175,10 @@ dependencies {
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // AsyncPagingDataDiffer (paging-runtime) drives a PagingData through a
+    // presenter in PagedLogItemsFlowTest — the same collection path the crash
+    // took in production via LazyPagingItems — without needing Compose.
+    testImplementation(libs.androidx.paging.runtime)
     // connect-testing 1.0.0-alpha04 transitively pulls connect-client 1.2.0-alpha05,
     // which changes ExerciseSessionRecord's default constructor. Main compiles
     // against 1.1.0, so unit tests then throw NoSuchMethodError. Keep the
@@ -187,4 +201,9 @@ dependencies {
     // Widget mini-trend is a fixed 120x36 PNG (java.util.zip Deflater). IOB uses
     // the Walsh activity triangle in Kotlin math. Backup restore uses kotlinx
     // serialization with unknown keys rejected. No extra Gradle dependencies.
+
+    // Baseline profile: wires the generated profile from :baselineprofile into
+    // release builds so they are AOT-compiled instead of running interpreted
+    // until JIT warms up.
+    baselineProfile(project(":baselineprofile"))
 }
