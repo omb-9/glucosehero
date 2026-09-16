@@ -3,7 +3,6 @@ package com.omb9.glucosehero.ui.settings
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
@@ -72,8 +71,6 @@ fun NightscoutSettingsScreen(
     val endpointStatus by viewModel.endpointStatus.collectAsStateWithLifecycle()
     val testState by viewModel.testState.collectAsStateWithLifecycle()
     val use24HourTime by viewModel.use24HourTime.collectAsStateWithLifecycle()
-
-    BackHandler(onBack = onBack)
 
     Scaffold(
         topBar = {

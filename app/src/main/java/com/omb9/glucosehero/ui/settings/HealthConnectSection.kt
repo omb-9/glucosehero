@@ -1,7 +1,6 @@
 package com.omb9.glucosehero.ui.settings
 
 import android.os.Build
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,7 +36,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,7 +51,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.data.health.HealthConnectStatus
 import com.omb9.glucosehero.data.local.datastore.InitialImportRange
 import com.omb9.glucosehero.util.Formatters
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,20 +85,6 @@ fun HealthConnectSettingsScreen(
         }
     }
 
-    val scope = rememberCoroutineScope()
-    var backInFlight by remember { mutableStateOf(false) }
-
-    fun handleBack() {
-        if (backInFlight) return
-        backInFlight = true
-        scope.launch {
-            runCatching { viewModel.savePendingChanges() }
-            onBack()
-        }
-    }
-
-    BackHandler { handleBack() }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -116,7 +99,7 @@ fun HealthConnectSettingsScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = { handleBack() }) {
+                    IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",

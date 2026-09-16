@@ -25,6 +25,7 @@ import com.omb9.glucosehero.data.local.db.GlucoseSampleDao
 import com.omb9.glucosehero.data.local.entity.GlucoseSampleSource
 import com.omb9.glucosehero.data.remote.AiEndpointGuard
 import com.omb9.glucosehero.data.remote.TrustedHosts
+import com.omb9.glucosehero.di.ApplicationScope
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
@@ -45,6 +46,7 @@ import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -101,6 +103,7 @@ class SettingsViewModel @Inject constructor(
     private val markdownExporter: MarkdownExporter,
     private val reminderScheduler: ReminderScheduler,
     @ApplicationContext private val context: Context,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
     /**
@@ -466,9 +469,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Immediately persists inputs that are otherwise debounced. Settings screens
-     * call this from their back navigation so an in-progress edit is not lost
-     * when the screen's ViewModel is cleared.
+     * Immediately persists inputs that are otherwise debounced. [onCleared]
+     * launches this on [applicationScope] so an in-progress edit is not lost
+     * when the screen's ViewModel is cleared, including if composition has
+     * already left.
      */
     suspend fun savePendingChanges() {
         nameInput.value?.let { settingsRepository.setProfileName(it) }
@@ -737,6 +741,13 @@ class SettingsViewModel @Inject constructor(
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
             )
         }
+    }
+
+    override fun onCleared() {
+        applicationScope.launch {
+            runCatching { savePendingChanges() }
+        }
+        super.onCleared()
     }
 
     private companion object {

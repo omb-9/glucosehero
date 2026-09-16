@@ -1,7 +1,6 @@
 package com.omb9.glucosehero.ui.settings
 
 import android.os.Build
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -71,8 +70,6 @@ fun XdripSettingsScreen(
     val lastSuccess by store.cgmLastIngestSuccess(GlucoseSampleSource.XDRIP_BROADCAST)
         .collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
-
-    BackHandler(onBack = onBack)
 
     Scaffold(
         topBar = {

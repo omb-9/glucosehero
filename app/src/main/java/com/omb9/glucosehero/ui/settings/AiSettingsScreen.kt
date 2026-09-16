@@ -1,6 +1,5 @@
 package com.omb9.glucosehero.ui.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,7 +34,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +47,6 @@ import com.omb9.glucosehero.data.remote.AiEndpointGuard
 import com.omb9.glucosehero.data.remote.TrustedHosts
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
-import kotlinx.coroutines.launch
 
 /**
  * Dedicated screen for configuring Hero AI (issue 103). Reached from the
@@ -84,26 +81,12 @@ fun AiSettingsScreen(
         }
     }
 
-    val scope = rememberCoroutineScope()
-    var backInFlight by remember { mutableStateOf(false) }
-
-    fun handleBack() {
-        if (backInFlight) return
-        backInFlight = true
-        scope.launch {
-            runCatching { viewModel.savePendingChanges() }
-            onBack()
-        }
-    }
-
-    BackHandler { handleBack() }
-
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Hero AI") },
                 navigationIcon = {
-                    IconButton(onClick = { handleBack() }) {
+                    IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",

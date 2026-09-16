@@ -1,6 +1,5 @@
 package com.omb9.glucosehero.ui.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -36,7 +35,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
@@ -49,7 +47,6 @@ import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.UnitSystem
 import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.util.Formatters
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,26 +57,12 @@ fun ProfileSettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val profile by viewModel.profile.collectAsStateWithLifecycle()
 
-    val scope = rememberCoroutineScope()
-    var backInFlight by remember { mutableStateOf(false) }
-
-    fun handleBack() {
-        if (backInFlight) return
-        backInFlight = true
-        scope.launch {
-            runCatching { viewModel.savePendingChanges() }
-            onBack()
-        }
-    }
-
-    BackHandler { handleBack() }
-
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },
                 navigationIcon = {
-                    IconButton(onClick = { handleBack() }) {
+                    IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",

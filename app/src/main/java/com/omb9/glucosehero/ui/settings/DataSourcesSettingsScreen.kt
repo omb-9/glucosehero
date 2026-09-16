@@ -1,6 +1,5 @@
 package com.omb9.glucosehero.ui.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -72,8 +71,6 @@ fun DataSourcesSettingsScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-
-    BackHandler(onBack = onBack)
 
     Scaffold(
         topBar = {
