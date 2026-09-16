@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,6 +59,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -94,8 +94,10 @@ import com.omb9.glucosehero.forecast.GlucoseForecastCard
 import com.omb9.glucosehero.forecast.GlucoseForecastSnapshot
 import com.omb9.glucosehero.ui.cgm.compactText
 import com.omb9.glucosehero.ui.components.AddEntrySheet
+import com.omb9.glucosehero.ui.components.GlucoseHeroCard
 import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
 import com.omb9.glucosehero.ui.components.shimmer
+import com.omb9.glucosehero.ui.theme.Spacing
 import com.omb9.glucosehero.ui.theme.GlucoseHigh
 import com.omb9.glucosehero.ui.theme.GlucoseInRange
 import com.omb9.glucosehero.ui.theme.GlucoseLow
@@ -115,7 +117,10 @@ fun LogScreen(
     addBolusTick: Int = 0,
     viewModel: LogViewModel = hiltViewModel(),
 ) {
-    val pagedLogItems = viewModel.pagedLogItems.collectAsLazyPagingItems()
+    val pagingScope = rememberCoroutineScope()
+    val pagedLogItems = remember(viewModel, pagingScope) {
+        viewModel.pagedLogItems(pagingScope)
+    }.collectAsLazyPagingItems()
     val searchItems by viewModel.searchItems.collectAsStateWithLifecycle()
     val dayItems by viewModel.dayItems.collectAsStateWithLifecycle()
     val settingsState by viewModel.settings.collectAsStateWithLifecycle()
@@ -585,26 +590,22 @@ fun LogScreen(
  */
 @Composable
 private fun LogRowPlaceholder() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        GlucoseHeroCard(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.md),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .shimmer(),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .shimmer(),
+                )
+                Spacer(Modifier.width(Spacing.md))
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(0.5f)
@@ -673,18 +674,14 @@ private fun LogForecastSlot(
 @Composable
 private fun ActiveInsulinBar(activeInsulinUnits: Double) {
     val accent = MaterialTheme.colorScheme.primary
-    Surface(
+    GlucoseHeroCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+            .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
         border = BorderStroke(1.dp, accent.copy(alpha = 0.4f)),
+        contentPadding = PaddingValues(Spacing.lg),
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
+        Row(verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     "Active Insulin",
@@ -702,7 +699,7 @@ private fun ActiveInsulinBar(activeInsulinUnits: Double) {
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(Spacing.sm))
             Text(
                 "U on board",
                 style = MaterialTheme.typography.bodyMedium,
@@ -862,17 +859,12 @@ private fun EntryRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+    GlucoseHeroCard(
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick,
+        contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.md),
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer,
@@ -887,7 +879,7 @@ private fun EntryRow(
                     )
                 }
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(Spacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     item.title,

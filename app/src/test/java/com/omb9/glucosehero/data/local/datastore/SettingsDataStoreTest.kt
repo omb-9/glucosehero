@@ -1,16 +1,21 @@
 package com.omb9.glucosehero.data.local.datastore
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.omb9.glucosehero.domain.model.GlucoseUnit
+import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.domain.model.UserSettings
 import java.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -24,21 +29,7 @@ class SettingsDataStoreTest {
     @Test
     fun settingsEmitsOnceWhenGlucoseForecastJsonWrittenFiveTimes() = runTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
-        val settingsFile = tempFolder.newFile("settings.preferences_pb")
-        val runtimeFile = tempFolder.newFile("runtime_state.preferences_pb")
-        val settingsStore = PreferenceDataStoreFactory.create(
-            scope = scope,
-            produceFile = { settingsFile },
-        )
-        val runtimeStore = PreferenceDataStoreFactory.create(
-            scope = scope,
-            produceFile = { runtimeFile },
-        )
-        val store = SettingsDataStore(
-            clock = Clock.systemUTC(),
-            settingsStore = settingsStore,
-            runtimeStore = runtimeStore,
-        )
+        val store = createStore(scope)
 
         val emissions = mutableListOf<UserSettings>()
         val collectJob = launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -57,5 +48,89 @@ class SettingsDataStoreTest {
 
         collectJob.cancel()
         scope.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun firstRunSeeds24HourTimeWithoutWritingUnit() = runTest {
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+        val store = createStore(scope)
+
+        store.seedFirstRunDefaults(use24HourTime = true, hasExistingUserData = false)
+        testScheduler.advanceUntilIdle()
+
+        val settings = store.settings.first()
+        assertTrue(settings.use24HourTime)
+        assertEquals(GlucoseUnit.MGDL, settings.unit)
+        assertTrue(store.needsGlucoseUnitChoice.first())
+
+        store.completeFirstRun(GlucoseUnit.MMOL)
+        testScheduler.advanceUntilIdle()
+        assertEquals(GlucoseUnit.MMOL, store.settings.first().unit)
+        assertTrue(store.settings.first().use24HourTime)
+        assertFalse(store.needsGlucoseUnitChoice.first())
+
+        store.seedFirstRunDefaults(use24HourTime = false, hasExistingUserData = false)
+        testScheduler.advanceUntilIdle()
+        assertTrue(store.settings.first().use24HourTime)
+        assertEquals(GlucoseUnit.MMOL, store.settings.first().unit)
+
+        scope.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun existingUserWithSavedPrefsIsNotOverwritten() = runTest {
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+        val store = createStore(scope)
+
+        store.setThemeMode(ThemeMode.AMOLED)
+        store.setUse24HourTime(false)
+        testScheduler.advanceUntilIdle()
+
+        store.seedFirstRunDefaults(use24HourTime = true, hasExistingUserData = false)
+        testScheduler.advanceUntilIdle()
+
+        val settings = store.settings.first()
+        assertFalse(settings.use24HourTime)
+        assertEquals(GlucoseUnit.MGDL, settings.unit)
+        assertEquals(ThemeMode.AMOLED, settings.themeMode)
+        assertFalse(store.needsGlucoseUnitChoice.first())
+
+        scope.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun existingUserWithLogDataAndEmptyPrefsIsNotOverwritten() = runTest {
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+        val store = createStore(scope)
+
+        store.seedFirstRunDefaults(use24HourTime = true, hasExistingUserData = true)
+        testScheduler.advanceUntilIdle()
+
+        val settings = store.settings.first()
+        assertFalse(settings.use24HourTime)
+        assertEquals(GlucoseUnit.MGDL, settings.unit)
+        assertFalse(store.needsGlucoseUnitChoice.first())
+
+        scope.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun createStore(scope: CoroutineScope): SettingsDataStore {
+        val settingsFile = tempFolder.newFile("settings-${scope.hashCode()}.preferences_pb")
+        val runtimeFile = tempFolder.newFile("runtime-${scope.hashCode()}.preferences_pb")
+        return SettingsDataStore(
+            clock = Clock.systemUTC(),
+            settingsStore = PreferenceDataStoreFactory.create(
+                scope = scope,
+                produceFile = { settingsFile },
+            ),
+            runtimeStore = PreferenceDataStoreFactory.create(
+                scope = scope,
+                produceFile = { runtimeFile },
+            ),
+        )
     }
 }

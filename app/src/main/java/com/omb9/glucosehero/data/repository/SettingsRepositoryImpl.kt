@@ -1,6 +1,8 @@
 package com.omb9.glucosehero.data.repository
 
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.data.local.db.EntryDao
+import com.omb9.glucosehero.data.local.db.GlucoseSampleDao
 import com.omb9.glucosehero.data.security.KeystoreManager
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
@@ -27,9 +29,12 @@ import javax.inject.Singleton
 class SettingsRepositoryImpl @Inject constructor(
     private val dataStore: SettingsDataStore,
     private val keystoreManager: KeystoreManager,
+    private val entryDao: EntryDao,
+    private val glucoseSampleDao: GlucoseSampleDao,
 ) : SettingsRepository {
 
     override val settings: Flow<UserSettings> = dataStore.settings
+    override val needsGlucoseUnitChoice: Flow<Boolean> = dataStore.needsGlucoseUnitChoice
     override val aiConfig: Flow<AiConfig> = dataStore.aiConfig
     override val profile: Flow<UserProfile> = dataStore.profile
     override val bolusSettings: Flow<BolusSettings> = dataStore.bolusSettings
@@ -48,6 +53,13 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun setAccent(accent: AccentColor) = dataStore.setAccent(accent)
     override suspend fun setUnit(unit: GlucoseUnit) = dataStore.setUnit(unit)
     override suspend fun setUse24HourTime(enabled: Boolean) = dataStore.setUse24HourTime(enabled)
+
+    override suspend fun seedFirstRunDefaultsIfNeeded(use24HourTime: Boolean) {
+        val hasExistingUserData = entryDao.countAll() > 0 || glucoseSampleDao.count() > 0
+        dataStore.seedFirstRunDefaults(use24HourTime, hasExistingUserData)
+    }
+
+    override suspend fun completeFirstRun(unit: GlucoseUnit) = dataStore.completeFirstRun(unit)
     override suspend fun setIsHeroAiEnabled(enabled: Boolean) = dataStore.setIsHeroAiEnabled(enabled)
     override suspend fun setShowAdvancedMacros(enabled: Boolean) = dataStore.setShowAdvancedMacros(enabled)
     override suspend fun setPostMealRemindersEnabled(enabled: Boolean) =

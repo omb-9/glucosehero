@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
     val settings: Flow<UserSettings>
+    val needsGlucoseUnitChoice: Flow<Boolean>
     val aiConfig: Flow<AiConfig>
     val profile: Flow<UserProfile>
     val bolusSettings: Flow<BolusSettings>
@@ -41,6 +42,17 @@ interface SettingsRepository {
     suspend fun setAccent(accent: AccentColor)
     suspend fun setUnit(unit: GlucoseUnit)
     suspend fun setUse24HourTime(enabled: Boolean)
+
+    /**
+     * First-run only: seed 24-hour time from the system formatter and, for new
+     * installs, leave [needsGlucoseUnitChoice] true until [completeFirstRun].
+     * Existing users are not modified.
+     */
+    suspend fun seedFirstRunDefaultsIfNeeded(use24HourTime: Boolean)
+
+    /** Persists the explicit first-run glucose unit and closes the prompt. */
+    suspend fun completeFirstRun(unit: GlucoseUnit)
+
     suspend fun setIsHeroAiEnabled(enabled: Boolean)
     suspend fun setShowAdvancedMacros(enabled: Boolean)
     suspend fun setPostMealRemindersEnabled(enabled: Boolean)

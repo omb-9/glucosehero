@@ -409,9 +409,16 @@ class LogViewModel @Inject constructor(
      */
     private val logFormatting: Flow<LogFormatting> = settingsRepository.settings.toLogFormatting()
 
-    /** Room-paged rolling log, newest first, with day headers inserted. */
-    val pagedLogItems: Flow<PagingData<LogListItem>> =
-        pagedLogItemsFlow(entryRepository.observePagedEntries(), logFormatting, viewModelScope)
+    /**
+     * Room-paged rolling log, newest first, with day headers inserted.
+     *
+     * [cachedIn] is tied to [scope], not [viewModelScope], so the pager
+     * unsubscribes when Log leaves composition (the HOME pager disposes
+     * offscreen pages). A new Pager is created per call, so collecting
+     * twice is safe.
+     */
+    fun pagedLogItems(scope: CoroutineScope): Flow<PagingData<LogListItem>> =
+        pagedLogItemsFlow(entryRepository.observePagedEntries(), logFormatting, scope)
 
     /** Debounced search results rendered as a non-paged list with day headers. */
     val searchItems: StateFlow<List<LogListItem>> =

@@ -29,6 +29,9 @@
     <string name="forecast_iob_cob">IOB %1$s U · COB %2$d g</string>
     <string name="forecast_disclaimer">On-device estimate from trend, insulin, and carbs. Not a medical device.</string>
     <string name="settings_disclaimer">GlucoseHero logs what you enter and can project glucose from that log. It does not advise on dosing. Hero\'s answers are informational. Always confirm treatment decisions with your care team.</string>
+    <string name="first_run_unit_title">Choose your glucose unit</string>
+    <string name="first_run_unit_body">Pick the unit your meter, CGM, and care team use. This cannot be skipped. You can change it later in Settings.</string>
+    <string name="first_run_unit_continue">Continue</string>
 
     <string name="notif_exercise_fueling_channel_name">Exercise fueling</string>
     <string name="notif_exercise_fueling_channel_description">Alerts when intense activity overlaps elevated insulin on board</string>
@@ -334,4 +337,22 @@
     <string name="dosing_profile_pick_time">Segment start time</string>
     <string name="dosing_profile_confirm_time">Set time</string>
     <string name="dosing_profile_cancel">Cancel</string>
+
+    <string name="chat_title">Coach</string>
+    <string name="chat_empty_intro">I\'m Hero. Ask about your glucose, meals, and insulin.</string>
+    <string name="chat_prompt_spike_yesterday">What made my glucose spike yesterday?</string>
+    <string name="chat_prompt_summarize_week">Summarize my week</string>
+    <string name="chat_prompt_high_morning">Why am I high every morning?</string>
+    <string name="chat_composer_placeholder">Ask Hero about your data…</string>
+    <string name="chat_clear_history">Clear history</string>
+    <string name="chat_clear_history_title">Clear chat history?</string>
+    <string name="chat_clear_history_body">This removes every message in this conversation. It cannot be undone.</string>
+    <string name="chat_clear_confirm">Clear</string>
+    <string name="chat_clear_cancel">Cancel</string>
+    <string name="chat_send">Send</string>
+    <string name="forecast_trend_rising">Glucose trending up</string>
+    <string name="forecast_trend_falling">Glucose trending down</string>
+    <string name="forecast_trend_stable">Glucose holding steady</string>
+    <string name="accent_selected">Selected</string>
+    <string name="accent_not_selected">Not selected</string>
 </resources>

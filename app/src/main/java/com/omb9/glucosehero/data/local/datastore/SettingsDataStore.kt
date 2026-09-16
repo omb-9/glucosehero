@@ -25,6 +25,8 @@ import com.omb9.glucosehero.domain.model.DosingProfile
 import com.omb9.glucosehero.domain.model.DosingProfileCodec
 import com.omb9.glucosehero.domain.model.DosingProfileLoad
 import com.omb9.glucosehero.domain.model.DosingProfileValidation
+import com.omb9.glucosehero.domain.model.FirstRunAction
+import com.omb9.glucosehero.domain.model.FirstRunPolicy
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
 import com.omb9.glucosehero.domain.model.ThemeMode
@@ -80,8 +82,10 @@ class SettingsDataStore @Inject constructor(
     private object Keys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val ACCENT = stringPreferencesKey("accent")
-        val UNIT = stringPreferencesKey("glucose_unit")
-        val USE_24H = booleanPreferencesKey("use_24h")
+        val UNIT = stringPreferencesKey(FirstRunPolicy.UNIT_KEY)
+        val USE_24H = booleanPreferencesKey(FirstRunPolicy.USE_24H_KEY)
+        val FIRST_RUN_COMPLETED = booleanPreferencesKey(FirstRunPolicy.COMPLETED_KEY)
+        val FIRST_RUN_DEFAULTS_SEEDED = booleanPreferencesKey(FirstRunPolicy.DEFAULTS_SEEDED_KEY)
         val TARGET_LOW = floatPreferencesKey("target_low_mgdl")
         val TARGET_HIGH = floatPreferencesKey("target_high_mgdl")
         val HERO_AI_ENABLED = booleanPreferencesKey("hero_ai_enabled")
@@ -227,6 +231,15 @@ class SettingsDataStore @Inject constructor(
             targetLowMgdl = runCatching { p[Keys.TARGET_LOW] }.getOrNull() ?: 70f,
             targetHighMgdl = runCatching { p[Keys.TARGET_HIGH] }.getOrNull() ?: 180f,
         )
+    }.distinctUntilChanged()
+
+    /**
+     * True only after first-run time seeding and before the user confirms a
+     * glucose unit. Existing installs never emit true: they are grandfathered
+     * without writing unit or 24-hour prefs.
+     */
+    val needsGlucoseUnitChoice: Flow<Boolean> = safeData.map { p ->
+        p.firstRunAction(hasExistingUserData = false) == FirstRunAction.PROMPT_UNIT
     }.distinctUntilChanged()
 
     val barcodeLookupEnabled: Flow<Boolean> = safeData.map { p ->
@@ -656,6 +669,48 @@ class SettingsDataStore @Inject constructor(
     suspend fun setAccent(accent: AccentColor) = edit { it[Keys.ACCENT] = accent.name }
     suspend fun setUnit(unit: GlucoseUnit) = edit { it[Keys.UNIT] = unit.name }
     suspend fun setUse24HourTime(enabled: Boolean) = edit { it[Keys.USE_24H] = enabled }
+
+    /**
+     * First-run only. Seeds 24-hour time from [use24HourTime] when the store is
+     * empty. Grandfathers existing users (other keys or [hasExistingUserData])
+     * without touching unit or 24-hour prefs.
+     */
+    suspend fun seedFirstRunDefaults(use24HourTime: Boolean, hasExistingUserData: Boolean) {
+        edit { prefs ->
+            when (prefs.firstRunAction(hasExistingUserData)) {
+                FirstRunAction.NO_OP, FirstRunAction.PROMPT_UNIT -> Unit
+                FirstRunAction.GRANDFATHER -> {
+                    prefs[Keys.FIRST_RUN_COMPLETED] = true
+                    prefs[Keys.FIRST_RUN_DEFAULTS_SEEDED] = true
+                }
+                FirstRunAction.SEED_TIME_AND_PROMPT_UNIT -> {
+                    prefs[Keys.USE_24H] = use24HourTime
+                    prefs[Keys.FIRST_RUN_DEFAULTS_SEEDED] = true
+                }
+            }
+        }
+    }
+
+    suspend fun completeFirstRun(unit: GlucoseUnit) = edit {
+        it[Keys.UNIT] = unit.name
+        it[Keys.FIRST_RUN_COMPLETED] = true
+        it[Keys.FIRST_RUN_DEFAULTS_SEEDED] = true
+    }
+
+    /** Backup restore already wrote an explicit unit; do not prompt. */
+    suspend fun markFirstRunCompleted() = edit {
+        it[Keys.FIRST_RUN_COMPLETED] = true
+        it[Keys.FIRST_RUN_DEFAULTS_SEEDED] = true
+    }
+
+    private fun Preferences.firstRunAction(hasExistingUserData: Boolean): FirstRunAction =
+        FirstRunPolicy.decide(
+            firstRunCompleted = runCatching { this[Keys.FIRST_RUN_COMPLETED] }.getOrNull() == true,
+            defaultsSeeded = runCatching { this[Keys.FIRST_RUN_DEFAULTS_SEEDED] }.getOrNull() == true,
+            preferenceKeyNames = asMap().keys.map { it.name }.toSet(),
+            hasExistingUserData = hasExistingUserData,
+        )
+
     suspend fun setIsHeroAiEnabled(enabled: Boolean) = edit { it[Keys.HERO_AI_ENABLED] = enabled }
     suspend fun setShowAdvancedMacros(enabled: Boolean) = edit { it[Keys.SHOW_ADVANCED_MACROS] = enabled }
     suspend fun setPostMealRemindersEnabled(enabled: Boolean) =

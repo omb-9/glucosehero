@@ -672,6 +672,7 @@ class BackupManager @Inject constructor(
         settingsDataStore.setAccent(settings.accent)
         settingsDataStore.setUnit(settings.unit)
         settingsDataStore.setUse24HourTime(settings.use24HourTime)
+        settingsDataStore.markFirstRunCompleted()
         settingsDataStore.setTargetRange(settings.targetLowMgdl, settings.targetHighMgdl)
         settingsDataStore.setIsHeroAiEnabled(settings.isHeroAiEnabled)
         settingsDataStore.setShowAdvancedMacros(settings.showAdvancedMacros)

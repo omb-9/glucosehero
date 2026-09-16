@@ -2,6 +2,7 @@ package com.omb9.glucosehero
 
 import android.content.Intent
 import android.os.Bundle
+import android.text.format.DateFormat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,13 +18,14 @@ import androidx.navigation.compose.rememberNavController
 import androidx.work.ExistingWorkPolicy
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.navigation.GlucoseHeroNavHost
-import com.omb9.glucosehero.ui.navigation.Routes
+import com.omb9.glucosehero.ui.onboarding.FirstRunGlucoseUnitDialog
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
 import com.omb9.glucosehero.ui.theme.shouldKeepSplashScreen
 import com.omb9.glucosehero.work.HealthConnectSyncWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -58,12 +60,31 @@ class MainActivity : ComponentActivity() {
             .stateIn(lifecycleScope, SharingStarted.Eagerly, null)
 
         val firstThemedFrameDrawn = AtomicBoolean(false)
+        val firstRunSeeded = AtomicBoolean(false)
         splashScreen.setKeepOnScreenCondition {
-            shouldKeepSplashScreen(settingsFlow.value) || !firstThemedFrameDrawn.get()
+            shouldKeepSplashScreen(settingsFlow.value) ||
+                !firstThemedFrameDrawn.get() ||
+                !firstRunSeeded.get()
         }
+
+        lifecycleScope.launch {
+            try {
+                settingsRepository.seedFirstRunDefaultsIfNeeded(
+                    DateFormat.is24HourFormat(this@MainActivity),
+                )
+            } finally {
+                firstRunSeeded.set(true)
+            }
+        }
+
+        val needsUnitChoiceFlow = settingsRepository.needsGlucoseUnitChoice
+            .stateIn(lifecycleScope, SharingStarted.Eagerly, false)
 
         setContent {
             val settings by settingsFlow.collectAsStateWithLifecycle(
+                minActiveState = Lifecycle.State.CREATED,
+            )
+            val needsUnitChoice by needsUnitChoiceFlow.collectAsStateWithLifecycle(
                 minActiveState = Lifecycle.State.CREATED,
             )
             val loadedSettings = settings ?: return@setContent
@@ -74,49 +95,28 @@ class MainActivity : ComponentActivity() {
                     firstThemedFrameDrawn.set(true)
                 }
 
-                // Notification tap → land on the Hero tab.
-                // Guard: on a fresh install (or when Hero AI is disabled) the
-                // HERO destination is filtered from the bottom bar. Navigating
-                // to a disabled destination would throw IllegalArgumentException
-                // ("Navigation destination ... cannot be found") and crash on
-                // launch when the deep-link Intent is present.
-                LaunchedEffect(heroTick, loadedSettings.isHeroAiEnabled) {
-                    if (heroTick > 0 && loadedSettings.isHeroAiEnabled) {
-                        navController.navigate(Routes.HERO) { launchSingleTop = true }
-                    }
-                }
-
-                // Notification tap → open Log and let LogScreen open the
-                // AddEntrySheet with the Glucose tab pre-selected.
-                LaunchedEffect(addGlucoseTick) {
-                    if (addGlucoseTick > 0) {
-                        navController.navigate(Routes.LOG) { launchSingleTop = true }
-                    }
-                }
-
-                // Widget quick action → open Log and let LogScreen open the
-                // AddEntrySheet with the Meal tab pre-selected.
-                LaunchedEffect(addMealTick) {
-                    if (addMealTick > 0) {
-                        navController.navigate(Routes.LOG) { launchSingleTop = true }
-                    }
-                }
-
-                // Widget quick action → open Log and let LogScreen open the
-                // AddEntrySheet with the Insulin (bolus) tab pre-selected.
-                LaunchedEffect(addBolusTick) {
-                    if (addBolusTick > 0) {
-                        navController.navigate(Routes.LOG) { launchSingleTop = true }
-                    }
-                }
-
+                // Destination ticks are handled inside GlucoseHeroNavHost: HOME
+                // hosts the tabs in a pager, and Coach is omitted when Hero AI
+                // is off. Popping to HOME then selecting a page avoids navigating
+                // to a destination that is no longer registered.
                 GlucoseHeroNavHost(
                     navController = navController,
                     isHeroAiEnabled = loadedSettings.isHeroAiEnabled,
+                    heroTick = heroTick,
                     addGlucoseTick = addGlucoseTick,
                     addMealTick = addMealTick,
                     addBolusTick = addBolusTick,
                 )
+
+                if (needsUnitChoice) {
+                    FirstRunGlucoseUnitDialog(
+                        onConfirm = { unit ->
+                            lifecycleScope.launch {
+                                settingsRepository.completeFirstRun(unit)
+                            }
+                        },
+                    )
+                }
             }
         }
     }

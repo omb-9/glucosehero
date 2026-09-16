@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -135,7 +136,7 @@ fun BackupSection(
     modifier: Modifier = Modifier,
 ) {
     var importUri by remember { mutableStateOf<Uri?>(null) }
-    var confirmRestoreSnapshot by remember { mutableStateOf(false) }
+    var confirmRestoreSnapshot by rememberSaveable { mutableStateOf(false) }
 
     val backupLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -328,7 +329,7 @@ private fun EncryptedCloudBackupSection(
     var webDavUser by remember(state.webDavUsername) { mutableStateOf(state.webDavUsername) }
     var webDavPassword by remember { mutableStateOf("") }
     var driveToken by remember { mutableStateOf("") }
-    var confirmCloudRestore by remember { mutableStateOf(false) }
+    var confirmCloudRestore by rememberSaveable { mutableStateOf(false) }
 
     Text(
         text = stringResource(R.string.backup_cloud_title),

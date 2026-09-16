@@ -14,7 +14,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.ShowChart
@@ -26,12 +28,17 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import kotlinx.coroutines.launch
 import androidx.navigation.NavBackStackEntry
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -41,11 +48,9 @@ import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.omb9.glucosehero.clinical.ClinicalTestScreen
 import com.omb9.glucosehero.crisis.EmergencySosSettingsScreen
-import com.omb9.glucosehero.ui.chat.ChatScreen
 import com.omb9.glucosehero.ui.entrydetail.EntryDetailScreen
 import com.omb9.glucosehero.ui.foods.FoodLibraryScreen
 import com.omb9.glucosehero.ui.insights.FoodImpactScreen
-import com.omb9.glucosehero.ui.log.LogScreen
 import com.omb9.glucosehero.ui.settings.AboutSettingsScreen
 import com.omb9.glucosehero.ui.settings.AdvancedSettingsScreen
 import com.omb9.glucosehero.ui.settings.AiSettingsScreen
@@ -58,10 +63,8 @@ import com.omb9.glucosehero.ui.settings.HealthConnectSettingsScreen
 import com.omb9.glucosehero.ui.settings.MealLoggingSettingsScreen
 import com.omb9.glucosehero.ui.settings.NightscoutSettingsScreen
 import com.omb9.glucosehero.ui.settings.ProfileSettingsScreen
-import com.omb9.glucosehero.ui.settings.SettingsScreen
 import com.omb9.glucosehero.ui.settings.XdripSettingsScreen
 import com.omb9.glucosehero.ui.stats.GlucoseChartFullscreenScreen
-import com.omb9.glucosehero.ui.stats.StatsScreen
 import com.omb9.glucosehero.ui.stats.StatsViewModel
 import kotlin.math.roundToInt
 
@@ -71,6 +74,7 @@ import kotlin.math.roundToInt
  * via StateFlow. No Parcelables, no serialized objects in routes.
  */
 object Routes {
+    const val HOME = "home"
     const val LOG = "log"
     const val STATS = "stats"
     const val GLUCOSE_CHART = "glucose_chart"
@@ -98,7 +102,7 @@ object Routes {
     fun entryDetail(entryId: Long) = "entry/$entryId"
 }
 
-private data class TopLevelDestination(
+internal data class TopLevelDestination(
     val route: String,
     val icon: ImageVector,
     val label: String,
@@ -111,7 +115,7 @@ private val topLevelDestinations = listOf(
     TopLevelDestination(Routes.SETTINGS, Icons.Filled.Settings, "Settings"),
 )
 
-private val topLevelRoutes = topLevelDestinations.map { it.route }.toSet()
+private val topLevelRoutes = setOf(Routes.HOME)
 
 // Material 3 emphasized easing (cubic-bezier(0.2, 0, 0, 1)). Shared-axis spatial
 // motion is 300ms with a 30% container slide, not a full-width page wipe.
@@ -140,6 +144,7 @@ private val bottomBarExit = slideOutVertically(
 fun GlucoseHeroNavHost(
     navController: NavHostController,
     isHeroAiEnabled: Boolean,
+    heroTick: Int = 0,
     addGlucoseTick: Int = 0,
     addMealTick: Int = 0,
     addBolusTick: Int = 0,
@@ -149,14 +154,41 @@ fun GlucoseHeroNavHost(
     val destinations = remember(isHeroAiEnabled) {
         topLevelDestinations.filter { it.route != Routes.HERO || isHeroAiEnabled }
     }
-    // When the HERO destination is disabled the composable is not registered
-    // in the NavGraph. Showing the bottom bar for a route that has no
-    // matching NavHost entry would leave the scaffold empty and, worse, any
-    // pending navigation to "hero" (e.g. a cold-start notification Intent
-    // that was not cleared) would throw IllegalArgumentException at
-    // NavController.navigate and crash the app on launch — even on a fresh
-    // install. So the bottom bar is only shown for known visible destinations.
-    val showBottomBar = destinations.any { it.route == currentRoute }
+    val pagerState = rememberPagerState(pageCount = { destinations.size })
+    val pagerScope = rememberCoroutineScope()
+    var selectedTabRoute by remember { mutableStateOf(Routes.LOG) }
+    LaunchedEffect(pagerState.currentPage, destinations) {
+        destinations.getOrNull(pagerState.currentPage)?.route?.let { selectedTabRoute = it }
+    }
+    LaunchedEffect(destinations) {
+        val index = destinations.indexOfFirst { it.route == selectedTabRoute }
+        val target = if (index >= 0) {
+            index
+        } else {
+            destinations.indexOfFirst { it.route == Routes.STATS }.coerceAtLeast(0)
+        }
+        if (target != pagerState.currentPage && target < destinations.size) {
+            pagerState.scrollToPage(target)
+        }
+    }
+    // Bottom bar only on HOME. Coach is omitted from both the pager and the bar
+    // when Hero AI is off, so page indices and destinations stay aligned.
+    val showBottomBar = currentRoute == Routes.HOME
+
+    LaunchedEffect(heroTick, isHeroAiEnabled) {
+        if (heroTick > 0 && isHeroAiEnabled) {
+            navController.popBackStack(Routes.HOME, inclusive = false)
+            val index = destinations.indexOfFirst { it.route == Routes.HERO }
+            if (index >= 0) pagerState.animateScrollToPage(index)
+        }
+    }
+    LaunchedEffect(addGlucoseTick, addMealTick, addBolusTick) {
+        if (addGlucoseTick > 0 || addMealTick > 0 || addBolusTick > 0) {
+            navController.popBackStack(Routes.HOME, inclusive = false)
+            val index = destinations.indexOfFirst { it.route == Routes.LOG }
+            if (index >= 0) pagerState.animateScrollToPage(index)
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -166,16 +198,12 @@ fun GlucoseHeroNavHost(
                 exit = bottomBarExit,
             ) {
                 NavigationBar {
-                    destinations.forEach { destination ->
+                    destinations.forEachIndexed { index, destination ->
                         NavigationBarItem(
-                            selected = currentRoute == destination.route,
+                            selected = pagerState.currentPage == index,
                             onClick = {
-                                navController.navigate(destination.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                pagerScope.launch {
+                                    pagerState.animateScrollToPage(index)
                                 }
                             },
                             icon = { Icon(destination.icon, contentDescription = null) },
@@ -188,70 +216,57 @@ fun GlucoseHeroNavHost(
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.LOG,
+            startDestination = Routes.HOME,
             modifier = Modifier.padding(padding),
             enterTransition = { navEnterTransition() },
             exitTransition = { navExitTransition() },
             popEnterTransition = { navPopEnterTransition() },
             popExitTransition = { navPopExitTransition() },
         ) {
-            composable(Routes.LOG) {
-                LogScreen(
-                    onEntryClick = { id -> navController.navigate(Routes.entryDetail(id)) },
-                    onManageFoods = { navController.navigate(Routes.FOOD_LIBRARY) },
-                    onOpenDosingProfile = { navController.navigate(Routes.GLUCOSE_TARGETS_SETTINGS) },
-                    addGlucoseTick = addGlucoseTick,
-                    addMealTick = addMealTick,
-                    addBolusTick = addBolusTick,
-                )
+            composable(Routes.HOME) {
+                CompositionLocalProvider(LocalHomePagerState provides pagerState) {
+                    HomeTabsPager(
+                        pagerState = pagerState,
+                        destinations = destinations,
+                        onEntryClick = { id -> navController.navigate(Routes.entryDetail(id)) },
+                        onManageFoods = { navController.navigate(Routes.FOOD_LIBRARY) },
+                        onOpenDosingProfile = { navController.navigate(Routes.GLUCOSE_TARGETS_SETTINGS) },
+                        onSeeAllFoodImpact = { navController.navigate(Routes.FOOD_IMPACT) },
+                        onExpandGlucoseChart = { navController.navigate(Routes.GLUCOSE_CHART) },
+                        onOpenLogTab = {
+                            val index = destinations.indexOfFirst { it.route == Routes.LOG }
+                            if (index >= 0) {
+                                pagerScope.launch { pagerState.animateScrollToPage(index) }
+                            }
+                        },
+                        onHeroAiSettings = { navController.navigate(Routes.AI_SETTINGS) },
+                        onProfile = { navController.navigate(Routes.PROFILE_SETTINGS) },
+                        onGlucoseTargets = { navController.navigate(Routes.GLUCOSE_TARGETS_SETTINGS) },
+                        onMealLogging = { navController.navigate(Routes.MEAL_LOGGING_SETTINGS) },
+                        onHealthConnect = { navController.navigate(Routes.HEALTH_CONNECT_SETTINGS) },
+                        onDataSources = { navController.navigate(Routes.DATA_SOURCES) },
+                        onAdvanced = { navController.navigate(Routes.ADVANCED_SETTINGS) },
+                        onBackup = { navController.navigate(Routes.BACKUP_SETTINGS) },
+                        onAppearance = { navController.navigate(Routes.APPEARANCE_SETTINGS) },
+                        onAbout = { navController.navigate(Routes.ABOUT_SETTINGS) },
+                        onClinicalTests = { navController.navigate(Routes.CLINICAL_TESTS) },
+                        onEmergencySos = { navController.navigate(Routes.EMERGENCY_SOS) },
+                        addGlucoseTick = addGlucoseTick,
+                        addMealTick = addMealTick,
+                        addBolusTick = addBolusTick,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
-            composable(Routes.STATS) {
-                StatsScreen(
-                    onEntryClick = { id -> navController.navigate(Routes.entryDetail(id)) },
-                    onSeeAllFoodImpact = { navController.navigate(Routes.FOOD_IMPACT) },
-                    onOpenDosingProfile = { navController.navigate(Routes.GLUCOSE_TARGETS_SETTINGS) },
-                    onExpandGlucoseChart = { navController.navigate(Routes.GLUCOSE_CHART) },
-                )
-            }
-            composable(Routes.GLUCOSE_CHART) { backStackEntry ->
-                val statsEntry = remember(backStackEntry) {
-                    runCatching { navController.getBackStackEntry(Routes.STATS) }
-                        .getOrDefault(backStackEntry)
+            composable(Routes.GLUCOSE_CHART) { chartEntry ->
+                val homeEntry = remember(chartEntry) {
+                    runCatching { navController.getBackStackEntry(Routes.HOME) }
+                        .getOrDefault(chartEntry)
                 }
                 GlucoseChartFullscreenScreen(
                     onBack = { navController.popBackStack() },
                     onEntryClick = { id -> navController.navigate(Routes.entryDetail(id)) },
-                    viewModel = hiltViewModel<StatsViewModel>(statsEntry),
-                )
-            }
-            composable(Routes.HERO) {
-                ChatScreen(
-                    onOpenLog = {
-                        navController.navigate(Routes.LOG) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                )
-            }
-            composable(Routes.SETTINGS) {
-                SettingsScreen(
-                    onManageFoods = { navController.navigate(Routes.FOOD_LIBRARY) },
-                    onHeroAiSettings = { navController.navigate(Routes.AI_SETTINGS) },
-                    onProfile = { navController.navigate(Routes.PROFILE_SETTINGS) },
-                    onGlucoseTargets = { navController.navigate(Routes.GLUCOSE_TARGETS_SETTINGS) },
-                    onMealLogging = { navController.navigate(Routes.MEAL_LOGGING_SETTINGS) },
-                    onHealthConnect = { navController.navigate(Routes.HEALTH_CONNECT_SETTINGS) },
-                    onDataSources = { navController.navigate(Routes.DATA_SOURCES) },
-                    onAdvanced = { navController.navigate(Routes.ADVANCED_SETTINGS) },
-                    onBackup = { navController.navigate(Routes.BACKUP_SETTINGS) },
-                    onAppearance = { navController.navigate(Routes.APPEARANCE_SETTINGS) },
-                    onAbout = { navController.navigate(Routes.ABOUT_SETTINGS) },
-                    onClinicalTests = { navController.navigate(Routes.CLINICAL_TESTS) },
-                    onEmergencySos = { navController.navigate(Routes.EMERGENCY_SOS) },
+                    viewModel = hiltViewModel<StatsViewModel>(homeEntry),
                 )
             }
             composable(Routes.AI_SETTINGS) {

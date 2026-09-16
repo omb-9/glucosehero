@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +44,7 @@ fun FoodImpactScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var shareTarget by remember { mutableStateOf<TagImpactUi?>(null) }
-    var showDismissed by remember { mutableStateOf(false) }
+    var showDismissed by rememberSaveable { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(

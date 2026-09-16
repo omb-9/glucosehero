@@ -1,17 +1,20 @@
 package com.omb9.glucosehero.ui.chat
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -19,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -28,6 +32,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,37 +44,47 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mikepenz.markdown.m3.Markdown
 import com.omb9.glucosehero.R
+import com.omb9.glucosehero.domain.model.ChatRole
+import com.omb9.glucosehero.ui.components.GlucoseHeroCard
 import com.omb9.glucosehero.ui.settings.HeroAiSettingsCopy
+import com.omb9.glucosehero.ui.theme.Spacing
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.conflate
-import com.omb9.glucosehero.domain.model.ChatRole
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ChatScreen(
     onOpenLog: () -> Unit,
+    onHeroAiSettings: () -> Unit,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val streaming by viewModel.streamingText.collectAsStateWithLifecycle()
     var input by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
+    var confirmClear by rememberSaveable { mutableStateOf(false) }
+    val composerEnabled = !state.needsProviderSetup
+    val starterPrompts = listOf(
+        stringResource(R.string.chat_prompt_spike_yesterday),
+        stringResource(R.string.chat_prompt_summarize_week),
+        stringResource(R.string.chat_prompt_high_morning),
+    )
 
     LaunchedEffect(Unit) {
         viewModel.openLogRequests.collect { onOpenLog() }
     }
 
-    // Keep the newest token in view: follow both new messages and the
-    // growing streamed text. snapshotFlow only observes reads made inside the
-    // block, then conflate drops stale scrolls and collectLatest cancels an
-    // in-flight scroll when a newer one arrives.
     LaunchedEffect(Unit) {
         snapshotFlow {
             val itemCount = state.messages.size + (if (streaming != null) 1 else 0)
@@ -84,14 +99,14 @@ fun ChatScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Hero", style = MaterialTheme.typography.headlineMedium) },
+                title = { Text(stringResource(R.string.chat_title), style = MaterialTheme.typography.headlineMedium) },
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 actions = {
                     if (state.messages.isNotEmpty()) {
-                        IconButton(onClick = viewModel::clearHistory) {
+                        IconButton(onClick = { confirmClear = true }) {
                             Icon(
                                 Icons.Filled.DeleteSweep,
-                                contentDescription = "Clear history",
+                                contentDescription = stringResource(R.string.chat_clear_history),
                             )
                         }
                     }
@@ -106,7 +121,10 @@ fun ChatScreen(
                 .imePadding(),
         ) {
             if (state.needsProviderSetup) {
-                Banner(HeroAiSettingsCopy.CHAT_SETUP_BANNER)
+                Banner(
+                    text = HeroAiSettingsCopy.CHAT_SETUP_BANNER,
+                    onClick = onHeroAiSettings,
+                )
             } else if (state.pendingCount > 0) {
                 Banner(
                     "${state.pendingCount} question" +
@@ -131,6 +149,36 @@ fun ChatScreen(
                         contentDescription = null,
                         modifier = Modifier.alpha(0.15f),
                     )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.chat_empty_intro),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            starterPrompts.forEach { prompt ->
+                                AssistChip(
+                                    onClick = {
+                                        if (composerEnabled && streaming == null) {
+                                            viewModel.send(prompt)
+                                            input = ""
+                                        }
+                                    },
+                                    enabled = composerEnabled && streaming == null,
+                                    label = { Text(prompt) },
+                                )
+                            }
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -138,7 +186,7 @@ fun ChatScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    contentPadding = PaddingValues(
                         horizontal = 16.dp,
                         vertical = 12.dp,
                     ),
@@ -162,7 +210,6 @@ fun ChatScreen(
                 }
             }
 
-            // --- Composer ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -173,7 +220,8 @@ fun ChatScreen(
                     value = input,
                     onValueChange = { input = it },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Ask Hero about your data…") },
+                    enabled = composerEnabled,
+                    placeholder = { Text(stringResource(R.string.chat_composer_placeholder)) },
                     maxLines = 4,
                     shape = RoundedCornerShape(24.dp),
                 )
@@ -182,12 +230,12 @@ fun ChatScreen(
                         viewModel.send(input)
                         input = ""
                     },
-                    enabled = input.isNotBlank() && streaming == null,
+                    enabled = composerEnabled && input.isNotBlank() && streaming == null,
                 ) {
                     Icon(
                         Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send",
-                        tint = if (input.isNotBlank() && streaming == null) {
+                        contentDescription = stringResource(R.string.chat_send),
+                        tint = if (composerEnabled && input.isNotBlank() && streaming == null) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
@@ -197,28 +245,55 @@ fun ChatScreen(
             }
         }
     }
-}
 
-@Composable
-private fun Banner(text: String) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.primaryContainer,
-    ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text(stringResource(R.string.chat_clear_history_title)) },
+            text = { Text(stringResource(R.string.chat_clear_history_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmClear = false
+                        viewModel.clearHistory()
+                    },
+                ) {
+                    Text(stringResource(R.string.chat_clear_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) {
+                    Text(stringResource(R.string.chat_clear_cancel))
+                }
+            },
         )
     }
 }
 
 @Composable
+private fun Banner(text: String, onClick: (() -> Unit)? = null) {
+    GlucoseHeroCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        onClick = onClick,
+        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 private fun MessageBubble(text: String, isUser: Boolean) {
+    val clipboard = LocalClipboardManager.current
+    val haptic = LocalHapticFeedback.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
@@ -235,7 +310,21 @@ private fun MessageBubble(text: String, isUser: Boolean) {
             } else {
                 MaterialTheme.colorScheme.surfaceContainerHigh
             },
-            modifier = Modifier.widthIn(max = 300.dp),
+            modifier = Modifier
+                .fillMaxWidth(0.86f)
+                .then(
+                    if (isUser) {
+                        Modifier
+                    } else {
+                        Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                clipboard.setText(AnnotatedString(text))
+                            },
+                        )
+                    },
+                ),
         ) {
             if (isUser) {
                 Text(

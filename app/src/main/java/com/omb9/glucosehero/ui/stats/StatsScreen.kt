@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -73,6 +74,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,6 +104,7 @@ import com.omb9.glucosehero.forecast.GlucoseForecastCard
 import com.omb9.glucosehero.ui.cgm.GlucoseFreshnessLabel
 import com.omb9.glucosehero.ui.cgm.compactText
 import com.omb9.glucosehero.ui.cgm.glucoseFreshnessSentence
+import com.omb9.glucosehero.ui.components.GlucoseHeroCard
 import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
 import com.omb9.glucosehero.ui.insights.MoodImpactSection
 import com.omb9.glucosehero.ui.insights.TagImpactCard
@@ -111,6 +114,7 @@ import com.omb9.glucosehero.ui.stats.components.GlucoseChartHeight
 import com.omb9.glucosehero.ui.stats.components.TimeInRangeBar
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
 import com.omb9.glucosehero.ui.theme.GlucoseHigh
+import com.omb9.glucosehero.ui.theme.Spacing
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.RangeCategory
 import com.omb9.glucosehero.util.TagImpactCopy
@@ -146,11 +150,13 @@ fun StatsScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val showRefreshCaption by viewModel.showRefreshCaption.collectAsStateWithLifecycle()
     val markerPopup by viewModel.selectedMarkerPopup.collectAsStateWithLifecycle()
-    var showExportSheet by remember { mutableStateOf(false) }
-    var showSupplySheet by remember { mutableStateOf(false) }
-    var editingSupply by remember { mutableStateOf<ActiveSupplyUi?>(null) }
-    var preselectedSupplyType by remember { mutableStateOf<SupplyType?>(null) }
+    var showExportSheet by rememberSaveable { mutableStateOf(false) }
+    var showSupplySheet by rememberSaveable { mutableStateOf(false) }
+    var editingSupplyId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var preselectedSupplyType by rememberSaveable { mutableStateOf<SupplyType?>(null) }
+    val editingSupply = supplies.firstOrNull { it.id == editingSupplyId }
     val pullToRefreshState = rememberPullToRefreshState()
+    val statsListState = rememberLazyListState()
     val context = LocalContext.current
     val shareChooserTitle = stringResource(R.string.agp_share_title)
     val snackbarHostState = remember { SnackbarHostState() }
@@ -219,6 +225,7 @@ fun StatsScreen(
             },
         ) {
         LazyColumn(
+            state = statsListState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -253,12 +260,12 @@ fun StatsScreen(
             }
 
             item(key = "glucose_trend", contentType = "section") {
-            Surface(
+            GlucoseHeroCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainer,
+                contentPadding = PaddingValues(Spacing.lg),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column {
                     val trendTitle = stringResource(
                         R.string.stats_glucose_trend_title,
                         state.unit.label,
@@ -388,7 +395,7 @@ fun StatsScreen(
                         preselectedSupplyType = type
                         showSupplySheet = true
                     },
-                    onEdit = { supply -> editingSupply = supply },
+                    onEdit = { supply -> editingSupplyId = supply.id },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -478,14 +485,14 @@ fun StatsScreen(
         EditSupplySheet(
             supply = supply,
             use24HourTime = state.use24HourTime,
-            onDismiss = { editingSupply = null },
+            onDismiss = { editingSupplyId = null },
             onSave = { type, startedAt, days ->
                 viewModel.updateSupply(supply.id, type, startedAt, days)
-                editingSupply = null
+                editingSupplyId = null
             },
             onDelete = {
                 viewModel.deleteSupply(supply.id)
-                editingSupply = null
+                editingSupplyId = null
             },
         )
     }
@@ -562,17 +569,14 @@ private fun StreakIndicator(
     modifier: Modifier = Modifier,
 ) {
     val accent = MaterialTheme.colorScheme.primary
-    Surface(
+    GlucoseHeroCard(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        contentPadding = PaddingValues(Spacing.lg),
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 repeat(7) { index ->
@@ -587,7 +591,7 @@ private fun StreakIndicator(
                     )
                 }
             }
-            Spacer(Modifier.size(14.dp))
+            Spacer(Modifier.size(Spacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = when {
@@ -624,11 +628,11 @@ private fun InsightsSection(
         Spacer(Modifier.height(8.dp))
 
         // "Generate Weekly Summary" button at the top of the Insights section
-        Surface(
+        GlucoseHeroCard(
             onClick = onGenerateWeeklySummary,
             enabled = weeklySummaryState !is WeeklySummaryState.Loading,
+            modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainer,
             border = BorderStroke(
                 1.dp,
                 if (weeklySummaryState is WeeklySummaryState.Loading) {
@@ -637,10 +641,9 @@ private fun InsightsSection(
                     GlucoseHigh.copy(alpha = 0.5f)
                 },
             ),
-            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.md),
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
             ) {
@@ -746,13 +749,13 @@ private fun rememberOrangeShimmerBrush(): Brush {
 @Composable
 private fun WeeklySummaryLoadingCard(modifier: Modifier = Modifier) {
     val shimmerBrush = rememberOrangeShimmerBrush()
-    Surface(
+    GlucoseHeroCard(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, GlucoseHigh.copy(alpha = 0.35f)),
+        contentPadding = PaddingValues(Spacing.lg),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -824,13 +827,13 @@ private fun WeeklySummaryCard(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    GlucoseHeroCard(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, GlucoseHigh.copy(alpha = 0.4f)),
+        contentPadding = PaddingValues(Spacing.lg),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -890,13 +893,13 @@ private fun WeeklySummaryErrorCard(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    GlucoseHeroCard(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainer,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+        contentPadding = PaddingValues(Spacing.lg),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -944,16 +947,14 @@ private fun InsightCard(
     val isHighSeverity = insight.severityLevel >= InsightCardEntity.SEVERITY_CRITICAL
     val accent = if (isHighSeverity) HighSeverityAccent else InsightStandardAccent
 
-    Surface(
+    GlucoseHeroCard(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         color = InsightCardBackground,
         border = BorderStroke(1.dp, InsightCardOutline),
+        contentPadding = PaddingValues(Spacing.lg),
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
+        Row(verticalAlignment = Alignment.Top) {
             Box(
                 modifier = Modifier
                     .size(36.dp)
@@ -988,16 +989,14 @@ private fun InsightCard(
 
 @Composable
 private fun InsightsEmptyState(modifier: Modifier = Modifier) {
-    Surface(
+    GlucoseHeroCard(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         color = InsightCardBackground,
         border = BorderStroke(1.dp, InsightCardOutline),
+        contentPadding = PaddingValues(Spacing.lg),
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Filled.Info,
                 contentDescription = null,
@@ -1050,16 +1049,15 @@ private fun FoodImpactSection(
         Spacer(Modifier.height(8.dp))
 
         if (tags.isEmpty()) {
-            Surface(
+            GlucoseHeroCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainer,
+                contentPadding = PaddingValues(Spacing.lg),
             ) {
                 Text(
                     text = TagImpactCopy.emptyFoodImpact(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp),
                 )
             }
         } else {
@@ -1082,14 +1080,14 @@ private fun EstimatedA1cCard(
     state: StatsUiState,
     modifier: Modifier = Modifier,
 ) {
-    var showInfo by remember { mutableStateOf(false) }
+    var showInfo by rememberSaveable { mutableStateOf(false) }
 
-    Surface(
+    GlucoseHeroCard(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        contentPadding = PaddingValues(Spacing.lg),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "Estimated A1c",
@@ -1131,7 +1129,7 @@ private fun EstimatedA1cCard(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 6.dp),
+                        modifier = Modifier.padding(bottom = Spacing.xs),
                     )
                 }
                 Spacer(Modifier.height(4.dp))
@@ -1199,12 +1197,11 @@ private fun StatCard(
     delta: String? = null,
     secondary: String? = null,
 ) {
-    Surface(
+    GlucoseHeroCard(
         modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        contentPadding = PaddingValues(Spacing.lg),
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column {
             Text(
                 label,
                 style = MaterialTheme.typography.labelMedium,
