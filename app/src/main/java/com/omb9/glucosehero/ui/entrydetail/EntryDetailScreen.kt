@@ -29,8 +29,6 @@ import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,10 +46,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,11 +65,9 @@ import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.EntryType
 import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.ui.components.CrisisSupportCard
+import com.omb9.glucosehero.ui.components.DateTimePickerDialogs
 import com.omb9.glucosehero.ui.components.MoodJournalSection
 import com.omb9.glucosehero.util.Formatters
-import java.time.Instant
-import java.time.ZoneId
-import java.time.ZoneOffset
 
 private val editableCategoryTypes = listOf(
     EntryType.GLUCOSE,
@@ -519,73 +512,15 @@ fun EntryDetailScreen(
         )
     }
 
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = form.timestamp.toUtcDateMillis(),
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { selectedDateMillis ->
-                            val selectedDate = Instant.ofEpochMilli(selectedDateMillis)
-                                .atZone(ZoneOffset.UTC)
-                                .toLocalDate()
-                            val currentTime = Instant.ofEpochMilli(form.timestamp)
-                                .atZone(ZoneId.systemDefault())
-                                .toLocalTime()
-                            viewModel.onTimestampChange(
-                                selectedDate
-                                    .atTime(currentTime)
-                                    .atZone(ZoneId.systemDefault())
-                                    .toInstant()
-                                    .toEpochMilli()
-                            )
-                            showTimePicker = true
-                        }
-                        showDatePicker = false
-                    },
-                ) {
-                    Text("Next")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            },
-        ) {
-            DatePicker(state = datePickerState)
-        }
-    }
-
-    if (showTimePicker) {
-        val zoned = Instant.ofEpochMilli(form.timestamp).atZone(ZoneId.systemDefault())
-        val timePickerState = rememberTimePickerState(
-            initialHour = zoned.hour,
-            initialMinute = zoned.minute,
-            is24Hour = settings?.use24HourTime ?: false,
-        )
-        TimePickerDialog(
-            onDismiss = { showTimePicker = false },
-            onConfirm = {
-                val date = Instant.ofEpochMilli(form.timestamp)
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDate()
-                viewModel.onTimestampChange(
-                    date
-                        .atTime(timePickerState.hour, timePickerState.minute)
-                        .atZone(ZoneId.systemDefault())
-                        .toInstant()
-                        .toEpochMilli()
-                )
-                showTimePicker = false
-            },
-        ) {
-            TimePicker(state = timePickerState)
-        }
-    }
+    DateTimePickerDialogs(
+        timestampMillis = form.timestamp,
+        use24HourTime = settings?.use24HourTime ?: false,
+        showDatePicker = showDatePicker,
+        showTimePicker = showTimePicker,
+        onShowDatePickerChange = { showDatePicker = it },
+        onShowTimePickerChange = { showTimePicker = it },
+        onTimestampChange = viewModel::onTimestampChange,
+    )
 }
 
 @Composable
@@ -620,35 +555,6 @@ private fun CategoryHeader(
             }
         }
     }
-}
-
-@Composable
-private fun TimePickerDialog(
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-    content: @Composable () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Select time") },
-        text = { content() },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text("OK") }
-        },
-    )
-}
-
-private fun Long.toUtcDateMillis(): Long {
-    val localDate = Instant.ofEpochMilli(this)
-        .atZone(ZoneId.systemDefault())
-        .toLocalDate()
-    return localDate
-        .atStartOfDay(ZoneOffset.UTC)
-        .toInstant()
-        .toEpochMilli()
 }
 
 private fun EntryType.icon(): ImageVector = when (this) {

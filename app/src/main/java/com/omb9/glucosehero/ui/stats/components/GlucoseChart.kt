@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
@@ -15,12 +16,14 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.omb9.glucosehero.domain.model.ThemeMode
@@ -33,7 +36,9 @@ import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.GlucoseRangeColor
 import com.omb9.glucosehero.util.Lttb
 import com.omb9.glucosehero.util.RangeCategory
+import com.patrykandpatrick.vico.compose.cartesian.AutoScrollCondition
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.Scroll
 import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
@@ -53,6 +58,7 @@ import com.patrykandpatrick.vico.compose.cartesian.marker.Interaction
 import com.patrykandpatrick.vico.compose.cartesian.marker.LineCartesianLayerMarkerTarget
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.compose.common.Fill
 import com.patrykandpatrick.vico.compose.common.Position
 import com.patrykandpatrick.vico.compose.common.component.ShapeComponent
@@ -64,6 +70,7 @@ import java.time.ZoneId
 import kotlin.math.roundToInt
 
 private val MarkerPointSize = 8.dp
+internal val ExpandedMarkerPointSize = 16.dp
 
 /**
  * How many dp one x-unit (one day) spans. The 24h window uses a larger spacing so a single day
@@ -72,9 +79,20 @@ private val MarkerPointSize = 8.dp
 private val DayPointSpacing = 32.dp
 private val SingleDayPointSpacing = 288.dp
 
-private val ChartHeight = 220.dp
+internal val GlucoseChartHeight = 280.dp
+private val ChartHeight = GlucoseChartHeight
 private val ChartLayerPadding = 16.dp
 private val CaptionSpacing = 8.dp
+
+/**
+ * Scroll to the newest x when a later sample arrives. [AutoScrollCondition.OnModelGrowth] keys off
+ * series count or x-range width, so a sliding CGM window of the same length would not move.
+ */
+private val ScrollToNewestPoint = AutoScrollCondition { oldModel, newModel ->
+    val oldMaxX = oldModel?.models?.maxOfOrNull { it.maxX } ?: return@AutoScrollCondition false
+    val newMaxX = newModel.models.maxOfOrNull { it.maxX } ?: return@AutoScrollCondition false
+    newMaxX > oldMaxX
+}
 
 private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
 private const val RangeBandAlpha = 0.14f
@@ -133,8 +151,14 @@ fun GlucoseChart(
     use24Hour: Boolean,
     onMarkerClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    chartHeight: Dp = ChartHeight,
+    fillMaxHeight: Boolean = false,
+    pinchZoomEnabled: Boolean = rangeDays > 1,
+    markerPointSize: Dp = MarkerPointSize,
 ) {
-    BoxWithConstraints(modifier = modifier) {
+    BoxWithConstraints(
+        modifier = if (fillMaxHeight) modifier.fillMaxHeight() else modifier,
+    ) {
         val pixelThreshold = remember(maxWidth, rangeDays) {
             ChartDownsample.pixelThreshold(maxWidth.value, rangeDays)
         }
@@ -167,6 +191,10 @@ fun GlucoseChart(
             themeMode = themeMode,
             use24Hour = use24Hour,
             onMarkerClick = onMarkerClick,
+            chartHeight = chartHeight,
+            fillMaxHeight = fillMaxHeight,
+            pinchZoomEnabled = pinchZoomEnabled,
+            markerPointSize = markerPointSize,
         )
     }
 }
@@ -187,16 +215,30 @@ private fun GlucoseChartPlot(
     themeMode: ThemeMode,
     use24Hour: Boolean,
     onMarkerClick: (Long) -> Unit,
+    chartHeight: Dp,
+    fillMaxHeight: Boolean,
+    pinchZoomEnabled: Boolean,
+    markerPointSize: Dp,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     val labelColor = MaterialTheme.colorScheme.onSurface
     val modelProducer = remember { CartesianChartModelProducer() }
 
-    val scrollState = rememberVicoScrollState(scrollEnabled = true)
+    val scrollState = key(rangeDays) {
+        rememberVicoScrollState(
+            scrollEnabled = true,
+            initialScroll = Scroll.Absolute.End,
+            autoScroll = Scroll.Absolute.End,
+            autoScrollCondition = ScrollToNewestPoint,
+        )
+    }
+    val zoomState = key(rangeDays, pinchZoomEnabled) {
+        rememberVicoZoomState(zoomEnabled = pinchZoomEnabled)
+    }
 
     val tier = ChartRevealTier.forRangeDays(rangeDays)
     val linePointSpacing = if (rangeDays <= 1) SingleDayPointSpacing else DayPointSpacing
-    val markerPointSpacing = linePointSpacing - MarkerPointSize
+    val markerPointSpacing = linePointSpacing - markerPointSize
 
     val effectiveThemeMode = when (themeMode) {
         ThemeMode.SYSTEM -> if (isSystemInDarkTheme()) ThemeMode.AMOLED else ThemeMode.LIGHT
@@ -267,6 +309,7 @@ private fun GlucoseChartPlot(
         rangeProvider,
         valueLabelComponent,
         markerPointSpacing,
+        markerPointSize,
     ) {
         visibleCategories.map { category ->
             val categoryMarkers = markersByCategory.getValue(category)
@@ -276,6 +319,7 @@ private fun GlucoseChartPlot(
                     tier = tier,
                     themeMode = effectiveThemeMode,
                     labelComponent = valueLabelComponent,
+                    markerPointSize = markerPointSize,
                 )
             }
             LineCartesianLayer(
@@ -381,15 +425,16 @@ private fun GlucoseChartPlot(
         layerPadding = { CartesianLayerPadding(scalableStart = ChartLayerPadding, scalableEnd = ChartLayerPadding) },
     )
 
-    Column {
+    Column(modifier = if (fillMaxHeight) Modifier.fillMaxHeight() else Modifier) {
         CartesianChartHost(
             chart = chart,
             modelProducer = modelProducer,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(ChartHeight)
+                .then(if (fillMaxHeight) Modifier.weight(1f) else Modifier.height(chartHeight))
                 .graphicsLayer(),
             scrollState = scrollState,
+            zoomState = zoomState,
         )
 
         Spacer(Modifier.height(CaptionSpacing))
@@ -460,6 +505,7 @@ private fun buildMarkerLine(
     tier: ChartRevealTier,
     themeMode: ThemeMode,
     labelComponent: TextComponent,
+    markerPointSize: Dp,
 ): LineCartesianLayer.Line {
     val rangeColor = GlucoseRangeColor.colorFor(marker.range, themeMode)
     val categoryColor = markerCategoryColor(marker.category)
@@ -476,7 +522,7 @@ private fun buildMarkerLine(
             strokeFill = Fill(categoryColor),
             strokeThickness = 2.dp,
         ),
-        size = MarkerPointSize,
+        size = markerPointSize,
     )
 
     val pointProvider = object : LineCartesianLayer.PointProvider {

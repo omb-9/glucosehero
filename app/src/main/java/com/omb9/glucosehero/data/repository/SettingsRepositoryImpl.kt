@@ -112,11 +112,11 @@ class SettingsRepositoryImpl @Inject constructor(
             } catch (e: GeneralSecurityException) {
                 throw ApiKeyMissingException(
                     "Stored API key could not be decrypted. " +
-                        "Re-enter it in Settings → Hero AI."
+                        "Re-enter it in Settings → Hero AI → Use your own API key."
                 )
             } catch (e: IllegalArgumentException) {
                 throw ApiKeyMissingException(
-                    "Stored API key is corrupt. Re-enter it in Settings → Hero AI."
+                    "Stored API key is corrupt. Re-enter it in Settings → Hero AI → Use your own API key."
                 )
             }
             // Self-hosted endpoints (Ollama, llama.cpp) typically need no key.

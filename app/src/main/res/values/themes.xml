@@ -1,8 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Post-splash activity theme. windowBackground stays black in the default
+         (light-system) qualifier so AMOLED users are not shown Theme.Material.Light's
+         white window before Compose paints. Bar icon contrast is applied from
+         GlucoseHeroTheme based on the resolved app theme, not xml uiMode. -->
     <style name="Theme.GlucoseHero" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
+
+    <style name="Theme.GlucoseHero.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_logo_display</item>
+        <item name="postSplashScreenTheme">@style/Theme.GlucoseHero</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/splash_background</item>
     </style>
 </resources>

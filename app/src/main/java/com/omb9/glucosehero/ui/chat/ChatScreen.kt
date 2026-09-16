@@ -46,6 +46,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mikepenz.markdown.m3.Markdown
 import com.omb9.glucosehero.R
+import com.omb9.glucosehero.ui.settings.HeroAiSettingsCopy
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.conflate
 import com.omb9.glucosehero.domain.model.ChatRole
@@ -104,24 +105,18 @@ fun ChatScreen(
                 .padding(padding)
                 .imePadding(),
         ) {
-            if (!state.hasApiKey) {
-                Banner("Add an API key in Settings → Hero AI to start chatting.")
+            if (state.needsProviderSetup) {
+                Banner(HeroAiSettingsCopy.CHAT_SETUP_BANNER)
             } else if (state.pendingCount > 0) {
                 Banner(
                     "${state.pendingCount} question" +
                         (if (state.pendingCount == 1) "" else "s") +
-                        " waiting for connectivity — you'll get a notification."
+                        " waiting for connectivity. You'll get a notification."
                 )
             }
 
             state.remainingCalls?.takeIf { it <= 3 }?.let { remaining ->
-                Banner(
-                    when (remaining) {
-                        0 -> "You've used all your AI calls today — resets at midnight."
-                        1 -> "1 AI call left today."
-                        else -> "$remaining AI calls left today."
-                    }
-                )
+                Banner(HeroAiSettingsCopy.remainingCallsBanner(remaining))
             }
 
             if (state.messages.isEmpty() && streaming == null) {

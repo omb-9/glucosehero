@@ -20,6 +20,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,12 +37,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bloodtype
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Vaccines
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -60,6 +65,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -77,6 +83,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
@@ -93,9 +101,12 @@ import com.omb9.glucosehero.ui.log.DraftEventState
 import com.omb9.glucosehero.ui.log.FoodLookupState
 import com.omb9.glucosehero.ui.log.LogViewModel
 import com.omb9.glucosehero.ui.log.MealPhotoState
+import com.omb9.glucosehero.ui.log.OccurredAtCaption
 import com.omb9.glucosehero.ui.log.QuickLogState
 import com.omb9.glucosehero.ui.log.StreakReward
 import com.omb9.glucosehero.ui.log.filledMetrics
+import com.omb9.glucosehero.ui.log.formatAbsoluteOccurredAt
+import com.omb9.glucosehero.ui.log.occurredAtCaption
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -125,16 +136,18 @@ private val categories = listOf(
  * Stateless: all draft state lives in [DraftEventState] owned by
  * [com.omb9.glucosehero.ui.log.LogViewModel]; this composable only renders it.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddEntrySheet(
     draft: DraftEventState,
     unit: GlucoseUnit,
+    use24HourTime: Boolean,
     showAdvancedMacros: Boolean,
     sendMealPhotosToHeroAi: Boolean,
     canSave: Boolean,
     postMealReminderEnabled: Boolean,
     onPostMealReminderChange: (Boolean) -> Unit,
+    onOccurredAtChange: (Long?) -> Unit,
     onCategorySelected: (EntryType) -> Unit,
     onGlucoseChange: (String) -> Unit,
     onMealContextChange: (MealContext) -> Unit,
@@ -160,6 +173,9 @@ fun AddEntrySheet(
     val keyboard = LocalSoftwareKeyboardController.current
     val haptic = LocalHapticFeedback.current
     var showStreakConfirmation by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     val viewModel = hiltViewModel<LogViewModel>()
     val recentFoods by viewModel.recentFoods.collectAsStateWithLifecycle()
@@ -262,6 +278,13 @@ fun AddEntrySheet(
         onRewardConsumed()
     }
 
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            nowMillis = System.currentTimeMillis()
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -284,25 +307,32 @@ fun AddEntrySheet(
                 onMicClick = onMicClick,
                 onParse = { viewModel.parseQuickLog() },
             )
-            draft.occurredAtMillis?.let { occurredAt ->
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = occurredAtCaption(occurredAt),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Spacer(Modifier.height(8.dp))
+            OccurredAtChipRow(
+                occurredAtMillis = draft.occurredAtMillis,
+                nowMillis = nowMillis,
+                use24HourTime = use24HourTime,
+                onPickDateTime = {
+                    nowMillis = System.currentTimeMillis()
+                    keyboard?.hide()
+                    showDatePicker = true
+                },
+                onResetToNow = { onOccurredAtChange(null) },
+            )
             Spacer(Modifier.height(16.dp))
 
             // --- Category icon grid ---
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 categories.forEach { category ->
                     val selected = category.type == draft.activeCategory
                     val hasData = category.metric in draft.filledMetrics
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
                         Box(contentAlignment = Alignment.TopEnd) {
                             IconButton(
                                 onClick = { onCategorySelected(category.type) },
@@ -335,6 +365,9 @@ fun AddEntrySheet(
                             style = MaterialTheme.typography.labelMedium,
                             color = if (selected) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -360,7 +393,10 @@ fun AddEntrySheet(
                         ),
                     )
                     Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                    ) {
                         listOf(
                             MealContext.FASTING to "Fasting",
                             MealContext.BEFORE_MEAL to "Before",
@@ -373,7 +409,7 @@ fun AddEntrySheet(
                                     val next = if (draft.mealContext == context) MealContext.NONE else context
                                     onMealContextChange(next)
                                 },
-                                label = { Text(label) },
+                                label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             )
                         }
                     }
@@ -531,7 +567,9 @@ fun AddEntrySheet(
                                 ),
                             ) {
                                 Text(
-                                    level.name.lowercase().replaceFirstChar { it.uppercase() }
+                                    level.name.lowercase().replaceFirstChar { it.uppercase() },
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
@@ -559,7 +597,7 @@ fun AddEntrySheet(
                 FilterChip(
                     selected = postMealReminderEnabled,
                     onClick = { onPostMealReminderChange(!postMealReminderEnabled) },
-                    label = { Text("+2hr Reminder") },
+                    label = { Text("+2hr Reminder", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 )
             }
 
@@ -605,6 +643,16 @@ fun AddEntrySheet(
         )
     }
 
+    DateTimePickerDialogs(
+        timestampMillis = draft.occurredAtMillis ?: nowMillis,
+        use24HourTime = use24HourTime,
+        showDatePicker = showDatePicker,
+        showTimePicker = showTimePicker,
+        onShowDatePickerChange = { showDatePicker = it },
+        onShowTimePickerChange = { showTimePicker = it },
+        onTimestampChange = { onOccurredAtChange(it) },
+    )
+
     LaunchedEffect(draft.activeCategory, streakReward) {
         if (streakReward != null) return@LaunchedEffect
         focusRequester.requestFocus()
@@ -647,12 +695,16 @@ private fun StreakExtendedConfirmation(
                 text = "Streak Extended",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = if (currentStreak == 1) "1 day" else "$currentStreak days",
                 style = MaterialTheme.typography.labelLarge,
                 color = accent,
                 fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -840,13 +892,63 @@ private fun launchSpeechRecognizer(
     launcher(intent)
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun occurredAtCaption(occurredAtMillis: Long): String {
-    val minutes = ((System.currentTimeMillis() - occurredAtMillis) / 60_000L).toInt().coerceAtLeast(0)
-    return if (minutes < 60) {
-        stringResource(R.string.quick_log_minutes_ago, minutes)
-    } else {
-        val hours = minutes / 60
-        stringResource(R.string.quick_log_hours_ago, hours)
+private fun OccurredAtChipRow(
+    occurredAtMillis: Long?,
+    nowMillis: Long,
+    use24HourTime: Boolean,
+    onPickDateTime: () -> Unit,
+    onResetToNow: () -> Unit,
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        AssistChip(
+            onClick = onPickDateTime,
+            label = {
+                Text(
+                    text = occurredAtChipText(occurredAtMillis, nowMillis, use24HourTime),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    Icons.Filled.DateRange,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+            },
+        )
+        if (occurredAtMillis != null) {
+            IconButton(
+                onClick = onResetToNow,
+                modifier = Modifier.size(40.dp),
+            ) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "Reset to Now",
+                )
+            }
+        }
     }
+}
+
+@Composable
+private fun occurredAtChipText(
+    occurredAtMillis: Long?,
+    nowMillis: Long,
+    use24HourTime: Boolean,
+): String = when (val caption = occurredAtCaption(occurredAtMillis, nowMillis)) {
+    OccurredAtCaption.Now -> "Now"
+    is OccurredAtCaption.MinutesAgo ->
+        stringResource(R.string.quick_log_minutes_ago, caption.minutes)
+    is OccurredAtCaption.HoursAgo ->
+        stringResource(R.string.quick_log_hours_ago, caption.hours)
+    is OccurredAtCaption.Absolute ->
+        formatAbsoluteOccurredAt(caption.millis, use24HourTime)
 }

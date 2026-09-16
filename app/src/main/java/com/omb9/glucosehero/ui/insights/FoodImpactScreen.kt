@@ -3,14 +3,15 @@ package com.omb9.glucosehero.ui.insights
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,75 +61,95 @@ fun FoodImpactScreen(
                 )
             },
         ) { padding ->
-            Column(
+            // A lazy list rather than a scrolling Column so dismissing or
+            // restoring a tag animates the remaining cards into place.
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
+                    .padding(padding),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 8.dp,
+                    bottom = 24.dp,
+                ),
             ) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "Median glucose change two hours after tagged meals.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = "Bars read left (lower) and right (higher) from zero.",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(16.dp))
-                FoodSwapsSection(swaps = state.swaps)
-                Spacer(Modifier.height(16.dp))
-
-                when {
-                    state.tags.isNotEmpty() -> {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            state.tags.forEach { tag ->
-                                TagImpactCard(
-                                    item = tag,
-                                    maxAbsDelta = state.maxAbsDeltaMgdl,
-                                    onShare = { shareTarget = tag },
-                                    onDismiss = { viewModel.dismiss(tag.tag) },
-                                )
-                            }
-                        }
+                item(key = "intro") {
+                    Column {
+                        Text(
+                            text = "Median glucose change two hours after tagged meals.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "Bars read left (lower) and right (higher) from zero.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        FoodSwapsSection(swaps = state.swaps)
+                        Spacer(Modifier.height(16.dp))
                     }
-                    state.closestBuilding != null -> {
+                }
+
+                if (state.tags.isEmpty()) {
+                    item(key = "tags-empty") {
                         EmptyBuildingState(closest = state.closestBuilding)
                     }
-                    else -> {
-                        EmptyBuildingState(closest = null)
+                } else {
+                    items(state.tags, key = { it.tag }) { tag ->
+                        TagImpactCard(
+                            item = tag,
+                            maxAbsDelta = state.maxAbsDeltaMgdl,
+                            onShare = { shareTarget = tag },
+                            onDismiss = { viewModel.dismiss(tag.tag) },
+                            modifier = Modifier
+                                .animateItem()
+                                .padding(bottom = 12.dp),
+                        )
                     }
                 }
 
                 if (state.building.isNotEmpty() && state.tags.isNotEmpty()) {
-                    Spacer(Modifier.height(16.dp))
-                    StillBuildingSection(building = state.building)
+                    item(key = "building") {
+                        Column {
+                            Spacer(Modifier.height(16.dp))
+                            StillBuildingSection(building = state.building)
+                        }
+                    }
                 }
 
                 if (state.moods.isNotEmpty()) {
-                    Spacer(Modifier.height(24.dp))
-                    MoodImpactSection(moods = state.moods)
+                    item(key = "moods") {
+                        Column {
+                            Spacer(Modifier.height(24.dp))
+                            MoodImpactSection(moods = state.moods)
+                        }
+                    }
                 }
 
                 if (state.lifestyle.isNotEmpty()) {
-                    Spacer(Modifier.height(24.dp))
-                    LifestyleImpactSection(items = state.lifestyle)
+                    item(key = "lifestyle") {
+                        Column {
+                            Spacer(Modifier.height(24.dp))
+                            LifestyleImpactSection(items = state.lifestyle)
+                        }
+                    }
                 }
 
                 if (state.dismissed.isNotEmpty()) {
-                    Spacer(Modifier.height(16.dp))
-                    DismissedSection(
-                        dismissed = state.dismissed,
-                        show = showDismissed,
-                        onToggle = { showDismissed = !showDismissed },
-                        onRestore = viewModel::restore,
-                    )
+                    item(key = "dismissed") {
+                        Column {
+                            Spacer(Modifier.height(16.dp))
+                            DismissedSection(
+                                dismissed = state.dismissed,
+                                show = showDismissed,
+                                onToggle = { showDismissed = !showDismissed },
+                                onRestore = viewModel::restore,
+                            )
+                        }
+                    }
                 }
-
-                Spacer(Modifier.height(24.dp))
             }
         }
 

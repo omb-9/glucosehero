@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.os.Build
+import android.util.Log
 import androidx.core.content.ContextCompat
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.EntryDao
@@ -17,7 +18,10 @@ import com.omb9.glucosehero.forecast.GlucoseForecastEngine
 import com.omb9.glucosehero.forecast.GlucoseForecastInput
 import com.omb9.glucosehero.util.AppJson
 import com.omb9.glucosehero.util.CrisisDetector
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -84,6 +88,11 @@ class HypoSosManager @Inject constructor(
         mutex.withLock {
             val pending = settingsDataStore.hypoSosPending.first() ?: return
             if (System.currentTimeMillis() + 1_000L < pending.timeoutAtMillis) return
+            testOnTimeout?.invoke()
+            if (testSkipDispatch) {
+                cancelLocked()
+                return
+            }
             dispatchLocked(pending)
         }
     }
@@ -172,29 +181,52 @@ class HypoSosManager @Inject constructor(
         val alarmManager = context.getSystemService(AlarmManager::class.java)
         val pendingIntent = timeoutPendingIntent()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+            Log.w(
+                TAG,
+                "Exact SOS timeout alarm denied; falling back to inexact setAndAllowWhileIdle",
+            )
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pendingIntent)
             return
         }
         alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pendingIntent)
     }
 
+    /**
+     * Cancels the AlarmManager entry and the [PendingIntent] token.
+     * AlarmManager.cancel() alone leaves the token alive; dumpsys "Recent"
+     * / "Alarm Stats" can still list HYPO_SOS_TIMEOUT after that, which is
+     * history, not a live batch. Cancelling the token as well prevents a
+     * stale fire from re-entering [onTimeout] if an OEM still held the alarm.
+     */
     private fun cancelTimeoutAlarm() {
-        context.getSystemService(AlarmManager::class.java).cancel(timeoutPendingIntent())
+        val existing = existingTimeoutPendingIntent() ?: return
+        context.getSystemService(AlarmManager::class.java).cancel(existing)
+        existing.cancel()
     }
 
-    private fun timeoutPendingIntent(): PendingIntent {
-        val intent = Intent(context, HypoSosAlarmReceiver::class.java).apply {
+    private fun timeoutIntent(): Intent =
+        Intent(context, HypoSosAlarmReceiver::class.java).apply {
             action = ACTION_TIMEOUT
         }
-        return PendingIntent.getBroadcast(
+
+    private fun timeoutPendingIntent(): PendingIntent =
+        PendingIntent.getBroadcast(
             context,
             REQUEST_TIMEOUT,
-            intent,
+            timeoutIntent(),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-    }
+
+    private fun existingTimeoutPendingIntent(): PendingIntent? =
+        PendingIntent.getBroadcast(
+            context,
+            REQUEST_TIMEOUT,
+            timeoutIntent(),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     private fun startService() {
+        if (testSkipForegroundService) return
         val intent = Intent(context, HypoSosForegroundService::class.java)
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -262,12 +294,61 @@ class HypoSosManager @Inject constructor(
         else -> "steady"
     }
 
+    /**
+     * Instrumentation: persist a pending SOS and schedule the AlarmManager
+     * backstop without starting [HypoSosForegroundService] or notifying.
+     */
+    internal suspend fun armTimeoutBackstopForTest(timeoutAtMillis: Long) {
+        mutex.withLock {
+            val now = System.currentTimeMillis()
+            val pending = HypoSosPending(
+                startedAtMillis = now,
+                timeoutAtMillis = timeoutAtMillis,
+                glucoseMgdl = 40.0,
+                velocityMgdlPerMin = -1.0,
+                trendLabel = "falling",
+            )
+            settingsDataStore.setHypoSosPendingJson(AppJson.encodeToString(pending))
+            _pending.value = pending
+            scheduleTimeoutAlarm(timeoutAtMillis)
+        }
+    }
+
+    internal suspend fun cancelPendingForTest() {
+        mutex.withLock { cancelLocked() }
+        stopService()
+    }
+
+    internal fun timeoutAlarmTokenExists(): Boolean = existingTimeoutPendingIntent() != null
+
     companion object {
         const val ACTION_TIMEOUT = "com.omb9.glucosehero.action.HYPO_SOS_TIMEOUT"
         const val ACTION_DISMISS = "com.omb9.glucosehero.action.HYPO_SOS_DISMISS"
+        private const val TAG = "HypoSosManager"
         private const val REQUEST_TIMEOUT = 4301
         const val DISMISS_COOLDOWN_MILLIS: Long = 30L * 60_000L
         const val DISPATCH_COOLDOWN_MILLIS: Long = 15L * 60_000L
+
+        /**
+         * Instrumentation-only. Null in production. Lets tests observe
+         * [onTimeout] without relying on SMS side effects.
+         */
+        @Volatile
+        internal var testOnTimeout: (() -> Unit)? = null
+
+        /**
+         * Instrumentation-only. When true, [onTimeout] clears pending state
+         * without sending caregiver SMS.
+         */
+        @Volatile
+        internal var testSkipDispatch: Boolean = false
+
+        /**
+         * Instrumentation-only. When true, [startService] is a no-op so the
+         * AlarmManager path can be proven with the poll loop stopped.
+         */
+        @Volatile
+        internal var testSkipForegroundService: Boolean = false
 
         /**
          * Unused on this path: [trendSnapshot] currently passes empty bolus and
@@ -282,4 +363,11 @@ class HypoSosManager @Inject constructor(
         const val UNUSED_SOS_FORECAST_CIR_RATIO: Double = 10.0
         const val UNUSED_SOS_FORECAST_ISF_MGDL: Double = 50.0
     }
+}
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface HypoSosEntryPoint {
+    fun hypoSosManager(): HypoSosManager
+    fun settingsDataStore(): SettingsDataStore
 }

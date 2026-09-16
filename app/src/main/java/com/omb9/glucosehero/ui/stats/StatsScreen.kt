@@ -11,22 +11,23 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.filled.Bloodtype
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Share
@@ -54,6 +56,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -79,6 +86,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -92,12 +100,14 @@ import com.omb9.glucosehero.domain.model.SupplyType
 import com.omb9.glucosehero.domain.model.TimeRange
 import com.omb9.glucosehero.forecast.GlucoseForecastCard
 import com.omb9.glucosehero.ui.cgm.GlucoseFreshnessLabel
+import com.omb9.glucosehero.ui.cgm.compactText
 import com.omb9.glucosehero.ui.cgm.glucoseFreshnessSentence
 import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
 import com.omb9.glucosehero.ui.insights.MoodImpactSection
 import com.omb9.glucosehero.ui.insights.TagImpactCard
 import com.omb9.glucosehero.ui.insights.TagImpactUi
 import com.omb9.glucosehero.ui.stats.components.GlucoseChart
+import com.omb9.glucosehero.ui.stats.components.GlucoseChartHeight
 import com.omb9.glucosehero.ui.stats.components.TimeInRangeBar
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
 import com.omb9.glucosehero.ui.theme.GlucoseHigh
@@ -119,6 +129,7 @@ fun StatsScreen(
     onEntryClick: (Long) -> Unit,
     onSeeAllFoodImpact: () -> Unit,
     onOpenDosingProfile: () -> Unit = {},
+    onExpandGlucoseChart: () -> Unit = {},
     viewModel: StatsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -133,6 +144,7 @@ fun StatsScreen(
     val moodImpactTags by viewModel.moodImpactTags.collectAsStateWithLifecycle()
     val isExporting by viewModel.isExporting.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val showRefreshCaption by viewModel.showRefreshCaption.collectAsStateWithLifecycle()
     val markerPopup by viewModel.selectedMarkerPopup.collectAsStateWithLifecycle()
     var showExportSheet by remember { mutableStateOf(false) }
     var showSupplySheet by remember { mutableStateOf(false) }
@@ -141,6 +153,8 @@ fun StatsScreen(
     val pullToRefreshState = rememberPullToRefreshState()
     val context = LocalContext.current
     val shareChooserTitle = stringResource(R.string.agp_share_title)
+    val snackbarHostState = remember { SnackbarHostState() }
+    val noSyncSourceMessage = stringResource(R.string.refresh_no_sync_source)
 
     LaunchedEffect(viewModel) {
         viewModel.exportEvents.collect { event ->
@@ -166,6 +180,12 @@ fun StatsScreen(
         }
     }
 
+    LaunchedEffect(viewModel) {
+        viewModel.noSyncSourceMessages.collect {
+            snackbarHostState.showSnackbar(noSyncSourceMessage)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -181,6 +201,7 @@ fun StatsScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -202,6 +223,18 @@ fun StatsScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            if (showRefreshCaption) {
+                item(key = "refresh_caption", contentType = "caption") {
+                    val age = glucoseFreshness?.compactText(context)
+                        ?: stringResource(R.string.freshness_compact_no_data)
+                    Text(
+                        text = stringResource(R.string.refresh_last_updated, age),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
             if (state.loadFailed) {
                 item(key = "load_failed", contentType = "error") {
                     Surface(
@@ -217,6 +250,123 @@ fun StatsScreen(
                         )
                     }
                 }
+            }
+
+            item(key = "glucose_trend", contentType = "section") {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainer,
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    val trendTitle = stringResource(
+                        R.string.stats_glucose_trend_title,
+                        state.unit.label,
+                    )
+                    val freshnessCaption = glucoseFreshnessSentence(glucoseFreshness)
+                    val trendDescription = if (freshnessCaption == null) {
+                        trendTitle
+                    } else {
+                        stringResource(
+                            R.string.stats_glucose_trend_a11y,
+                            trendTitle,
+                            freshnessCaption,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = trendDescription
+                                },
+                        ) {
+                            Text(
+                                trendTitle,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            GlucoseFreshnessLabel(
+                                freshness = glucoseFreshness,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        IconButton(onClick = onExpandGlucoseChart) {
+                            Icon(
+                                imageVector = Icons.Filled.OpenInFull,
+                                contentDescription = stringResource(R.string.stats_expand_chart),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    RangePresetRow(
+                        selected = state.range,
+                        onSelect = viewModel::selectRange,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    if (state.hasData) {
+                        GlucoseChart(
+                            points = state.chartPoints,
+                            markers = state.markers,
+                            enabledCategories = enabledCategories,
+                            targetLow = state.targetLowDisplay,
+                            targetHigh = state.targetHighDisplay,
+                            veryLowThreshold = state.veryLowThresholdDisplay,
+                            veryHighThreshold = state.veryHighThresholdDisplay,
+                            minY = state.chartMinY,
+                            maxY = state.chartMaxY,
+                            rangeDays = state.range.days,
+                            rangeStartMillis = state.rangeStartMillis,
+                            themeMode = state.themeMode,
+                            use24Hour = state.use24HourTime,
+                            onMarkerClick = viewModel::selectMarker,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        TimeInRangeBar(
+                            segments = state.tirSegments,
+                            themeMode = state.themeMode,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        MarkerFilterRow(
+                            enabledCategories = enabledCategories,
+                            onToggle = viewModel::toggleMarkerCategory,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        GlucoseForecastCard(
+                            snapshot = glucoseForecast,
+                            unit = state.unit,
+                            freshness = glucoseFreshness,
+                            use24HourTime = state.use24HourTime,
+                            onOpenDosingProfile = onOpenDosingProfile,
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(GlucoseChartHeight),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.stats_chart_empty),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        GlucoseForecastCard(
+                            snapshot = glucoseForecast,
+                            unit = state.unit,
+                            freshness = glucoseFreshness,
+                            use24HourTime = state.use24HourTime,
+                            onOpenDosingProfile = onOpenDosingProfile,
+                        )
+                    }
+                }
+            }
             }
 
             item(key = "streak", contentType = "section") {
@@ -276,102 +426,6 @@ fun StatsScreen(
                     state = state,
                     modifier = Modifier.fillMaxWidth(),
                 )
-            }
-
-            item(key = "glucose_trend", contentType = "section") {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainer,
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    val trendTitle = stringResource(
-                        R.string.stats_glucose_trend_title,
-                        state.unit.label,
-                    )
-                    val freshnessCaption = glucoseFreshnessSentence(glucoseFreshness)
-                    val trendDescription = if (freshnessCaption == null) {
-                        trendTitle
-                    } else {
-                        stringResource(
-                            R.string.stats_glucose_trend_a11y,
-                            trendTitle,
-                            freshnessCaption,
-                        )
-                    }
-                    Column(
-                        modifier = Modifier.semantics(mergeDescendants = true) {
-                            contentDescription = trendDescription
-                        },
-                    ) {
-                        Text(
-                            trendTitle,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        GlucoseFreshnessLabel(
-                            freshness = glucoseFreshness,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    RangePresetRow(
-                        selected = state.range,
-                        onSelect = viewModel::selectRange,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    GlucoseForecastCard(
-                        snapshot = glucoseForecast,
-                        unit = state.unit,
-                        freshness = glucoseFreshness,
-                        use24HourTime = state.use24HourTime,
-                        onOpenDosingProfile = onOpenDosingProfile,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    if (state.hasData) {
-                        MarkerFilterRow(
-                            enabledCategories = enabledCategories,
-                            onToggle = viewModel::toggleMarkerCategory,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        TimeInRangeBar(
-                            segments = state.tirSegments,
-                            themeMode = state.themeMode,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        GlucoseChart(
-                            points = state.chartPoints,
-                            markers = state.markers,
-                            enabledCategories = enabledCategories,
-                            targetLow = state.targetLowDisplay,
-                            targetHigh = state.targetHighDisplay,
-                            veryLowThreshold = state.veryLowThresholdDisplay,
-                            veryHighThreshold = state.veryHighThresholdDisplay,
-                            minY = state.chartMinY,
-                            maxY = state.chartMaxY,
-                            rangeDays = state.range.days,
-                            rangeStartMillis = state.rangeStartMillis,
-                            themeMode = state.themeMode,
-                            use24Hour = state.use24HourTime,
-                            onMarkerClick = viewModel::selectMarker,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                "Log glucose readings to see your trend",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
             }
 
             item(key = "stat_cards", contentType = "section") {
@@ -456,12 +510,16 @@ fun StatsScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MarkerFilterRow(
     enabledCategories: Set<MarkerCategory>,
     onToggle: (MarkerCategory) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         MarkerCategory.entries.forEach { category ->
             FilterChip(
                 selected = category in enabledCategories,
@@ -472,22 +530,28 @@ private fun MarkerFilterRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RangePresetRow(
+internal fun RangePresetRow(
     selected: TimeRange,
     onSelect: (TimeRange) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        TimeRange.entries.forEach { range ->
-            FilterChip(
+    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
+        val count = TimeRange.entries.size
+        TimeRange.entries.forEachIndexed { index, range ->
+            SegmentedButton(
                 selected = selected == range,
                 onClick = { onSelect(range) },
-                label = { Text(range.label) },
-            )
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = count),
+                icon = {},
+            ) {
+                Text(
+                    text = range.label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -524,7 +588,7 @@ private fun StreakIndicator(
                 }
             }
             Spacer(Modifier.size(14.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = when {
                         streakDays <= 0 -> "No streak yet"
@@ -604,6 +668,7 @@ private fun InsightsSection(
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     },
+                    modifier = Modifier.weight(1f, fill = false),
                 )
             }
         }
@@ -903,7 +968,7 @@ private fun InsightCard(
                 )
             }
             Spacer(Modifier.width(12.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = insight.title,
                     style = MaterialTheme.typography.titleSmall,
@@ -944,6 +1009,7 @@ private fun InsightsEmptyState(modifier: Modifier = Modifier) {
                 text = "Gathering baseline data. Your insights will appear here after a few days of logging.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = InsightCardDescription,
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -1122,6 +1188,7 @@ private fun insufficientDataMessage(neededDays: Int, neededReadings: Int): Strin
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StatCard(
     label: String,
@@ -1144,23 +1211,24 @@ private fun StatCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
+            FlowRow(
+                verticalArrangement = Arrangement.Center,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Text(
                     value,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 if (suffix != null) {
-                    Spacer(Modifier.height(0.dp))
                     Text(
-                        " $suffix",
+                        suffix,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 4.dp),
                     )
                 }
                 if (trend != TrendDirection.UNKNOWN && delta != null) {
-                    Spacer(Modifier.width(8.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(bottom = 2.dp),
@@ -1318,7 +1386,7 @@ private val MarkerPopupOrangeAccent = Color(0xFFFF7043)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MarkerDetailBottomSheet(
+internal fun MarkerDetailBottomSheet(
     entry: MarkerPopupUiState,
     onDismiss: () -> Unit,
     onViewFullDetails: (Long) -> Unit,
@@ -1347,9 +1415,8 @@ private fun MarkerDetailBottomSheet(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Entry Details",
                         style = MaterialTheme.typography.titleLarge,
@@ -1495,7 +1562,7 @@ private fun MarkerDetailBottomSheet(
                 onClick = { onViewFullDetails(entry.entryId) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .heightIn(min = 52.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MarkerPopupOrangeAccent,
@@ -1525,6 +1592,7 @@ private fun MarkerDetailBottomSheet(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun MarkerDataRow(
     icon: ImageVector,
@@ -1566,8 +1634,8 @@ private fun MarkerDataRow(
                 fontWeight = FontWeight.Bold,
                 color = MarkerPopupTextSecondary,
             )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            FlowRow(
+                verticalArrangement = Arrangement.Center,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(

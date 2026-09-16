@@ -35,6 +35,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -45,11 +48,15 @@ internal fun SectionHeader(
     glossaryContentDescription: String? = null,
 ) {
     Spacer(Modifier.height(24.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
             title,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f, fill = false),
         )
         if (glossaryTerm != null && glossaryDefinition != null && glossaryContentDescription != null) {
             GlossaryIcon(
@@ -62,10 +69,19 @@ internal fun SectionHeader(
     Spacer(Modifier.height(12.dp))
 }
 
+/** Grows the small top app bar so 1.5x / 2.0x titles are not clipped. */
+@Composable
+internal fun settingsTopBarExpandedHeight(): Dp {
+    val fontScale = LocalDensity.current.fontScale
+    return (64.dp * fontScale.coerceIn(1f, 2f)).coerceAtLeast(64.dp)
+}
+
 @Composable
 internal fun NavigationRow(
     title: String,
     onClick: () -> Unit,
+    subtitle: String? = null,
+    leadingIcon: ImageVector? = null,
 ) {
     Surface(
         modifier = Modifier
@@ -77,13 +93,32 @@ internal fun NavigationRow(
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (leadingIcon != null) {
+                Icon(
+                    imageVector = leadingIcon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.size(12.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                if (subtitle != null) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp),
             )
         }
     }
@@ -100,7 +135,13 @@ internal fun HealthConnectToggleRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 12.dp),
+        )
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
@@ -118,7 +159,13 @@ internal fun SettingsToggleRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp),
+            )
             Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
         if (description != null) {
@@ -127,6 +174,7 @@ internal fun SettingsToggleRow(
                 text = description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -233,6 +281,7 @@ internal fun SettingsValueSlider(
             text = "$label: ${displayText(sliderValue)}",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f, fill = false),
         )
         if (glossaryTerm != null && glossaryDefinition != null && glossaryContentDescription != null) {
             GlossaryIcon(

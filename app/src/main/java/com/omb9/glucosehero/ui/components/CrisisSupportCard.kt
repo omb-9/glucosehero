@@ -4,7 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
  * match. Copy is intentionally limited to the single required sentence plus the
  * three support actions and a dismiss action.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CrisisSupportCard(onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -38,7 +40,7 @@ fun CrisisSupportCard(onDismiss: () -> Unit) {
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(
                     onClick = {
                         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:988")))

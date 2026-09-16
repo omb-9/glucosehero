@@ -23,12 +23,20 @@ import com.omb9.glucosehero.data.local.datastore.InitialImportRange
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.GlucoseSampleDao
 import com.omb9.glucosehero.data.local.entity.GlucoseSampleSource
+import com.omb9.glucosehero.data.remote.AiApi
 import com.omb9.glucosehero.data.remote.AiEndpointGuard
 import com.omb9.glucosehero.data.remote.TrustedHosts
+import com.omb9.glucosehero.data.remote.WebhookEntryPayload
+import com.omb9.glucosehero.data.remote.WebhookUrlGuard
+import com.omb9.glucosehero.data.remote.dto.ApiChatMessage
+import com.omb9.glucosehero.data.remote.dto.ChatCompletionRequest
+import com.omb9.glucosehero.data.remote.dto.OpenRouterProviderConfig
 import com.omb9.glucosehero.di.ApplicationScope
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.AiConfig
 import com.omb9.glucosehero.domain.model.AiProvider
+import com.omb9.glucosehero.domain.model.ApiKeyMissingException
+import com.omb9.glucosehero.domain.model.ProviderHttpException
 import com.omb9.glucosehero.domain.model.BolusSettings
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
@@ -41,12 +49,14 @@ import com.omb9.glucosehero.util.AiQuota
 import com.omb9.glucosehero.util.AiTier
 import com.omb9.glucosehero.exercise.ExerciseFuelingWorker
 import com.omb9.glucosehero.util.Formatters
+import com.omb9.glucosehero.util.AppJson
 import com.omb9.glucosehero.work.HealthConnectSyncWorker
 import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,7 +73,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.IOException
+import retrofit2.HttpException
 import javax.inject.Inject
+import javax.inject.Named
 
 /** UI state for the Back up & restore section. */
 data class BackupUiState(
@@ -89,6 +107,22 @@ data class ApiKeySaveMessage(
     val isError: Boolean = false,
 )
 
+/** Ephemeral result of posting a sample JSON body to the local webhook URL. */
+sealed interface WebhookTestUiState {
+    data object Idle : WebhookTestUiState
+    data object Running : WebhookTestUiState
+    data class Success(val httpCode: Int) : WebhookTestUiState
+    data class Failure(val message: String) : WebhookTestUiState
+}
+
+/** Result of a BYOK "Test connection" completion against the configured provider. */
+sealed interface AiConnectionTestUiState {
+    data object Idle : AiConnectionTestUiState
+    data object Running : AiConnectionTestUiState
+    data object Success : AiConnectionTestUiState
+    data class Failure(val message: String) : AiConnectionTestUiState
+}
+
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -102,6 +136,8 @@ class SettingsViewModel @Inject constructor(
     private val encryptedCloudBackupManager: EncryptedCloudBackupManager,
     private val markdownExporter: MarkdownExporter,
     private val reminderScheduler: ReminderScheduler,
+    @Named("webhook") private val webhookClient: OkHttpClient,
+    private val aiApi: AiApi,
     @ApplicationContext private val context: Context,
     @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
@@ -233,6 +269,25 @@ class SettingsViewModel @Inject constructor(
     val healthConnectLastSync: StateFlow<Long?> = settingsDataStore.healthConnectLastSync
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val webhookUrl: StateFlow<String> = settingsDataStore.webhookUrl
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    val connectedDataSourceCount: StateFlow<Int> = combine(
+        settingsDataStore.xdripBroadcastEnabled,
+        settingsDataStore.nightscoutEnabled,
+        isHealthConnectConnected,
+    ) { xdrip, nightscout, healthConnect ->
+        SettingsOverviewCopy.countConnectedSources(xdrip, nightscout, healthConnect)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    private val _webhookTestState = MutableStateFlow<WebhookTestUiState>(WebhookTestUiState.Idle)
+    val webhookTestState: StateFlow<WebhookTestUiState> = _webhookTestState.asStateFlow()
+
+    private val _aiConnectionTestState =
+        MutableStateFlow<AiConnectionTestUiState>(AiConnectionTestUiState.Idle)
+    val aiConnectionTestState: StateFlow<AiConnectionTestUiState> =
+        _aiConnectionTestState.asStateFlow()
+
     private val _backupPreview = MutableStateFlow<BackupPreview?>(null)
     private val _backupMessage = MutableStateFlow<String?>(null)
 
@@ -305,6 +360,8 @@ class SettingsViewModel @Inject constructor(
     private val weightInput = MutableStateFlow<String?>(null)
     private val baseUrlInput = MutableStateFlow<String?>(null)
     private val modelInput = MutableStateFlow<String?>(null)
+    private val apiKeyInput = MutableStateFlow<String?>(null)
+    private val webhookUrlInput = MutableStateFlow<String?>(null)
 
     init {
         refreshHealthConnectStatus()
@@ -349,6 +406,24 @@ class SettingsViewModel @Inject constructor(
                 .filterNotNull()
                 .debounce(DEBOUNCE_MILLIS)
                 .collectLatest { settingsRepository.setAiModel(it) }
+        }
+
+        viewModelScope.launch {
+            apiKeyInput
+                .filterNotNull()
+                .debounce(DEBOUNCE_MILLIS)
+                .collectLatest { persistApiKeyIfPresent(it) }
+        }
+
+        viewModelScope.launch {
+            webhookUrlInput
+                .filterNotNull()
+                .debounce(DEBOUNCE_MILLIS)
+                .collectLatest { url ->
+                    if (WebhookUrlGuard.isPersistable(url)) {
+                        settingsDataStore.setWebhookUrl(url)
+                    }
+                }
         }
     }
 
@@ -468,11 +543,140 @@ class SettingsViewModel @Inject constructor(
         modelInput.value = model
     }
 
+    fun setAiApiKeyDraft(plainKey: String) {
+        apiKeyInput.value = plainKey
+    }
+
+    fun setWebhookUrl(url: String) {
+        webhookUrlInput.value = url
+    }
+
+    fun sendTestWebhook(url: String) {
+        when (WebhookUrlGuard.evaluate(url)) {
+            WebhookUrlGuard.Status.Allowed -> Unit
+            WebhookUrlGuard.Status.Empty,
+            WebhookUrlGuard.Status.InvalidUrl,
+            -> {
+                _webhookTestState.value = WebhookTestUiState.Failure(
+                    "Enter a valid webhook URL first.",
+                )
+                return
+            }
+            WebhookUrlGuard.Status.HttpsRequired -> {
+                _webhookTestState.value = WebhookTestUiState.Failure(
+                    "Plain HTTP is only allowed for local network addresses.",
+                )
+                return
+            }
+        }
+        if (_webhookTestState.value is WebhookTestUiState.Running) return
+        viewModelScope.launch {
+            if (WebhookUrlGuard.isPersistable(url)) {
+                settingsDataStore.setWebhookUrl(url)
+            }
+            _webhookTestState.value = WebhookTestUiState.Running
+            try {
+                val json = AppJson.encodeToString(
+                    WebhookEntryPayload.serializer(),
+                    WebhookEntryPayload.testSample(),
+                )
+                val request = Request.Builder()
+                    .url(url.trim())
+                    .post(json.toRequestBody(JSON_MEDIA_TYPE))
+                    .build()
+                val code = withContext(Dispatchers.IO) {
+                    webhookClient.newCall(request).execute().use { response -> response.code }
+                }
+                _webhookTestState.value = if (code in 200..299) {
+                    WebhookTestUiState.Success(code)
+                } else {
+                    WebhookTestUiState.Failure("Webhook responded with HTTP $code.")
+                }
+            } catch (e: CancellationException) {
+                _webhookTestState.value = WebhookTestUiState.Idle
+                throw e
+            } catch (_: IOException) {
+                _webhookTestState.value = WebhookTestUiState.Failure(
+                    "Couldn't reach the webhook.",
+                )
+            } catch (_: Exception) {
+                _webhookTestState.value = WebhookTestUiState.Failure(
+                    "Couldn't send the test payload.",
+                )
+            }
+        }
+    }
+
+    /**
+     * Sends a one-token completion so the user can see success or the provider's
+     * actual error before relying on chat. Flushes debounced URL, model, and key
+     * first so the interceptor reads what is on screen.
+     */
+    fun testAiConnection() {
+        if (_aiConnectionTestState.value is AiConnectionTestUiState.Running) return
+        viewModelScope.launch {
+            savePendingChanges()
+            _aiConnectionTestState.value = AiConnectionTestUiState.Running
+            try {
+                val config = settingsRepository.aiConfigSnapshot()
+                aiApi.complete(
+                    ChatCompletionRequest(
+                        model = config.model,
+                        messages = listOf(
+                            ApiChatMessage.text(role = "user", content = "Reply with ok."),
+                        ),
+                        stream = false,
+                        temperature = 0.0,
+                        maxTokens = 1,
+                        provider = if (config.provider == AiProvider.OPENROUTER) {
+                            OpenRouterProviderConfig()
+                        } else {
+                            null
+                        },
+                    ),
+                )
+                _aiConnectionTestState.value = AiConnectionTestUiState.Success
+            } catch (e: CancellationException) {
+                _aiConnectionTestState.value = AiConnectionTestUiState.Idle
+                throw e
+            } catch (e: ApiKeyMissingException) {
+                _aiConnectionTestState.value = AiConnectionTestUiState.Failure(
+                    HeroAiSettingsCopy.connectionFailure(
+                        message = e.message,
+                        isMissingKey = true,
+                    ),
+                )
+            } catch (e: ProviderHttpException) {
+                _aiConnectionTestState.value = AiConnectionTestUiState.Failure(
+                    HeroAiSettingsCopy.connectionFailure(message = e.message),
+                )
+            } catch (e: HttpException) {
+                val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+                _aiConnectionTestState.value = AiConnectionTestUiState.Failure(
+                    HeroAiSettingsCopy.connectionFailure(
+                        message = e.message(),
+                        httpCode = e.code(),
+                        httpBody = body,
+                    ),
+                )
+            } catch (e: IOException) {
+                _aiConnectionTestState.value = AiConnectionTestUiState.Failure(
+                    HeroAiSettingsCopy.connectionFailure(message = e.message),
+                )
+            } catch (e: Exception) {
+                _aiConnectionTestState.value = AiConnectionTestUiState.Failure(
+                    HeroAiSettingsCopy.connectionFailure(message = e.message),
+                )
+            }
+        }
+    }
+
     /**
      * Immediately persists inputs that are otherwise debounced. [onCleared]
      * launches this on [applicationScope] so an in-progress edit is not lost
      * when the screen's ViewModel is cleared, including if composition has
-     * already left.
+     * already left. The API key uses this same flush so a typed key cannot be
+     * discarded by pressing back.
      */
     suspend fun savePendingChanges() {
         nameInput.value?.let { settingsRepository.setProfileName(it) }
@@ -485,6 +689,12 @@ class SettingsViewModel @Inject constructor(
         }
         baseUrlInput.value?.let { settingsRepository.setAiBaseUrl(it) }
         modelInput.value?.let { settingsRepository.setAiModel(it) }
+        persistApiKeyIfPresent(apiKeyInput.value)
+        webhookUrlInput.value?.let { url ->
+            if (WebhookUrlGuard.isPersistable(url)) {
+                settingsDataStore.setWebhookUrl(url)
+            }
+        }
     }
 
     fun saveApiKey(plainKey: String) {
@@ -497,7 +707,7 @@ class SettingsViewModel @Inject constructor(
             }
             return
         }
-
+        apiKeyInput.value = trimmed
         viewModelScope.launch {
             try {
                 settingsRepository.setApiKey(trimmed)
@@ -513,6 +723,12 @@ class SettingsViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    private suspend fun persistApiKeyIfPresent(plainKey: String?) {
+        val trimmed = plainKey?.trim().orEmpty()
+        if (trimmed.isEmpty()) return
+        settingsRepository.setApiKey(trimmed)
     }
 
     fun onPermissionsResult(granted: Set<String>) {
@@ -752,5 +968,6 @@ class SettingsViewModel @Inject constructor(
 
     private companion object {
         const val DEBOUNCE_MILLIS = 400L
+        val JSON_MEDIA_TYPE = "application/json".toMediaType()
     }
 }

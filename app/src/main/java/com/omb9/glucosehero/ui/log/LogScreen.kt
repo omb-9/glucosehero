@@ -1,7 +1,11 @@
 package com.omb9.glucosehero.ui.log
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -32,7 +37,6 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,7 +65,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,11 +92,17 @@ import com.omb9.glucosehero.crisis.HypoSosPending
 import com.omb9.glucosehero.data.cgm.GlucoseFreshness
 import com.omb9.glucosehero.forecast.GlucoseForecastCard
 import com.omb9.glucosehero.forecast.GlucoseForecastSnapshot
+import com.omb9.glucosehero.ui.cgm.compactText
 import com.omb9.glucosehero.ui.components.AddEntrySheet
 import com.omb9.glucosehero.ui.components.GlucoseHeroRefreshIndicator
+import com.omb9.glucosehero.ui.components.shimmer
 import com.omb9.glucosehero.ui.theme.GlucoseHigh
 import com.omb9.glucosehero.ui.theme.GlucoseInRange
 import com.omb9.glucosehero.ui.theme.GlucoseLow
+
+/** Shared slide-and-fade for the banners and filters stacked above the log list. */
+private val LogHeaderEnter = expandVertically() + fadeIn()
+private val LogHeaderExit = shrinkVertically() + fadeOut()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,6 +128,7 @@ fun LogScreen(
     var showSheet by rememberSaveable { mutableStateOf(false) }
     val streakReward by viewModel.streakReward.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val showRefreshCaption by viewModel.showRefreshCaption.collectAsStateWithLifecycle()
     val isHealthConnectRevoked by viewModel.isHealthConnectRevoked.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
@@ -121,11 +136,38 @@ fun LogScreen(
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val pullToRefreshState = rememberPullToRefreshState()
+    val logListState = rememberLazyListState()
+    val searchFocusRequester = remember { FocusRequester() }
+    val searchKeyboard = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
+    val noSyncSourceMessage = stringResource(R.string.refresh_no_sync_source)
     LaunchedEffect(viewModel) {
         viewModel.saveErrors.collect { error ->
             snackbarHostState.showSnackbar(error.message ?: "Save failed")
         }
     }
+    LaunchedEffect(viewModel) {
+        viewModel.noSyncSourceMessages.collect {
+            snackbarHostState.showSnackbar(noSyncSourceMessage)
+        }
+    }
+    // New entries are prepended, so a save from further down the log would
+    // otherwise land above the viewport with nothing to show for it.
+    LaunchedEffect(viewModel) {
+        viewModel.savedEntries.collect {
+            if (logListState.layoutInfo.totalItemsCount > 0) {
+                logListState.animateScrollToItem(0)
+            }
+        }
+    }
+
+    // AnimatedVisibility keeps composing its content while it shrinks away, so
+    // the chip and banner below need the last non-null value to render with on
+    // the way out.
+    var lastFilterDate by remember { mutableStateOf<LocalDate?>(null) }
+    LaunchedEffect(selectedDate) { selectedDate?.let { lastFilterDate = it } }
+    var lastHypoSos by remember { mutableStateOf<HypoSosPending?>(null) }
+    LaunchedEffect(pendingHypoSos) { pendingHypoSos?.let { lastHypoSos = it } }
 
     val settings = settingsState
 
@@ -176,7 +218,10 @@ fun LogScreen(
                     IconButton(
                         onClick = {
                             searchExpanded = !searchExpanded
-                            if (!searchExpanded) viewModel.clearSearch()
+                            if (!searchExpanded) {
+                                searchKeyboard?.hide()
+                                viewModel.clearSearch()
+                            }
                         },
                     ) {
                         Icon(
@@ -220,7 +265,11 @@ fun LogScreen(
             },
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                if (isHealthConnectRevoked) {
+                AnimatedVisibility(
+                    visible = isHealthConnectRevoked,
+                    enter = LogHeaderEnter,
+                    exit = LogHeaderExit,
+                ) {
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -232,16 +281,16 @@ fun LogScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 14.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(
-                                text = "Health Connect sync disabled — permissions revoked in settings.",
+                                text = "Health Connect sync disabled, permissions revoked in settings.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
-                                maxLines = 1,
+                                maxLines = 3,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false),
+                                modifier = Modifier.weight(1f),
                             )
                             IconButton(
                                 onClick = viewModel::dismissHealthConnectRevokedBanner,
@@ -258,13 +307,22 @@ fun LogScreen(
                     }
                 }
 
-                if (searchExpanded) {
+                AnimatedVisibility(
+                    visible = searchExpanded,
+                    enter = LogHeaderEnter,
+                    exit = LogHeaderExit,
+                ) {
+                    LaunchedEffect(Unit) {
+                        searchFocusRequester.requestFocus()
+                        searchKeyboard?.show()
+                    }
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = viewModel::onSearchQueryChange,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .focusRequester(searchFocusRequester),
                         placeholder = { Text("Search entries") },
                         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                         trailingIcon = {
@@ -278,21 +336,58 @@ fun LogScreen(
                     )
                 }
 
-                selectedDate?.let { date ->
-                    DateFilterChip(
-                        date = date,
-                        onClear = viewModel::clearDateFilter,
+                AnimatedVisibility(
+                    visible = selectedDate != null,
+                    enter = LogHeaderEnter,
+                    exit = LogHeaderExit,
+                ) {
+                    lastFilterDate?.let { date ->
+                        DateFilterChip(
+                            date = date,
+                            onClear = viewModel::clearDateFilter,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = showRefreshCaption,
+                    enter = LogHeaderEnter,
+                    exit = LogHeaderExit,
+                ) {
+                    val age = glucoseFreshness?.compactText(context)
+                        ?: stringResource(R.string.freshness_compact_no_data)
+                    Text(
+                        text = stringResource(R.string.refresh_last_updated, age),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
 
-                ActiveInsulinBar(activeInsulinUnits = activeInsulin)
+                AnimatedVisibility(
+                    visible = activeInsulin > 0.0,
+                    enter = LogHeaderEnter,
+                    exit = LogHeaderExit,
+                ) {
+                    ActiveInsulinBar(activeInsulinUnits = activeInsulin)
+                }
 
-                pendingHypoSos?.let { sos ->
-                    HypoSosBanner(
-                        pending = sos,
-                        onDismiss = viewModel::dismissHypoSos,
-                    )
+                AnimatedVisibility(
+                    visible = pendingHypoSos != null,
+                    enter = LogHeaderEnter,
+                    exit = LogHeaderExit,
+                ) {
+                    lastHypoSos?.let { sos ->
+                        HypoSosBanner(
+                            pending = sos,
+                            onDismiss = viewModel::dismissHypoSos,
+                        )
+                    }
                 }
 
                 // Forecast + list read the display unit, so they are gated on loaded
@@ -323,21 +418,12 @@ fun LogScreen(
                 }
                 val staticEmpty = (hasSearch || hasDate) && staticItems.isEmpty()
 
-                if (settings == null) {
-                    // Display unit not loaded yet: show placeholder rows shaped like
-                    // real log rows so the swap-in does not jump.
+                if (settings == null || pagedRefreshLoading) {
+                    // Settings and the first paging page both use the same skeleton
+                    // so the two loads do not flash a spinner after the placeholders.
                     LogListPlaceholder()
                 } else {
                     when {
-                        pagedRefreshLoading -> Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState()),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator()
-                        }
-
                         pagedEmpty || staticEmpty -> {
                             Box(
                                 modifier = Modifier
@@ -362,7 +448,13 @@ fun LogScreen(
 
                         else -> LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            state = logListState,
+                            contentPadding = PaddingValues(
+                                start = 16.dp,
+                                end = 16.dp,
+                                top = 8.dp,
+                                bottom = 72.dp,
+                            ),
                         ) {
                             when {
                                 hasSearch -> items(
@@ -374,6 +466,7 @@ fun LogScreen(
                                         item = item,
                                         unitLabel = settings.unit.label,
                                         onEntryClick = onEntryClick,
+                                        modifier = Modifier.animateItem(),
                                     )
                                 }
 
@@ -386,6 +479,7 @@ fun LogScreen(
                                         item = item,
                                         unitLabel = settings.unit.label,
                                         onEntryClick = onEntryClick,
+                                        modifier = Modifier.animateItem(),
                                     )
                                 }
 
@@ -399,11 +493,11 @@ fun LogScreen(
                                             item = it,
                                             unitLabel = settings.unit.label,
                                             onEntryClick = onEntryClick,
+                                            modifier = Modifier.animateItem(),
                                         )
                                     }
                                 }
                             }
-                            item { Spacer(Modifier.height(72.dp)) }
                         }
                     }
                 }
@@ -415,11 +509,13 @@ fun LogScreen(
         AddEntrySheet(
             draft = draft,
             unit = settings.unit,
+            use24HourTime = settings.use24HourTime,
             showAdvancedMacros = settings.showAdvancedMacros,
             sendMealPhotosToHeroAi = settings.sendMealPhotosToHeroAi,
             canSave = canSave,
             postMealReminderEnabled = draft.postMealReminderEnabled,
             onPostMealReminderChange = viewModel::onPostMealReminderChange,
+            onOccurredAtChange = viewModel::setOccurredAt,
             onCategorySelected = viewModel::onCategorySelected,
             onGlucoseChange = viewModel::onGlucoseChange,
             onMealContextChange = viewModel::onMealContextChange,
@@ -502,7 +598,7 @@ private fun LogRowPlaceholder() {
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
+                    .shimmer(),
             )
             Spacer(Modifier.width(12.dp))
             Column(
@@ -514,14 +610,14 @@ private fun LogRowPlaceholder() {
                         .fillMaxWidth(0.5f)
                         .height(16.dp)
                         .clip(MaterialTheme.shapes.small)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
+                        .shimmer(),
                 )
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(0.7f)
                         .height(12.dp)
                         .clip(MaterialTheme.shapes.small)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                        .shimmer(),
                 )
             }
         }
@@ -534,6 +630,7 @@ private fun LogListPlaceholder(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -586,25 +683,32 @@ private fun ActiveInsulinBar(activeInsulinUnits: Double) {
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     "Active Insulin",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     formatInsulinUnits(activeInsulinUnits),
                     style = MaterialTheme.typography.headlineSmall,
                     color = accent,
                     fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
+            Spacer(Modifier.width(8.dp))
             Text(
                 "U on board",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -665,7 +769,9 @@ private fun DateFilterChip(
         color = MaterialTheme.colorScheme.secondaryContainer,
     ) {
         Row(
-            modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -679,8 +785,10 @@ private fun DateFilterChip(
                 Formatters.dayHeader(date),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(4.dp))
             IconButton(onClick = onClear) {
                 Icon(
                     Icons.Filled.Close,
@@ -703,6 +811,8 @@ private fun HealthConnectBadge() {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -722,23 +832,26 @@ private fun LogListItemRow(
     item: LogListItem,
     unitLabel: String,
     onEntryClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     when (item) {
         is LogListItem.Header -> Text(
             item.label,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+            modifier = modifier.padding(top = 16.dp, bottom = 8.dp),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
         )
 
-        is LogListItem.Entry -> {
-            EntryRow(
-                item = item.item,
-                unitLabel = unitLabel,
-                onClick = { onEntryClick(item.item.id) },
-            )
-            Spacer(Modifier.height(8.dp))
-        }
+        // Row gap as padding rather than a trailing Spacer, so each item is a
+        // single node and animateItem() moves the gap along with the row.
+        is LogListItem.Entry -> EntryRow(
+            item = item.item,
+            unitLabel = unitLabel,
+            onClick = { onEntryClick(item.item.id) },
+            modifier = modifier.padding(bottom = 8.dp),
+        )
     }
 }
 
@@ -747,9 +860,10 @@ private fun EntryRow(
     item: LogEntryItem,
     unitLabel: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = MaterialTheme.shapes.medium,
@@ -775,12 +889,15 @@ private fun EntryRow(
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(item.title, style = MaterialTheme.typography.titleMedium)
-                    if (item.source == EntrySource.HEALTH_CONNECT) {
-                        Spacer(Modifier.width(6.dp))
-                        HealthConnectBadge()
-                    }
+                Text(
+                    item.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (item.source == EntrySource.HEALTH_CONNECT) {
+                    Spacer(Modifier.height(4.dp))
+                    HealthConnectBadge()
                 }
                 val subtitle = item.subtitle
                 if (subtitle != null) {
@@ -788,7 +905,8 @@ private fun EntryRow(
                         subtitle,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -801,6 +919,8 @@ private fun EntryRow(
                             glucose,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             color = when (item.glucoseStatus) {
                                 GlucoseStatus.LOW -> GlucoseLow
                                 GlucoseStatus.HIGH -> GlucoseHigh
@@ -814,6 +934,8 @@ private fun EntryRow(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(bottom = 2.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -821,6 +943,8 @@ private fun EntryRow(
                     item.timeLabel,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

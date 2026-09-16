@@ -9,19 +9,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import androidx.work.ExistingWorkPolicy
-import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.navigation.GlucoseHeroNavHost
 import com.omb9.glucosehero.ui.navigation.Routes
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
+import com.omb9.glucosehero.ui.theme.shouldKeepSplashScreen
 import com.omb9.glucosehero.work.HealthConnectSyncWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -42,17 +45,34 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleDestination(intent)
 
+        // Null seed is the "not loaded" sentinel. Seeding UserSettings() would
+        // paint LIGHT (the data-class default) before DataStore resolves, which
+        // flashes white for AMOLED users. DataStore's resilient read fail-opens
+        // to defaults, so this becomes non-null even when the file is unreadable.
         val settingsFlow = settingsRepository.settings
-            .stateIn(lifecycleScope, SharingStarted.Eagerly, UserSettings())
+            .stateIn(lifecycleScope, SharingStarted.Eagerly, null)
+
+        val firstThemedFrameDrawn = AtomicBoolean(false)
+        splashScreen.setKeepOnScreenCondition {
+            shouldKeepSplashScreen(settingsFlow.value) || !firstThemedFrameDrawn.get()
+        }
 
         setContent {
-            val settings by settingsFlow.collectAsStateWithLifecycle()
-            GlucoseHeroTheme(settings = settings) {
+            val settings by settingsFlow.collectAsStateWithLifecycle(
+                minActiveState = Lifecycle.State.CREATED,
+            )
+            val loadedSettings = settings ?: return@setContent
+            GlucoseHeroTheme(settings = loadedSettings) {
                 val navController = rememberNavController()
+
+                LaunchedEffect(Unit) {
+                    firstThemedFrameDrawn.set(true)
+                }
 
                 // Notification tap → land on the Hero tab.
                 // Guard: on a fresh install (or when Hero AI is disabled) the
@@ -60,8 +80,8 @@ class MainActivity : ComponentActivity() {
                 // to a disabled destination would throw IllegalArgumentException
                 // ("Navigation destination ... cannot be found") and crash on
                 // launch when the deep-link Intent is present.
-                LaunchedEffect(heroTick, settings.isHeroAiEnabled) {
-                    if (heroTick > 0 && settings.isHeroAiEnabled) {
+                LaunchedEffect(heroTick, loadedSettings.isHeroAiEnabled) {
+                    if (heroTick > 0 && loadedSettings.isHeroAiEnabled) {
                         navController.navigate(Routes.HERO) { launchSingleTop = true }
                     }
                 }
@@ -92,7 +112,7 @@ class MainActivity : ComponentActivity() {
 
                 GlucoseHeroNavHost(
                     navController = navController,
-                    isHeroAiEnabled = settings.isHeroAiEnabled,
+                    isHeroAiEnabled = loadedSettings.isHeroAiEnabled,
                     addGlucoseTick = addGlucoseTick,
                     addMealTick = addMealTick,
                     addBolusTick = addBolusTick,

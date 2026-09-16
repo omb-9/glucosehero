@@ -17,6 +17,7 @@ import com.omb9.glucosehero.domain.model.UserProfile
 import com.omb9.glucosehero.domain.repository.ChatRepository
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.log.HeroAiPrefillCoordinator
+import com.omb9.glucosehero.ui.settings.HeroAiSettingsCopy
 import com.omb9.glucosehero.util.AiQuota
 import com.omb9.glucosehero.util.AiTier
 import com.omb9.glucosehero.util.AppJson
@@ -43,6 +44,7 @@ data class ChatUiState(
     val messages: ImmutableList<ChatTurn> = persistentListOf(),
     val pendingCount: Int = 0,
     val hasApiKey: Boolean = false,
+    val needsProviderSetup: Boolean = false,
     val providerLabel: String = "",
     val remainingCalls: Int? = null,
 )
@@ -87,6 +89,7 @@ class ChatViewModel @Inject constructor(
                 messages = history.toImmutableList(),
                 pendingCount = pending,
                 hasApiKey = aiConfig.hasApiKey,
+                needsProviderSetup = HeroAiSettingsCopy.needsProviderSetup(aiConfig),
                 providerLabel = aiConfig.provider.label,
                 remainingCalls = AiQuota.remaining(tier, used),
             )
@@ -136,7 +139,7 @@ class ChatViewModel @Inject constructor(
                                     chatRepository.appendAssistantMessage(event.fullText)
                                 } else if (!prefillHandled) {
                                     chatRepository.appendAssistantMessage(
-                                        "Your provider returned an empty reply — please try again."
+                                        "Your provider returned an empty reply. Please try again."
                                     )
                                 }
                                 _streamingText.value = null
@@ -170,12 +173,11 @@ class ChatViewModel @Inject constructor(
         when (error) {
             is ProviderHttpException -> chatRepository.appendAssistantMessage(
                 error.message ?: "Your AI provider returned an error. Double-check the base URL, " +
-                    "model, and API key under Settings → Hero AI, then try again."
+                    "model, and API key under Settings → Hero AI → Use your own API key, then try again."
             )
 
             is ApiKeyMissingException -> chatRepository.appendAssistantMessage(
-                "I can't reach your AI provider yet — add an API key under " +
-                    "Settings → Hero AI and ask me again."
+                error.message ?: HeroAiSettingsCopy.CHAT_SETUP_BANNER
             )
 
             is QuotaExhaustedException -> chatRepository.appendAssistantMessage(
@@ -196,7 +198,7 @@ class ChatViewModel @Inject constructor(
         chatRepository.queueOffline(userMessageId, prompt)
         chatRepository.appendAssistantMessage(
             "You're offline right now. I saved your question and will answer it " +
-                "automatically once you're back online — you'll get a notification."
+                "automatically once you're back online. You'll get a notification."
         )
     }
 

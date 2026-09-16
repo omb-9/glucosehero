@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -47,6 +49,7 @@ data class TimeInRangeSegment(
  * its percentage only when the band is wide enough to fit it. A compact legend sits underneath so
  * color is never the only signal.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TimeInRangeBar(
     segments: List<TimeInRangeSegment>,
@@ -60,7 +63,10 @@ fun TimeInRangeBar(
 
     Column(modifier = modifier) {
         if (inRangePercent != null) {
-            Row(verticalAlignment = Alignment.Bottom) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom,
+            ) {
                 Text(
                     text = "${inRangePercent.roundToInt()}%",
                     style = MaterialTheme.typography.headlineMedium,
@@ -71,7 +77,9 @@ fun TimeInRangeBar(
                     text = "time in range",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 4.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(bottom = 4.dp),
                 )
             }
             Spacer(Modifier.height(8.dp))
@@ -110,9 +118,10 @@ fun TimeInRangeBar(
         }
 
         Spacer(Modifier.height(8.dp))
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             segments.forEach { segment ->
                 val color = GlucoseRangeColor.colorFor(segment.category, themeMode)

@@ -3,6 +3,7 @@ package com.omb9.glucosehero.ui.log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
@@ -15,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.omb9.glucosehero.R
 import com.omb9.glucosehero.util.Formatters
@@ -29,7 +31,7 @@ import java.time.LocalDate
 @Composable
 fun LogEmptyState(modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier,
+        modifier = modifier.padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -39,11 +41,16 @@ fun LogEmptyState(modifier: Modifier = Modifier) {
             modifier = Modifier.size(120.dp),
             alpha = 0.15f,
         )
-        Text("No entries yet", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "No entries yet",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+        )
         Text(
             "Tap + to log a glucose reading, a meal, or a dose.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -60,7 +67,7 @@ fun LogFilteredEmptyState(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier,
+        modifier = modifier.padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -74,11 +81,16 @@ fun LogFilteredEmptyState(
             modifier = Modifier.size(48.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
         )
-        Text("No matching entries", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "No matching entries",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+        )
         Text(
             buildFilterDescription(searchQuery, selectedDate),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
         )
         TextButton(onClick = onClear) {
             Text("Clear filters")

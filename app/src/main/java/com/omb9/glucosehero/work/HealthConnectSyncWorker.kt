@@ -19,6 +19,7 @@ import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.forecast.GlucoseForecastRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -141,11 +142,14 @@ class HealthConnectSyncWorker @AssistedInject constructor(
         /**
          * Enqueues a one-shot expedited Health Connect sync (e.g. on app foreground
          * or user-triggered refresh).
+         *
+         * @return the [UUID] of the enqueued request so callers can observe its
+         *   [androidx.work.WorkInfo] until a terminal state.
          */
         fun enqueueExpedited(
             context: Context,
             policy: ExistingWorkPolicy = ExistingWorkPolicy.REPLACE,
-        ) {
+        ): UUID {
             val request = OneTimeWorkRequestBuilder<HealthConnectSyncWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
@@ -155,6 +159,7 @@ class HealthConnectSyncWorker @AssistedInject constructor(
                 policy,
                 request,
             )
+            return request.id
         }
 
         /**

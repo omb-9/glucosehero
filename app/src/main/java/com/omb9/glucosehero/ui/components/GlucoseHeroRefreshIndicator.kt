@@ -1,5 +1,6 @@
 package com.omb9.glucosehero.ui.components
 
+import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -20,15 +21,23 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.omb9.glucosehero.R
 import kotlinx.coroutines.coroutineScope
@@ -40,16 +49,48 @@ private const val ScrimAlpha = 0.12f
 private const val ScrimFadeInMillis = 300
 private const val ScrimFadeOutMillis = 500
 private const val MarkFadeOutMillis = 450
-private const val PulseDurationMillis = 1100
+private const val PulseDurationMillis = 450
 private const val LaunchOvershoot = 1.75f
+
+/**
+ * Weight applied to pull distance past the release threshold. Material3 already
+ * damps `distanceFraction` with a non-linear tension curve and caps it at 2.0,
+ * so this is a second, flatter reduction on top of that.
+ */
+private const val OvershootWeight = 0.25f
+
+/** Peak extra scale applied to the mark at the moment the threshold is crossed. */
+private const val CommitBumpScale = 0.16f
+private const val CommitBumpRiseMillis = 90
+
+/**
+ * The pull must fall back below this fraction before another commit can fire, so
+ * a finger hovering right at the threshold cannot machine-gun the haptic.
+ */
+private const val CommitRearmFraction = 0.85f
+
+/**
+ * `GestureThresholdActivate` only maps to a real threshold effect on API 34+.
+ * Below that, androidx.core silently substitutes `CONTEXT_CLICK`, which is far
+ * too faint to read as a commit, so ask for a long press instead.
+ */
+private val CommitHapticType: HapticFeedbackType
+    get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        HapticFeedbackType.GestureThresholdActivate
+    } else {
+        HapticFeedbackType.LongPress
+    }
 
 /**
  * Shared pull-to-refresh indicator for the Log and Stats screens.
  *
- * While refreshing, a low-opacity scrim fades in behind the in-app logo mark
- * and the mark holds at the pull threshold with a gentle breathing pulse. On
- * completion the mark "launches" upward past its bounds with a spring so the
- * release has a little snap, while both the mark and scrim fade out.
+ * During the pull the mark tracks the finger, rubber-banding at reduced weight
+ * once the release threshold is passed, and marks the threshold crossing with a
+ * haptic and a scale bump so the commit point is felt as well as seen. While
+ * refreshing, a low-opacity scrim fades in behind the mark and the mark holds at
+ * the threshold with a breathing pulse. On completion the mark "launches" upward
+ * past its bounds with a spring so the release has a little snap, while both the
+ * mark and scrim fade out.
  *
  * This composable is designed to be passed into the [indicator][androidx.compose.material3.pulltorefresh.PullToRefreshBox]
  * slot and positions itself from [PullToRefreshState.distanceFraction], so the
@@ -66,25 +107,63 @@ fun GlucoseHeroRefreshIndicator(
     val thresholdPx = with(density) { PullToRefreshDefaults.PositionalThreshold.toPx() }
     val launchDistancePx = with(density) { (IndicatorMarkSize * LaunchOvershoot).toPx() }
     val scrimColor = MaterialTheme.colorScheme.background
+    val haptic = LocalHapticFeedback.current
+    val refreshingLabel = stringResource(R.string.refresh_indicator_refreshing)
 
     val scrimAlpha = remember { Animatable(0f) }
     val markAlpha = remember { Animatable(0f) }
     val launchOffset = remember { Animatable(0f) }
+    val commitBump = remember { Animatable(0f) }
 
     var launching by remember { mutableStateOf(false) }
     var wasRefreshing by remember { mutableStateOf(false) }
 
-    // Gentle breathing scale while the refresh is active.
-    val pulse = rememberInfiniteTransition(label = "glucose-hero-refresh-pulse")
-    val pulseScale by pulse.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = PulseDurationMillis),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "glucose-hero-refresh-pulse-scale",
-    )
+    // Only exists while refreshing. An always-running transition would invalidate
+    // the mark's graphics layer every frame on both screens, including at rest.
+    val pulseScale: State<Float>? = if (isRefreshing) {
+        val pulse = rememberInfiniteTransition(label = "glucose-hero-refresh-pulse")
+        pulse.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.06f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = PulseDurationMillis),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "glucose-hero-refresh-pulse-scale",
+        )
+    } else {
+        null
+    }
+
+    LaunchedEffect(state, isRefreshing) {
+        if (isRefreshing) {
+            commitBump.snapTo(0f)
+            return@LaunchedEffect
+        }
+        // A refresh that just ended leaves the pull at the threshold while it
+        // animates back to hidden. Start disarmed so that settle cannot be read
+        // as a fresh crossing.
+        var armed = state.distanceFraction < CommitRearmFraction
+        snapshotFlow { state.distanceFraction }.collect { fraction ->
+            when {
+                !armed && fraction < CommitRearmFraction -> armed = true
+                armed && fraction >= 1f && !state.isAnimating -> {
+                    armed = false
+                    haptic.performHapticFeedback(CommitHapticType)
+                    launch {
+                        commitBump.animateTo(1f, tween(durationMillis = CommitBumpRiseMillis))
+                        commitBump.animateTo(
+                            targetValue = 0f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMedium,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
 
     LaunchedEffect(isRefreshing) {
         if (isRefreshing) {
@@ -124,13 +203,16 @@ fun GlucoseHeroRefreshIndicator(
 
         Image(
             painter = painterResource(R.drawable.ic_logo_display),
-            contentDescription = null,
+            contentDescription = if (isRefreshing) refreshingLabel else null,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = IndicatorTopPadding)
                 .size(IndicatorMarkSize)
+                .semantics { liveRegion = LiveRegionMode.Polite }
                 .graphicsLayer {
-                    val pull = state.distanceFraction.coerceIn(0f, 1f)
+                    val fraction = state.distanceFraction
+                    val pull = fraction.coerceIn(0f, 1f)
+                    val overshoot = (fraction - 1f).coerceAtLeast(0f)
 
                     val alpha = when {
                         launching -> markAlpha.value
@@ -139,13 +221,13 @@ fun GlucoseHeroRefreshIndicator(
                     }
                     val scale = when {
                         launching -> 1f
-                        isRefreshing -> pulseScale
-                        else -> 0.7f + 0.3f * pull
+                        isRefreshing -> pulseScale?.value ?: 1f
+                        else -> 0.7f + 0.3f * pull + CommitBumpScale * commitBump.value
                     }
                     val translationY = when {
                         launching -> launchOffset.value
                         isRefreshing -> thresholdPx
-                        else -> thresholdPx * pull
+                        else -> thresholdPx * (pull + overshoot * OvershootWeight)
                     }
 
                     this.alpha = alpha

@@ -4,10 +4,6 @@ import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
-import androidx.work.WorkManager
 import com.omb9.glucosehero.data.export.ExportManager
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.EntryDao
@@ -53,7 +49,7 @@ import com.omb9.glucosehero.util.TagImpactCopy
 import com.omb9.glucosehero.util.adagPercentage
 import com.omb9.glucosehero.util.gmiPercentage
 import com.omb9.glucosehero.util.shouldUseGmi
-import com.omb9.glucosehero.work.HealthConnectSyncWorker
+import com.omb9.glucosehero.work.PullToRefreshSync
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
@@ -311,6 +307,14 @@ class StatsViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     /** True while the pull-to-refresh indicator is animating. */
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _noSyncSourceMessages = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** One-shot snackbar when pull-to-refresh finds no enabled sync source. */
+    val noSyncSourceMessages: SharedFlow<Unit> = _noSyncSourceMessages.asSharedFlow()
+
+    private val _showRefreshCaption = MutableStateFlow(false)
+    /** True after a refresh that reported last-updated rather than performing a sync. */
+    val showRefreshCaption: StateFlow<Boolean> = _showRefreshCaption.asStateFlow()
 
     private val _exportEvents = MutableSharedFlow<ExportEvent>(
         replay = 0,
@@ -584,19 +588,24 @@ class StatsViewModel @Inject constructor(
     }
 
     /**
-     * Pull-to-refresh entry point. The stats pipeline is already reactive via
-     * Room flows (see init), so there is no re-fetch to perform — this only
-     * enforces a minimum duration so the indicator animation always plays fully.
+     * Pull-to-refresh entry point. When Health Connect is enabled this awaits
+     * the expedited worker's terminal [androidx.work.WorkInfo] (with a floor so
+     * the indicator still plays on fast syncs, and a ceiling so a hung job
+     * cannot pin the spinner). When no sync source is enabled the gesture
+     * still animates, then reports via snackbar and a last-updated caption.
      */
     fun refresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                if (settingsDataStore.healthConnectSyncEnabled.first()) {
-                    HealthConnectSyncWorker.enqueueExpedited(context, ExistingWorkPolicy.REPLACE)
+                val result = PullToRefreshSync.run(context, settingsDataStore)
+                if (!result.enqueued) {
+                    _showRefreshCaption.value = true
+                    if (!result.anySourceEnabled) {
+                        _noSyncSourceMessages.emit(Unit)
+                    }
                 }
-                delay(REFRESH_MIN_MILLIS)
             } finally {
                 _isRefreshing.value = false
             }
@@ -870,7 +879,6 @@ class StatsViewModel @Inject constructor(
 
     private companion object {
         const val MILLIS_PER_DAY = 24f * 60f * 60f * 1000f
-        const val REFRESH_MIN_MILLIS = 600L
         const val EA1C_WINDOW_DAYS = 90
         const val MIN_CONFIDENT_DAYS = 14
         const val MIN_CONFIDENT_READINGS = 20

@@ -184,6 +184,7 @@ fun FoodLibraryScreen(
                             onClick = { editingFood = food },
                             onToggleFavorite = { viewModel.toggleFavorite(food) },
                             onDelete = { viewModel.requestDelete(food) },
+                            modifier = Modifier.animateItem(),
                         )
                     }
                 }
@@ -240,11 +241,12 @@ private fun FoodRow(
     onClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),

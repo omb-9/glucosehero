@@ -1,3 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Matches AmoledBlack. Used for splash and the activity window so an
+         AMOLED user on a light system theme never sees a white first frame. -->
+    <color name="splash_background">#000000</color>
 </resources>

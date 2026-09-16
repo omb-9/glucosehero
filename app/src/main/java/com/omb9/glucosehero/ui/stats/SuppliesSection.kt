@@ -3,6 +3,8 @@ package com.omb9.glucosehero.ui.stats
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -101,6 +103,7 @@ internal fun ActiveSuppliesSection(
                         use24HourTime = use24HourTime,
                         onEdit = { onEdit(supply) },
                         onReplace = { onReplace(supply.type) },
+                        modifier = Modifier.animateItem(),
                     )
                 }
             }
@@ -114,10 +117,11 @@ private fun SupplyCard(
     use24HourTime: Boolean,
     onEdit: () -> Unit,
     onReplace: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .width(168.dp)
             .clickable(onClick = onEdit),
         shape = MaterialTheme.shapes.medium,
@@ -128,6 +132,7 @@ private fun SupplyCard(
                 text = supply.type.label,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
             )
             Spacer(Modifier.height(2.dp))
             Text(
@@ -163,6 +168,7 @@ private fun SupplyCard(
 }
 
 /** Shared type + lifespan field layout, reused by both the add and edit sheets. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SupplyFields(
     selectedType: SupplyType,
@@ -177,7 +183,10 @@ private fun SupplyFields(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Spacer(Modifier.height(8.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         SupplyType.entries.forEach { type ->
             FilterChip(
                 selected = selectedType == type,
@@ -193,7 +202,10 @@ private fun SupplyFields(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Spacer(Modifier.height(8.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         lifespanOptions.forEach { days ->
             FilterChip(
                 selected = selectedDays == days,

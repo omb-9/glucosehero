@@ -1,12 +1,17 @@
 package com.omb9.glucosehero.ui.theme
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Color
-import com.omb9.glucosehero.domain.model.ThemeMode
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowInsetsControllerCompat
 import com.omb9.glucosehero.domain.model.UserSettings
 
 /**
@@ -23,11 +28,7 @@ fun GlucoseHeroTheme(
     content: @Composable () -> Unit,
 ) {
     val accent = Color(settings.accent.argb)
-    val dark = when (settings.themeMode) {
-        ThemeMode.LIGHT -> false
-        ThemeMode.AMOLED -> true
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-    }
+    val dark = resolveAppIsDark(settings.themeMode, isSystemInDarkTheme())
 
     val colorScheme = if (dark) {
         darkColorScheme(
@@ -81,9 +82,27 @@ fun GlucoseHeroTheme(
         )
     }
 
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        LaunchedEffect(dark) {
+            val window = view.context.findActivity()?.window ?: return@LaunchedEffect
+            val lightBars = isAppearanceLightSystemBars(dark)
+            WindowInsetsControllerCompat(window, window.decorView).apply {
+                isAppearanceLightStatusBars = lightBars
+                isAppearanceLightNavigationBars = lightBars
+            }
+        }
+    }
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = AppTypography,
         content = content,
     )
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

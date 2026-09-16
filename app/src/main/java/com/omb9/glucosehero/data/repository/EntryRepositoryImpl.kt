@@ -6,13 +6,12 @@ import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.toDomain
 import com.omb9.glucosehero.data.local.entity.toEntity
-import com.omb9.glucosehero.domain.model.ActivityIntensity
+import com.omb9.glucosehero.data.remote.WebhookEntryPayload
 import com.omb9.glucosehero.domain.model.DailyGlucoseSummary
 import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.GlucosePointRow
 import com.omb9.glucosehero.domain.model.GlucoseStats
 import com.omb9.glucosehero.domain.model.LogEvent
-import com.omb9.glucosehero.domain.model.MealContext
 import com.omb9.glucosehero.domain.repository.EntryRepository
 import com.omb9.glucosehero.util.AppJson
 import androidx.paging.Pager
@@ -27,7 +26,6 @@ import javax.inject.Named
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.serialization.Serializable
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -148,26 +146,6 @@ class EntryRepositoryImpl @Inject constructor(
 }
 
 private fun EntryEntity.toLogEvent(): LogEvent = toDomain().copy(source = source)
-
-@Serializable
-internal data class WebhookEntryPayload(
-    val id: Long,
-    val timestamp: Long,
-    val glucoseMgdl: Double? = null,
-    val mealContext: MealContext? = null,
-    val insulinBasalUnits: Double? = null,
-    val insulinBolusUnits: Double? = null,
-    val carbsGrams: Int? = null,
-    val proteinGrams: Int? = null,
-    val fatGrams: Int? = null,
-    val mealDescription: String? = null,
-    val exerciseMinutes: Int? = null,
-    val exerciseIntensity: ActivityIntensity? = null,
-    val note: String? = null,
-    val moodScore: Int? = null,
-    val moodLabel: String? = null,
-    val source: EntrySource = EntrySource.MANUAL,
-)
 
 private fun EntryEntity.toWebhookPayload() = WebhookEntryPayload(
     id = id,

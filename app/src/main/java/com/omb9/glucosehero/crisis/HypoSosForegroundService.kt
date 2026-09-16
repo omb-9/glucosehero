@@ -14,11 +14,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Keeps the 5-minute hypo SOS countdown alive with an ongoing notification.
  * Dismiss via the notification action or [HypoSosPromptActivity] cancels this
  * service and the timeout alarm.
+ *
+ * The 1-second poll is the while-alive path. [HypoSosManager]'s exact
+ * AlarmManager RTC_WAKEUP is the backstop if this service is killed.
  */
 @AndroidEntryPoint
 class HypoSosForegroundService : Service() {
@@ -30,6 +34,11 @@ class HypoSosForegroundService : Service() {
     private var watchJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        isRunning = true
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         scope.launch {
@@ -61,6 +70,7 @@ class HypoSosForegroundService : Service() {
                     return@launch
                 }
                 if (System.currentTimeMillis() >= pending.timeoutAtMillis) {
+                    pollLoopTimeoutCount.incrementAndGet()
                     manager.onTimeout()
                     stopSelf()
                     return@launch
@@ -74,6 +84,18 @@ class HypoSosForegroundService : Service() {
     override fun onDestroy() {
         watchJob?.cancel()
         scope.cancel()
+        isRunning = false
         super.onDestroy()
+    }
+
+    companion object {
+        @Volatile
+        internal var isRunning: Boolean = false
+
+        /**
+         * Instrumentation-only. Counts poll-loop [HypoSosManager.onTimeout]
+         * calls so tests can prove the AlarmManager backstop independently.
+         */
+        internal val pollLoopTimeoutCount = AtomicInteger(0)
     }
 }

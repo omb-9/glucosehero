@@ -59,7 +59,7 @@ data class ResolvedAiConfig(
  * dispatcher thread and crashes the process.
  */
 class ApiKeyMissingException(
-    message: String = "No API key configured. Add one in Settings → Hero AI."
+    message: String = "No API key configured. Add one in Settings → Hero AI → Use your own API key."
 ) : IOException(message)
 
 /**

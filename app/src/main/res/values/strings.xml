@@ -22,6 +22,9 @@
     <string name="forecast_values_a11y_with_freshness">%1$s. %2$s %3$s. %4$s %5$s</string>
     <string name="stats_glucose_trend_title">Glucose trend (%1$s)</string>
     <string name="stats_glucose_trend_a11y">%1$s. %2$s</string>
+    <string name="stats_expand_chart">Expand glucose chart</string>
+    <string name="stats_chart_back">Back</string>
+    <string name="stats_chart_empty">Log glucose readings to see your trend</string>
     <string name="forecast_insufficient_data">Need a few recent glucose readings to project ahead.</string>
     <string name="forecast_iob_cob">IOB %1$s U · COB %2$d g</string>
     <string name="forecast_disclaimer">On-device estimate from trend, insulin, and carbs. Not a medical device.</string>
@@ -113,6 +116,10 @@
     <string name="backup_cloud_restore_confirm">Replace from cloud</string>
     <string name="backup_cancel">Cancel</string>
 
+    <string name="refresh_indicator_refreshing">Refreshing</string>
+    <string name="refresh_no_sync_source">No sync source enabled</string>
+    <string name="refresh_last_updated">Last updated: %1$s</string>
+
     <string name="meal_photo_button">Photo meal</string>
     <string name="meal_photo_button_cd">Photograph meal for a nutrition estimate</string>
     <string name="meal_photo_estimating">Estimating meal…</string>
@@ -135,10 +142,10 @@
     <string name="quick_log_minutes_ago">About %1$d min ago</string>
     <string name="quick_log_hours_ago">About %1$d hours ago</string>
 
-    <string name="ai_error_missing_key">No API key configured. Add one in Settings → Hero AI.</string>
+    <string name="ai_error_missing_key">No API key configured. Add one in Settings → Hero AI → Use your own API key.</string>
     <string name="ai_error_quota">You have reached today\'s Hero AI limit.</string>
     <string name="ai_error_invalid_json">Hero AI did not return usable JSON. Try again, or fill the fields by hand.</string>
-    <string name="ai_error_http">Your AI provider returned an error. Check the model and API key in Settings → Hero AI.</string>
+    <string name="ai_error_http">Your AI provider returned an error. Check the model and API key in Settings → Hero AI → Use your own API key.</string>
     <string name="ai_error_network">Could not reach Hero AI. Check your connection and try again.</string>
     <string name="ai_error_generic">Could not complete that Hero AI request.</string>
 

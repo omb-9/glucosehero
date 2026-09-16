@@ -8,10 +8,6 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.insertSeparators
 import androidx.paging.map
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
-import androidx.work.WorkManager
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
@@ -59,7 +55,7 @@ import com.omb9.glucosehero.util.CrisisDetector
 import com.omb9.glucosehero.util.Formatters
 import com.omb9.glucosehero.util.IobCalculator
 import com.omb9.glucosehero.util.StreakCalculator
-import com.omb9.glucosehero.work.HealthConnectSyncWorker
+import com.omb9.glucosehero.work.PullToRefreshSync
 import com.omb9.glucosehero.work.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -390,9 +386,21 @@ class LogViewModel @Inject constructor(
     /** One-shot save failures surfaced to the UI. */
     val saveErrors: SharedFlow<Throwable> = _saveErrors.asSharedFlow()
 
+    private val _savedEntries = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** One-shot successful saves, so the log list can bring the new entry into view. */
+    val savedEntries: SharedFlow<Unit> = _savedEntries.asSharedFlow()
+
     private val _isRefreshing = MutableStateFlow(false)
     /** True while the pull-to-refresh indicator is animating. */
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _noSyncSourceMessages = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** One-shot snackbar when pull-to-refresh finds no enabled sync source. */
+    val noSyncSourceMessages: SharedFlow<Unit> = _noSyncSourceMessages.asSharedFlow()
+
+    private val _showRefreshCaption = MutableStateFlow(false)
+    /** True after a refresh that reported last-updated rather than performing a sync. */
+    val showRefreshCaption: StateFlow<Boolean> = _showRefreshCaption.asStateFlow()
 
     /**
      * Rendering-relevant settings only, deduplicated so unrelated DataStore
@@ -435,19 +443,24 @@ class LogViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /**
-     * Pull-to-refresh entry point. The log list is already reactive via Room's
-     * [Flow], so there is no re-fetch to perform — this only enforces a minimum
-     * duration so the indicator animation always plays fully.
+     * Pull-to-refresh entry point. When Health Connect is enabled this awaits
+     * the expedited worker's terminal [androidx.work.WorkInfo] (with a floor so
+     * the indicator still plays on fast syncs, and a ceiling so a hung job
+     * cannot pin the spinner). When no sync source is enabled the gesture
+     * still animates, then reports via snackbar and a last-updated caption.
      */
     fun refresh() {
         if (_isRefreshing.value) return
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                if (settingsDataStore.healthConnectSyncEnabled.first()) {
-                    HealthConnectSyncWorker.enqueueExpedited(context, ExistingWorkPolicy.REPLACE)
+                val result = PullToRefreshSync.run(context, settingsDataStore)
+                if (!result.enqueued) {
+                    _showRefreshCaption.value = true
+                    if (!result.anySourceEnabled) {
+                        _noSyncSourceMessages.emit(Unit)
+                    }
                 }
-                delay(REFRESH_MIN_MILLIS)
             } finally {
                 _isRefreshing.value = false
             }
@@ -511,6 +524,17 @@ class LogViewModel @Inject constructor(
 
     fun onPostMealReminderChange(enabled: Boolean) {
         _draft.update { it.copy(postMealReminderEnabled = enabled) }
+    }
+
+    fun setOccurredAt(occurredAtMillis: Long?) {
+        _draft.update {
+            it.copy(
+                occurredAtMillis = clampOccurredAtMillis(
+                    occurredAtMillis,
+                    System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     fun onFoodSelected(food: FoodEntity) {
@@ -995,6 +1019,7 @@ class LogViewModel @Inject constructor(
                 _draft.update { it.copy(isSaving = false) }
             }
             if (saved) {
+                _savedEntries.emit(Unit)
                 widgetRefresher.refresh()
                 runCatching { forecastRepository.refresh() }
                 runCatching { hypoSosManager.evaluateLatest() }
@@ -1032,8 +1057,6 @@ class LogViewModel @Inject constructor(
             !mealDescription.isNullOrBlank()
 
     private companion object {
-        const val REFRESH_MIN_MILLIS = 600L
-
         /** Debounce window for log search input. */
         const val SEARCH_DEBOUNCE_MILLIS = 300L
 
