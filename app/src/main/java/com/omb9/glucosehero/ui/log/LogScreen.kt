@@ -55,7 +55,9 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -92,6 +94,7 @@ import com.omb9.glucosehero.crisis.HypoSosPending
 import com.omb9.glucosehero.data.cgm.GlucoseFreshness
 import com.omb9.glucosehero.forecast.GlucoseForecastCard
 import com.omb9.glucosehero.forecast.GlucoseForecastSnapshot
+import com.omb9.glucosehero.ui.LocalOnLogFirstContentReady
 import com.omb9.glucosehero.ui.cgm.compactText
 import com.omb9.glucosehero.ui.components.AddEntrySheet
 import com.omb9.glucosehero.ui.components.GlucoseHeroCard
@@ -101,6 +104,8 @@ import com.omb9.glucosehero.ui.theme.Spacing
 import com.omb9.glucosehero.ui.theme.GlucoseHigh
 import com.omb9.glucosehero.ui.theme.GlucoseInRange
 import com.omb9.glucosehero.ui.theme.GlucoseLow
+import com.omb9.glucosehero.util.FirstDrawProbe
+import com.omb9.glucosehero.util.probeFirstDraw
 
 /** Shared slide-and-fade for the banners and filters stacked above the log list. */
 private val LogHeaderEnter = expandVertically() + fadeIn()
@@ -390,6 +395,7 @@ fun LogScreen(
                     lastHypoSos?.let { sos ->
                         HypoSosBanner(
                             pending = sos,
+                            unit = settings?.unit ?: GlucoseUnit.MGDL,
                             onDismiss = viewModel::dismissHypoSos,
                         )
                     }
@@ -422,6 +428,11 @@ fun LogScreen(
                     else -> emptyList()
                 }
                 val staticEmpty = (hasSearch || hasDate) && staticItems.isEmpty()
+                val onLogFirstContentReady = LocalOnLogFirstContentReady.current
+                val logFirstContentReady = settings != null && !pagedRefreshLoading
+                SideEffect {
+                    if (logFirstContentReady) onLogFirstContentReady()
+                }
 
                 if (settings == null || pagedRefreshLoading) {
                     // Settings and the first paging page both use the same skeleton
@@ -446,13 +457,23 @@ fun LogScreen(
                                         },
                                     )
                                 } else {
-                                    LogEmptyState()
+                                    LogEmptyState(
+                                        modifier = Modifier.probeFirstDraw(
+                                            "empty_state",
+                                            "FIRST_EMPTY_STATE_DRAW",
+                                        ),
+                                    )
                                 }
                             }
                         }
 
                         else -> LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .probeFirstDraw(
+                                    "real_log_list",
+                                    "FIRST_REAL_LOG_LIST_DRAW",
+                                ),
                             state = logListState,
                             contentPadding = PaddingValues(
                                 start = 16.dp,
@@ -628,9 +649,16 @@ private fun LogRowPlaceholder() {
 /** Placeholder list shown while settings — and therefore the display unit — load. */
 @Composable
 private fun LogListPlaceholder(modifier: Modifier = Modifier) {
+    DisposableEffect(Unit) {
+        FirstDrawProbe.logOnce("placeholder_compose", "PLACEHOLDER_COMPOSE")
+        onDispose {
+            FirstDrawProbe.logOnce("placeholder_dispose", "PLACEHOLDER_DISPOSE")
+        }
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
+            .probeFirstDraw("placeholder_draw", "PLACEHOLDER_FIRST_DRAW")
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -717,6 +745,7 @@ private fun formatInsulinUnits(value: Double): String =
 @Composable
 private fun HypoSosBanner(
     pending: HypoSosPending,
+    unit: GlucoseUnit,
     onDismiss: () -> Unit,
 ) {
     Surface(
@@ -736,7 +765,7 @@ private fun HypoSosBanner(
             Text(
                 text = stringResource(
                     R.string.hypo_sos_prompt_body,
-                    pending.glucoseMgdl.toInt(),
+                    Formatters.glucoseWithUnit(pending.glucoseMgdl, unit),
                     pending.trendLabel,
                 ),
                 style = MaterialTheme.typography.bodyMedium,
@@ -847,7 +876,12 @@ private fun LogListItemRow(
             item = item.item,
             unitLabel = unitLabel,
             onClick = { onEntryClick(item.item.id) },
-            modifier = modifier.padding(bottom = 8.dp),
+            modifier = modifier
+                .padding(bottom = 8.dp)
+                .probeFirstDraw(
+                    "real_entry_row",
+                    "FIRST_REAL_ENTRY_ROW_DRAW",
+                ),
         )
     }
 }

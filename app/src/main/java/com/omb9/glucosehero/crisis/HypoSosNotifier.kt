@@ -14,13 +14,18 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.omb9.glucosehero.R
+import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
+import com.omb9.glucosehero.domain.model.GlucoseUnit
+import com.omb9.glucosehero.util.Formatters
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.first
 
 @Singleton
 class HypoSosNotifier @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val settingsDataStore: SettingsDataStore,
 ) {
 
     fun createChannel() {
@@ -37,7 +42,12 @@ class HypoSosNotifier @Inject constructor(
             .createNotificationChannel(channel)
     }
 
-    fun promptNotification(pending: HypoSosPending): Notification {
+    suspend fun promptNotification(pending: HypoSosPending): Notification {
+        val unit = settingsDataStore.settings.first().unit
+        return promptNotification(pending, unit)
+    }
+
+    fun promptNotification(pending: HypoSosPending, unit: GlucoseUnit): Notification {
         val fullScreen = PendingIntent.getActivity(
             context,
             REQUEST_PROMPT,
@@ -56,7 +66,7 @@ class HypoSosNotifier @Inject constructor(
         )
         val body = context.getString(
             R.string.notif_hypo_sos_prompt_body,
-            pending.glucoseMgdl.toInt(),
+            Formatters.glucoseWithUnit(pending.glucoseMgdl, unit),
             pending.trendLabel,
         )
         return NotificationCompat.Builder(context, CHANNEL_ID)
@@ -79,7 +89,7 @@ class HypoSosNotifier @Inject constructor(
     }
 
     @SuppressLint("MissingPermission")
-    fun notifyPrompt(pending: HypoSosPending) {
+    suspend fun notifyPrompt(pending: HypoSosPending) {
         if (!canNotify()) return
         NotificationManagerCompat.from(context).notify(PROMPT_ID, promptNotification(pending))
     }

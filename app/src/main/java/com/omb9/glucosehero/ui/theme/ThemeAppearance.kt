@@ -23,8 +23,13 @@ fun resolveAppIsDark(themeMode: ThemeMode, systemInDarkTheme: Boolean): Boolean 
 fun isAppearanceLightSystemBars(appIsDark: Boolean): Boolean = !appIsDark
 
 /**
- * Splash stays up while settings are still unknown. A `null` seed is the
- * sentinel; a [UserSettings] value (including DataStore fail-open defaults)
- * is a real load and must not keep the splash forever.
+ * Splash stays up until DataStore settings are known *and* the log's first
+ * page (rows or empty) is decided. A `null` settings seed is unread; a
+ * [UserSettings] value (including fail-open defaults) is a real load.
+ * [logFirstContentReady] is the non-loading branch of the log list, not a
+ * draw callback (splash OnPreDraw would deadlock if we waited for a draw).
  */
-fun shouldKeepSplashScreen(loadedSettings: UserSettings?): Boolean = loadedSettings == null
+fun shouldKeepSplashScreen(
+    loadedSettings: UserSettings?,
+    logFirstContentReady: Boolean,
+): Boolean = loadedSettings == null || !logFirstContentReady

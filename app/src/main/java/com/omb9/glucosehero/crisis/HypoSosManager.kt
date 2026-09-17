@@ -3,6 +3,7 @@ package com.omb9.glucosehero.crisis
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlarmManager
+import android.app.KeyguardManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -12,6 +13,8 @@ import android.location.LocationManager
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.forecast.GlucoseForecastEngine
@@ -120,6 +123,24 @@ class HypoSosManager @Inject constructor(
         scheduleTimeoutAlarm(pending.timeoutAtMillis)
         notifier.notifyPrompt(pending)
         startService()
+        // Full-screen intent is suppressed while the device is unlocked and this
+        // process is in the foreground, so start the prompt activity ourselves.
+        // When the keyguard is locked, leave FSI as the only launcher.
+        if (shouldLaunchPromptUiDirectly()) {
+            runCatching { launchPromptUi() }
+        }
+    }
+
+    /**
+     * True when [launchPromptUi] should open [HypoSosPromptActivity] because
+     * Android will not deliver the notification full-screen intent.
+     */
+    private fun shouldLaunchPromptUiDirectly(): Boolean {
+        val appForegrounded = ProcessLifecycleOwner.get().lifecycle.currentState
+            .isAtLeast(Lifecycle.State.STARTED)
+        if (!appForegrounded) return false
+        val keyguard = context.getSystemService(KeyguardManager::class.java)
+        return keyguard?.isKeyguardLocked != true
     }
 
     private suspend fun cancelLocked() {

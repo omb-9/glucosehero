@@ -32,9 +32,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.R
+import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.UserSettings
 import com.omb9.glucosehero.domain.repository.SettingsRepository
 import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
+import com.omb9.glucosehero.util.Formatters
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.delay
@@ -75,6 +77,7 @@ class HypoSosPromptActivity : ComponentActivity() {
                         val scope = rememberCoroutineScope()
                         HypoSosPromptContent(
                             pending = snapshot,
+                            unit = settings.unit,
                             onDismiss = {
                                 scope.launch {
                                     manager.dismissPrompt()
@@ -92,6 +95,7 @@ class HypoSosPromptActivity : ComponentActivity() {
 @Composable
 private fun HypoSosPromptContent(
     pending: HypoSosPending,
+    unit: GlucoseUnit,
     onDismiss: () -> Unit,
 ) {
     var remainingMs by remember { mutableLongStateOf(pending.timeoutAtMillis - System.currentTimeMillis()) }
@@ -120,7 +124,7 @@ private fun HypoSosPromptContent(
         Text(
             text = stringResource(
                 R.string.hypo_sos_prompt_body,
-                pending.glucoseMgdl.toInt(),
+                Formatters.glucoseWithUnit(pending.glucoseMgdl, unit),
                 pending.trendLabel,
             ),
             style = MaterialTheme.typography.bodyLarge,

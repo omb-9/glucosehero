@@ -134,6 +134,7 @@ class FormattersTest {
     fun `mmol glucose formats to one decimal`() {
         assertEquals("4.7", Formatters.glucose(85.0, GlucoseUnit.MMOL))
         assertEquals("4.7 mmol/L", Formatters.glucoseWithUnit(85.0, GlucoseUnit.MMOL))
+        assertEquals("2.5 mmol/L", Formatters.glucoseWithUnit(45.0, GlucoseUnit.MMOL))
     }
 
     @Test
