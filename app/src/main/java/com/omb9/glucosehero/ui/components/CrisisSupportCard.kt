@@ -23,6 +23,10 @@ import androidx.compose.ui.unit.dp
  * The only UI that is allowed to surface a [com.omb9.glucosehero.util.CrisisDetector]
  * match. Copy is intentionally limited to the single required sentence plus the
  * three support actions and a dismiss action.
+ *
+ * Resources shipped here are the official US 988 Suicide & Crisis Lifeline
+ * (call 988), Crisis Text Line (text 741741), and the IASP/ThroughLine
+ * directory at https://findahelpline.com. Do not invent replacements.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

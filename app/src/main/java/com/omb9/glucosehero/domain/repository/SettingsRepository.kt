@@ -8,6 +8,7 @@ import com.omb9.glucosehero.domain.model.DosingProfile
 import com.omb9.glucosehero.domain.model.DosingProfileLoad
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
+import com.omb9.glucosehero.domain.model.ReasoningEffort
 import com.omb9.glucosehero.domain.model.ResolvedAiConfig
 import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.domain.model.UserProfile
@@ -58,6 +59,8 @@ interface SettingsRepository {
     suspend fun setPostMealRemindersEnabled(enabled: Boolean)
     suspend fun setNotificationsEnabled(enabled: Boolean)
     suspend fun setSendMealPhotosToHeroAi(enabled: Boolean)
+
+    suspend fun setReasoningEffort(effort: ReasoningEffort)
 
     suspend fun setProfileTarget(target: ProfileTarget)
     suspend fun setProfileName(name: String)

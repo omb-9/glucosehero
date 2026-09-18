@@ -52,6 +52,21 @@ class SettingsDataStoreTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
+    fun reasoningEffortDefaultsOffAndRoundTrips() = runTest {
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+        val store = createStore(scope)
+
+        assertEquals(com.omb9.glucosehero.domain.model.ReasoningEffort.OFF, store.settings.first().reasoningEffort)
+
+        store.setReasoningEffort(com.omb9.glucosehero.domain.model.ReasoningEffort.LOW)
+        testScheduler.advanceUntilIdle()
+        assertEquals(com.omb9.glucosehero.domain.model.ReasoningEffort.LOW, store.settings.first().reasoningEffort)
+
+        scope.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
     fun firstRunSeeds24HourTimeWithoutWritingUnit() = runTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
         val store = createStore(scope)
@@ -113,6 +128,33 @@ class SettingsDataStoreTest {
         assertFalse(settings.use24HourTime)
         assertEquals(GlucoseUnit.MGDL, settings.unit)
         assertFalse(store.needsGlucoseUnitChoice.first())
+
+        scope.cancel()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun enabledMarkerCategoriesRoundTripPersistsExplicitSelection() = runTest {
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+        val store = createStore(scope)
+
+        assertEquals(null, store.enabledMarkerCategoryNames.first())
+        assertEquals(null, store.knownMarkerCategoryNames.first())
+
+        store.setEnabledMarkerCategories(
+            enabledNames = setOf("MEAL", "EXERCISE", "NOTE"),
+            knownNames = setOf("MEAL", "EXERCISE", "NOTE", "MEDICATION"),
+        )
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(
+            setOf("MEAL", "EXERCISE", "NOTE"),
+            store.enabledMarkerCategoryNames.first(),
+        )
+        assertEquals(
+            setOf("MEAL", "EXERCISE", "NOTE", "MEDICATION"),
+            store.knownMarkerCategoryNames.first(),
+        )
 
         scope.cancel()
     }

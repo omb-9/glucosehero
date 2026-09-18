@@ -14,6 +14,7 @@ import com.omb9.glucosehero.data.local.db.migration.Migration12To13
 import com.omb9.glucosehero.data.local.db.migration.Migration14To15
 import com.omb9.glucosehero.data.local.db.migration.Migration15To16
 import com.omb9.glucosehero.data.local.db.migration.Migration16To17
+import com.omb9.glucosehero.data.local.db.migration.Migration17To18
 import com.omb9.glucosehero.data.local.db.migration.MigrationPendingAiTtl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -1520,6 +1521,28 @@ class MigrationTest {
             assertEquals("Metformin", c.getString(0))
             assertEquals("500 mg", c.getString(1))
             assertEquals(1, c.getInt(2))
+        }
+    }
+
+    @Test
+    fun migrate17To18_addsChatKindAndContextSummaryWithoutGuessingHistory() {
+        helper.createDatabase(testDb, 17).use { db ->
+            db.execSQL(
+                "INSERT INTO chat_messages (role, content, timestamp) VALUES (?, ?, ?)",
+                arrayOf<Any?>("USER", "What spiked?", 1_000L),
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 18, true, Migration17To18)
+        db.query(
+            "SELECT role, content, message_kind, context_summary_json FROM chat_messages",
+        ).use { c ->
+            assertEquals(1, c.count)
+            assertTrue(c.moveToFirst())
+            assertEquals("USER", c.getString(0))
+            assertEquals("What spiked?", c.getString(1))
+            assertEquals("NORMAL", c.getString(2))
+            assertTrue(c.isNull(3))
         }
     }
 

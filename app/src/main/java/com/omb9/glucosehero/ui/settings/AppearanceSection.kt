@@ -1,7 +1,6 @@
 package com.omb9.glucosehero.ui.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -29,16 +30,24 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import com.omb9.glucosehero.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.ThemeMode
+import com.omb9.glucosehero.ui.theme.onColorFor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,21 +142,39 @@ internal fun AppearanceSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.selectableGroup(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             AccentColor.entries.forEach { accentColor ->
                 val selected = accent == accentColor
+                val selectedDescription = stringResource(R.string.accent_selected)
+                val notSelectedDescription = stringResource(R.string.accent_not_selected)
                 Box(
                     modifier = Modifier
+                        .minimumInteractiveComponentSize()
                         .size(40.dp)
                         .background(Color(accentColor.argb), CircleShape)
-                        .clickable { onAccentChange(accentColor) },
+                        .selectable(
+                            selected = selected,
+                            role = Role.RadioButton,
+                            onClick = { onAccentChange(accentColor) },
+                        )
+                        .semantics {
+                            contentDescription = accentColor.label
+                            stateDescription = if (selected) {
+                                selectedDescription
+                            } else {
+                                notSelectedDescription
+                            }
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     if (selected) {
                         Icon(
                             Icons.Filled.Check,
-                            contentDescription = accentColor.label,
-                            tint = Color.Black,
+                            contentDescription = null,
+                            tint = onColorFor(Color(accentColor.argb)),
                         )
                     }
                 }

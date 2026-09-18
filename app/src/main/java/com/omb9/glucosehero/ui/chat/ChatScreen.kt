@@ -1,15 +1,9 @@
 package com.omb9.glucosehero.ui.chat
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
+import android.content.Intent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,51 +12,68 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mikepenz.markdown.m3.Markdown
 import com.omb9.glucosehero.R
+import com.omb9.glucosehero.domain.model.ChatContextSummary
 import com.omb9.glucosehero.domain.model.ChatRole
-import com.omb9.glucosehero.ui.components.GlucoseHeroCard
+import com.omb9.glucosehero.domain.model.ChatTurnKind
+import com.omb9.glucosehero.ui.chat.components.AssistantErrorMessage
+import com.omb9.glucosehero.ui.chat.components.AssistantMessage
+import com.omb9.glucosehero.ui.chat.components.AssistantStreamingMessage
+import com.omb9.glucosehero.ui.chat.components.ChatBanner
+import com.omb9.glucosehero.ui.chat.components.ChatComposer
+import com.omb9.glucosehero.ui.chat.components.ChatDataContextSheet
+import com.omb9.glucosehero.ui.chat.components.ChatEmptyState
+import com.omb9.glucosehero.ui.chat.components.ChatTimestampSeparator
+import com.omb9.glucosehero.ui.chat.components.UserMessageBubble
+import com.omb9.glucosehero.ui.components.CrisisSupportCard
 import com.omb9.glucosehero.ui.settings.HeroAiSettingsCopy
-import com.omb9.glucosehero.ui.theme.Spacing
+import com.omb9.glucosehero.util.ChatCrisisGate
+import com.omb9.glucosehero.util.Formatters
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     onOpenLog: () -> Unit,
@@ -71,6 +82,11 @@ fun ChatScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val streaming by viewModel.streamingText.collectAsStateWithLifecycle()
+    val streamingReasoning by viewModel.streamingReasoning.collectAsStateWithLifecycle()
+    val pipeline by viewModel.pipeline.collectAsStateWithLifecycle()
+    val lastReasoning by viewModel.lastReasoning.collectAsStateWithLifecycle()
+    val reasoningExpanded by viewModel.reasoningExpanded.collectAsStateWithLifecycle()
+    val reasoningDuration by viewModel.reasoningDurationSeconds.collectAsStateWithLifecycle()
     var input by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
     var confirmClear by rememberSaveable { mutableStateOf(false) }
@@ -80,20 +96,115 @@ fun ChatScreen(
         stringResource(R.string.chat_prompt_summarize_week),
         stringResource(R.string.chat_prompt_high_morning),
     )
+    val snackbarHostState = remember { SnackbarHostState() }
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val copiedMessage = stringResource(R.string.chat_copied)
+    val shareChooser = stringResource(R.string.chat_share)
+    val shareSubject = stringResource(R.string.chat_share_subject)
+    var revealedTimestampId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var contextSheetSummary by remember { mutableStateOf<ChatContextSummary?>(null) }
+    val rows = remember(state.messages, state.use24HourTime) {
+        buildChatListRows(state.messages, state.use24HourTime)
+    }
+    val streamingActive = streaming != null || pipeline.isInFlight || !streamingReasoning.isNullOrBlank()
+    val newestId = state.messages.lastOrNull()?.id ?: 0L
+    var lastScrolledNewestId by remember { mutableLongStateOf(0L) }
+    var nearBottom by remember { mutableStateOf(true) }
+    var unseenWhileAway by remember { mutableStateOf(false) }
+    var forceFollow by remember { mutableStateOf(false) }
+    val lastMessage = state.messages.lastOrNull()
+    val lastAssistantId = lastMessage?.takeIf {
+        it.role == ChatRole.ASSISTANT && it.kind == ChatTurnKind.NORMAL
+    }?.id
+    val lastUserNeedsRetry = lastMessage != null &&
+        lastMessage.role == ChatRole.USER &&
+        lastMessage.kind == ChatTurnKind.NORMAL &&
+        !ChatCrisisGate.matches(lastMessage.content) &&
+        !streamingActive &&
+        lastMessage.id !in state.pendingUserMessageIds
 
     LaunchedEffect(Unit) {
         viewModel.openLogRequests.collect { onOpenLog() }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(viewModel) {
+        viewModel.uiEvents.collect { event ->
+            when (event) {
+                ChatUiEvent.StreamCompleted ->
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            }
+        }
+    }
+
+    LaunchedEffect(listState, state.canLoadOlder) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .distinctUntilChanged()
+            .collect { index ->
+                if (index <= 1 && state.canLoadOlder && !state.loadingOlder) {
+                    viewModel.loadOlder()
+                }
+            }
+    }
+
+    LaunchedEffect(listState) {
         snapshotFlow {
-            val itemCount = state.messages.size + (if (streaming != null) 1 else 0)
-            itemCount to streaming?.length
+            val info = listState.layoutInfo
+            isNearBottom(
+                lastVisibleIndex = info.visibleItemsInfo.lastOrNull()?.index,
+                totalItems = info.totalItemsCount,
+            )
+        }
+            .distinctUntilChanged()
+            .collect { atBottom ->
+                nearBottom = atBottom
+                if (atBottom) unseenWhileAway = false
+            }
+    }
+
+    LaunchedEffect(newestId, streaming, streamingActive, nearBottom, forceFollow) {
+        snapshotFlow {
+            val extra = if (streamingActive) 1 else 0
+            val itemCount = rows.size + extra
+            Triple(itemCount, streaming?.length ?: 0, nearBottom)
         }
             .conflate()
-            .collectLatest { (itemCount, _) ->
-                if (itemCount > 0) listState.scrollToItem(itemCount - 1)
+            .collectLatest { (itemCount, _, atBottom) ->
+                val newestChanged = newestId != lastScrolledNewestId && newestId != 0L
+                val follow = atBottom && (newestChanged || shouldFollowStream(true, streaming != null))
+                if (itemCount > 0 && (follow || forceFollow)) {
+                    lastScrolledNewestId = newestId
+                    forceFollow = false
+                    listState.scrollToItem(itemCount - 1)
+                } else if (!atBottom && (newestChanged || streaming != null)) {
+                    unseenWhileAway = true
+                }
             }
+    }
+
+    fun copyText(text: String) {
+        clipboard.setText(AnnotatedString(text))
+        scope.launch { snackbarHostState.showSnackbar(copiedMessage) }
+    }
+
+    fun shareText(text: String) {
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+            putExtra(Intent.EXTRA_SUBJECT, shareSubject)
+        }
+        context.startActivity(Intent.createChooser(sendIntent, shareChooser))
+    }
+
+    fun sendPrompt(text: String) {
+        val prompt = text.trim()
+        if (prompt.isEmpty()) return
+        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+        forceFollow = true
+        viewModel.send(prompt)
+        input = ""
     }
 
     Scaffold(
@@ -102,6 +213,18 @@ fun ChatScreen(
                 title = { Text(stringResource(R.string.chat_title), style = MaterialTheme.typography.headlineMedium) },
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 actions = {
+                    state.remainingCalls?.let { remaining ->
+                        Text(
+                            text = HeroAiSettingsCopy.remainingCallsTopBar(remaining),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (remaining == 0) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                    }
                     if (state.messages.isNotEmpty()) {
                         IconButton(onClick = { confirmClear = true }) {
                             Icon(
@@ -113,6 +236,7 @@ fun ChatScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -121,129 +245,180 @@ fun ChatScreen(
                 .imePadding(),
         ) {
             if (state.needsProviderSetup) {
-                Banner(
+                ChatBanner(
                     text = HeroAiSettingsCopy.CHAT_SETUP_BANNER,
                     onClick = onHeroAiSettings,
                 )
-            } else if (state.pendingCount > 0) {
-                Banner(
-                    "${state.pendingCount} question" +
-                        (if (state.pendingCount == 1) "" else "s") +
-                        " waiting for connectivity. You'll get a notification."
-                )
             }
 
-            state.remainingCalls?.takeIf { it <= 3 }?.let { remaining ->
-                Banner(HeroAiSettingsCopy.remainingCallsBanner(remaining))
-            }
-
-            if (state.messages.isEmpty() && streaming == null) {
+            if (state.messages.isEmpty() && !streamingActive) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_logo_display),
-                        contentDescription = null,
-                        modifier = Modifier.alpha(0.15f),
+                    ChatEmptyState(
+                        intro = stringResource(R.string.chat_empty_intro),
+                        disclaimer = stringResource(R.string.settings_disclaimer),
+                        starterPrompts = starterPrompts,
+                        hasEnoughData = state.hasEnoughChatData,
+                        startersEnabled = composerEnabled && !streamingActive,
+                        onStarter = { sendPrompt(it) },
+                        onOpenLog = onOpenLog,
                     )
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.chat_empty_intro),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                }
+            } else {
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    SelectionContainer(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                horizontal = 16.dp,
+                                vertical = 12.dp,
+                            ),
                         ) {
-                            starterPrompts.forEach { prompt ->
-                                AssistChip(
-                                    onClick = {
-                                        if (composerEnabled && streaming == null) {
-                                            viewModel.send(prompt)
-                                            input = ""
+                            items(rows, key = { it.key }) { row ->
+                                when (row) {
+                                    is ChatListRow.TimeGap -> ChatTimestampSeparator(row.label)
+                                    is ChatListRow.Message -> {
+                                        val turn = row.turn
+                                        val bottomPad = if (row.grouping.isLastInGroup) 10.dp else 2.dp
+                                        val timestampLabel = if (revealedTimestampId == turn.id) {
+                                            Formatters.time(turn.timestamp, state.use24HourTime)
+                                        } else {
+                                            null
                                         }
-                                    },
-                                    enabled = composerEnabled && streaming == null,
-                                    label = { Text(prompt) },
+                                        Box(Modifier.padding(bottom = bottomPad)) {
+                                            if (turn.kind == ChatTurnKind.CRISIS_SUPPORT) {
+                                                CrisisSupportCard(
+                                                    onDismiss = { viewModel.dismissCrisisSupport(turn.id) },
+                                                )
+                                            } else if (turn.role == ChatRole.USER) {
+                                                UserMessageBubble(
+                                                    text = turn.content,
+                                                    grouping = row.grouping,
+                                                    timestampLabel = timestampLabel,
+                                                    onToggleTimestamp = {
+                                                        revealedTimestampId =
+                                                            if (revealedTimestampId == turn.id) null else turn.id
+                                                    },
+                                                    pending = turn.id in state.pendingUserMessageIds,
+                                                    contextChipLabel = turn.contextSummary?.chipLabel(),
+                                                    onContextClick = turn.contextSummary?.let { summary ->
+                                                        { contextSheetSummary = summary }
+                                                    },
+                                                    onRetry = if (lastUserNeedsRetry && turn.id == lastMessage.id) {
+                                                        { viewModel.retry(turn.id) }
+                                                    } else {
+                                                        null
+                                                    },
+                                                )
+                                            } else if (turn.kind == ChatTurnKind.ERROR) {
+                                                AssistantErrorMessage(
+                                                    text = turn.content,
+                                                    onRetry = if (!streamingActive) {
+                                                        { viewModel.retry(turn.id) }
+                                                    } else {
+                                                        null
+                                                    },
+                                                )
+                                            } else {
+                                                val persisted = lastReasoning?.takeIf { it.messageId == turn.id }
+                                                AssistantMessage(
+                                                    text = turn.content,
+                                                    grouping = row.grouping,
+                                                    timestampLabel = timestampLabel,
+                                                    onToggleTimestamp = {
+                                                        revealedTimestampId =
+                                                            if (revealedTimestampId == turn.id) null else turn.id
+                                                    },
+                                                    onCopy = { copyText(turn.content) },
+                                                    showCopy = true,
+                                                    persistedReasoning = persisted,
+                                                    reasoningExpanded = reasoningExpanded && persisted != null,
+                                                    onToggleReasoning = viewModel::toggleReasoningExpanded,
+                                                    onShare = { shareText(turn.content) },
+                                                    onRegenerate = if (
+                                                        turn.id == lastAssistantId && !streamingActive && composerEnabled
+                                                    ) {
+                                                        { viewModel.regenerateLast() }
+                                                    } else {
+                                                        null
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (streamingActive) {
+                                item(key = "streaming") {
+                                    AssistantStreamingMessage(
+                                        streamingText = streaming,
+                                        streamingReasoning = streamingReasoning,
+                                        reasoningExpanded = reasoningExpanded,
+                                        reasoningDurationSeconds = reasoningDuration,
+                                        pipeline = pipeline,
+                                        onToggleReasoning = viewModel::toggleReasoningExpanded,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (!nearBottom && (state.messages.isNotEmpty() || streamingActive)) {
+                        SmallFloatingActionButton(
+                            onClick = {
+                                forceFollow = true
+                                unseenWhileAway = false
+                                val extra = if (streamingActive) 1 else 0
+                                val itemCount = rows.size + extra
+                                if (itemCount > 0) {
+                                    scope.launch { listState.scrollToItem(itemCount - 1) }
+                                }
+                            },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = 16.dp, bottom = 12.dp),
+                        ) {
+                            BadgedBox(
+                                badge = {
+                                    if (unseenWhileAway) Badge()
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Filled.KeyboardArrowDown,
+                                    contentDescription = stringResource(R.string.chat_jump_to_latest),
                                 )
                             }
                         }
                     }
                 }
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentPadding = PaddingValues(
-                        horizontal = 16.dp,
-                        vertical = 12.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(state.messages, key = { it.id }) { turn ->
-                        MessageBubble(
-                            text = turn.content,
-                            isUser = turn.role == ChatRole.USER,
-                        )
-                    }
-                    val streamingText = streaming
-                    if (streamingText != null) {
-                        item(key = "streaming") {
-                            MessageBubble(
-                                text = streamingText.ifEmpty { "…" },
-                                isUser = false,
-                            )
-                        }
-                    }
-                }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    modifier = Modifier.weight(1f),
-                    enabled = composerEnabled,
-                    placeholder = { Text(stringResource(R.string.chat_composer_placeholder)) },
-                    maxLines = 4,
-                    shape = RoundedCornerShape(24.dp),
-                )
-                IconButton(
-                    onClick = {
-                        viewModel.send(input)
-                        input = ""
-                    },
-                    enabled = composerEnabled && input.isNotBlank() && streaming == null,
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Send,
-                        contentDescription = stringResource(R.string.chat_send),
-                        tint = if (composerEnabled && input.isNotBlank() && streaming == null) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
-            }
+            ChatComposer(
+                value = input,
+                onValueChange = { input = it },
+                onSend = { sendPrompt(input) },
+                onStop = { viewModel.stopGeneration() },
+                enabled = !streamingActive,
+                sendEnabled = chatComposerSendEnabled(
+                    input = input,
+                    streamingActive = streamingActive,
+                    composerEnabled = composerEnabled,
+                    remainingCalls = state.remainingCalls,
+                ),
+                streaming = streamingActive,
+            )
         }
+    }
+
+    contextSheetSummary?.let { summary ->
+        ChatDataContextSheet(
+            summary = summary,
+            onDismiss = { contextSheetSummary = null },
+        )
     }
 
     if (confirmClear) {
@@ -267,78 +442,5 @@ fun ChatScreen(
                 }
             },
         )
-    }
-}
-
-@Composable
-private fun Banner(text: String, onClick: (() -> Unit)? = null) {
-    GlucoseHeroCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.lg, vertical = Spacing.xs),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        onClick = onClick,
-        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.sm),
-    ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-        )
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun MessageBubble(text: String, isUser: Boolean) {
-    val clipboard = LocalClipboardManager.current
-    val haptic = LocalHapticFeedback.current
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-    ) {
-        Surface(
-            shape = RoundedCornerShape(
-                topStart = 18.dp,
-                topEnd = 18.dp,
-                bottomStart = if (isUser) 18.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 18.dp,
-            ),
-            color = if (isUser) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerHigh
-            },
-            modifier = Modifier
-                .fillMaxWidth(0.86f)
-                .then(
-                    if (isUser) {
-                        Modifier
-                    } else {
-                        Modifier.combinedClickable(
-                            onClick = {},
-                            onLongClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                clipboard.setText(AnnotatedString(text))
-                            },
-                        )
-                    },
-                ),
-        ) {
-            if (isUser) {
-                Text(
-                    text,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                )
-            } else {
-                Markdown(
-                    content = text,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                )
-            }
-        }
     }
 }

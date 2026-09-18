@@ -24,7 +24,9 @@ object HeroAiSettingsCopy {
             "you choose."
 
     const val CHAT_SETUP_BANNER =
-        "Hero AI needs your provider key. Add it in Settings → Hero AI → Use your own API key."
+        "Hero AI uses GlucoseHero's model by default. This provider needs an API key. " +
+            "Add one under Settings → Hero AI → Use your own API key, or switch back to " +
+            "GlucoseHero's model."
 
     const val CONNECTION_SUCCESS = "Connection succeeded."
 
@@ -66,6 +68,18 @@ object HeroAiSettingsCopy {
         1 -> "1 AI call left today."
         else -> "$remaining AI calls left today."
     }
+
+    fun remainingCallsTopBar(remaining: Int): String = when (remaining) {
+        0 -> "None left"
+        1 -> "1 left"
+        else -> "$remaining left"
+    }
+
+    const val REASONING_DESCRIPTION =
+        "When on, Hero can show real model reasoning if the provider sends it. " +
+            "Reasoning uses extra tokens and can be slower. Off is the default " +
+            "because managed calls are capped daily. This is not a clinical assessment. " +
+            "If your model never emits reasoning, Hero shows only real pipeline status."
 
     fun connectionFailure(
         message: String? = null,

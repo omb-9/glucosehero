@@ -18,6 +18,9 @@ class HeroAiSettingsCopyTest {
         assertFalse(HeroAiSettingsCopy.needsProviderSetup(config))
         assertTrue(HeroAiSettingsCopy.isManagedModel(config))
         assertEquals("Using GlucoseHero's model", HeroAiSettingsCopy.byokSubtitle(config))
+        assertTrue(HeroAiSettingsCopy.CHAT_SETUP_BANNER.contains("GlucoseHero's model by default"))
+        assertTrue(HeroAiSettingsCopy.CHAT_SETUP_BANNER.contains("Use your own API key"))
+        assertFalse(HeroAiSettingsCopy.CHAT_SETUP_BANNER.contains("—"))
     }
 
     @Test
@@ -69,8 +72,12 @@ class HeroAiSettingsCopyTest {
         val bannerZero = HeroAiSettingsCopy.remainingCallsBanner(0)
         assertFalse(settingsZero.contains("—"))
         assertFalse(bannerZero.contains("—"))
+        assertFalse(HeroAiSettingsCopy.REASONING_DESCRIPTION.contains("—"))
         assertEquals("1 AI call left today.", HeroAiSettingsCopy.remainingCallsSettings(1))
         assertEquals("7 AI calls left today.", HeroAiSettingsCopy.remainingCallsBanner(7))
+        assertEquals("None left", HeroAiSettingsCopy.remainingCallsTopBar(0))
+        assertEquals("1 left", HeroAiSettingsCopy.remainingCallsTopBar(1))
+        assertEquals("7 left", HeroAiSettingsCopy.remainingCallsTopBar(7))
     }
 
     @Test

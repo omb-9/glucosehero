@@ -207,6 +207,8 @@ object ExportWhitelist {
         "role",
         "content",
         "timestamp",
+        "messageKind",
+        "contextSummaryJson",
     )
 
     val pendingQueryKeys: Set<String> = setOf(

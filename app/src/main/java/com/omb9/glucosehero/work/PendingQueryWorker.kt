@@ -12,8 +12,11 @@ import com.omb9.glucosehero.data.local.entity.toDomain
 import com.omb9.glucosehero.domain.model.ApiKeyMissingException
 import com.omb9.glucosehero.domain.model.ChatRole
 import com.omb9.glucosehero.domain.model.ChatTurn
+import com.omb9.glucosehero.domain.model.ChatTurnKind
+import com.omb9.glucosehero.domain.model.CrisisInterceptedException
 import com.omb9.glucosehero.domain.model.ProviderHttpException
 import com.omb9.glucosehero.domain.repository.ChatRepository
+import com.omb9.glucosehero.util.ChatCrisisGate
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.io.IOException
@@ -52,6 +55,16 @@ class PendingQueryWorker @AssistedInject constructor(
                     if (query.isExpired(System.currentTimeMillis())) {
                         chatRepository.appendAssistantMessage(
                             applicationContext.getString(R.string.pending_ai_query_expired),
+                            ChatTurnKind.ERROR,
+                        )
+                        pendingAiQueryDao.deleteById(query.id)
+                        continue
+                    }
+
+                    if (ChatCrisisGate.matches(query.prompt)) {
+                        chatRepository.appendAssistantMessage(
+                            ChatCrisisGate.SUPPORT_PLACEHOLDER,
+                            ChatTurnKind.CRISIS_SUPPORT,
                         )
                         pendingAiQueryDao.deleteById(query.id)
                         continue
@@ -68,19 +81,29 @@ class PendingQueryWorker @AssistedInject constructor(
                     // update, etc.). Rethrow so the queue survives untouched and
                     // the run is rescheduled — never treat this as a query error.
                     throw e
+                } catch (e: CrisisInterceptedException) {
+                    chatRepository.appendAssistantMessage(
+                        ChatCrisisGate.SUPPORT_PLACEHOLDER,
+                        ChatTurnKind.CRISIS_SUPPORT,
+                    )
+                    pendingAiQueryDao.deleteById(query.id)
                 } catch (e: ApiKeyMissingException) {
                     // Must be caught BEFORE IOException (it now IS an IOException,
                     // so the interceptor can raise it without crashing OkHttp).
                     // Nothing to dispatch with — drop the queue entry and surface
                     // the problem in the chat history instead of retrying forever.
-                    chatRepository.appendAssistantMessage(e.message ?: "API key missing.")
+                    chatRepository.appendAssistantMessage(
+                        e.message ?: "API key missing.",
+                        ChatTurnKind.ERROR,
+                    )
                     pendingAiQueryDao.deleteById(query.id)
                 } catch (e: ProviderHttpException) {
                     // Non-2xx means the provider settings are wrong, not that
                     // connectivity dropped. Drop the row so it does not retry
                     // forever and surface a settings hint in chat history.
                     chatRepository.appendAssistantMessage(
-                        e.message ?: "Your AI provider returned an error."
+                        e.message ?: "Your AI provider returned an error.",
+                        ChatTurnKind.ERROR,
                     )
                     pendingAiQueryDao.deleteById(query.id)
                 } catch (e: IOException) {
@@ -90,7 +113,8 @@ class PendingQueryWorker @AssistedInject constructor(
                     return Result.retry()
                 } catch (e: Exception) {
                     chatRepository.appendAssistantMessage(
-                        "Error answering queued question: ${e.message ?: "unknown error"}"
+                        "Error answering queued question: ${e.message ?: "unknown error"}",
+                        ChatTurnKind.ERROR,
                     )
                     pendingAiQueryDao.deleteById(query.id)
                 }

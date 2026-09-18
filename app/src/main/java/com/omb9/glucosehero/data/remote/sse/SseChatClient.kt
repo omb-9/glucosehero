@@ -8,6 +8,7 @@ import com.omb9.glucosehero.data.remote.dto.ApiTool
 import com.omb9.glucosehero.data.remote.dto.ChatCompletionChunk
 import com.omb9.glucosehero.data.remote.dto.ChatCompletionRequest
 import com.omb9.glucosehero.data.remote.dto.OpenRouterProviderConfig
+import com.omb9.glucosehero.data.remote.dto.ReasoningConfig
 import com.omb9.glucosehero.domain.model.ProviderHttpException
 import com.omb9.glucosehero.domain.model.ResolvedAiConfig
 import com.omb9.glucosehero.domain.model.StreamEvent
@@ -52,6 +53,7 @@ class SseChatClient @Inject constructor(
         tools: List<ApiTool> = emptyList(),
         maxTokens: Int? = null,
         openRouterDataCollectionDeny: Boolean = false,
+        reasoning: ReasoningConfig? = null,
     ): Flow<StreamEvent> = callbackFlow {
         val completionsUrl = config.baseUrl.trimEnd('/') + "/chat/completions"
         val parsedUrl = completionsUrl.toHttpUrlOrNull()
@@ -78,6 +80,7 @@ class SseChatClient @Inject constructor(
                 tools = tools.takeIf { it.isNotEmpty() },
                 maxTokens = maxTokens,
                 provider = if (openRouterDataCollectionDeny) OpenRouterProviderConfig() else null,
+                reasoning = reasoning,
             ),
         ).toRequestBody("application/json".toMediaType())
 
@@ -142,6 +145,9 @@ class SseChatClient @Inject constructor(
                             accumulated.append(token)
                             trySend(StreamEvent.Token(token))
                         }
+
+                    ReasoningDelta.plaintext(delta)
+                        ?.let { token -> trySend(StreamEvent.ReasoningToken(token)) }
 
                     delta.toolCalls?.forEach { call ->
                         val index = call.index ?: 0

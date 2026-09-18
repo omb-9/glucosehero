@@ -16,6 +16,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -217,7 +218,9 @@ fun GlucoseHeroNavHost(
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
-            modifier = Modifier.padding(padding),
+            modifier = Modifier
+                .padding(padding)
+                .consumeWindowInsets(padding),
             enterTransition = { navEnterTransition() },
             exitTransition = { navExitTransition() },
             popEnterTransition = { navPopEnterTransition() },

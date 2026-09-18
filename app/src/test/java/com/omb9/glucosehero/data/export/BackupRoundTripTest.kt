@@ -252,7 +252,7 @@ class BackupRoundTripTest {
     @Test
     fun formatVersion_isIndependentOfDatabaseVersion() {
         assertEquals(4, BACKUP_FORMAT_VERSION)
-        assertEquals(17, DATABASE_VERSION)
+        assertEquals(18, DATABASE_VERSION)
         assertTrue(BACKUP_FORMAT_VERSION != DATABASE_VERSION)
     }
 
@@ -642,6 +642,113 @@ class BackupRoundTripTest {
         assertNull(entry.medicationName)
         assertNull(entry.medicationDose)
         assertNull(entry.feelingSick)
+    }
+
+    @Test
+    fun crisisChatAndPendingPromptsAreOmittedFromBackupJson() = runBlocking {
+        val safeChat = BackupChatMessage(
+            id = 1L,
+            role = ChatRole.USER,
+            content = "what was my average?",
+            timestamp = 1_000L,
+        )
+        val crisisUser = BackupChatMessage(
+            id = 2L,
+            role = ChatRole.USER,
+            content = "I want to die",
+            timestamp = 2_000L,
+        )
+        val support = BackupChatMessage(
+            id = 3L,
+            role = ChatRole.ASSISTANT,
+            content = "",
+            timestamp = 3_000L,
+            messageKind = "CRISIS_SUPPORT",
+        )
+        val safePending = BackupPendingQuery(
+            id = 10L,
+            userMessageId = 1L,
+            prompt = "what was my average?",
+            createdAt = 4_000L,
+        )
+        val crisisPending = BackupPendingQuery(
+            id = 11L,
+            userMessageId = 2L,
+            prompt = "I want to die",
+            createdAt = 5_000L,
+        )
+        val sourceChat = listOf(safeChat, crisisUser, support)
+        val sourcePending = listOf(safePending, crisisPending)
+
+        val output = ByteArrayOutputStream()
+        streamBackupEnvelope(
+            output = output,
+            profile = BackupProfile(),
+            settings = BackupSettings(),
+            counts = BackupCounts(chat = 1, pendingAiQueries = 1),
+            appVersion = "1.0.0",
+            exportedAt = 1L,
+            pageSize = 2,
+            foods = { _, _ -> emptyList() },
+            entries = { _, _ -> emptyList() },
+            supplies = { _, _ -> emptyList() },
+            glucoseSamples = { _, _ -> emptyList() },
+            chat = { lastId, limit ->
+                pageExcluding(
+                    lastId,
+                    limit,
+                    fetch = { id, n -> pageById(sourceChat, id, n) { it.id } },
+                    idOf = { it.id },
+                    include = {
+                        com.omb9.glucosehero.util.ChatCrisisGate.isBackupExportable(
+                            it.messageKind,
+                            it.content,
+                        )
+                    },
+                )
+            },
+            pendingAiQueries = { lastId, limit ->
+                pageExcluding(
+                    lastId,
+                    limit,
+                    fetch = { id, n -> pageById(sourcePending, id, n) { it.id } },
+                    idOf = { it.id },
+                    include = {
+                        com.omb9.glucosehero.util.ChatCrisisGate.isBackupExportable(
+                            "NORMAL",
+                            it.prompt,
+                        )
+                    },
+                )
+            },
+            insights = { _, _ -> emptyList() },
+        )
+
+        val json = output.toString(Charsets.UTF_8)
+        val decoded = decodeEnvelope(ByteArrayInputStream(output.toByteArray()))
+        verifyCounts(decoded)
+        assertEquals(listOf(safeChat), decoded.chat)
+        assertEquals(listOf(safePending), decoded.pendingAiQueries)
+        assertFalse(json.contains("want to die"))
+        assertFalse(json.contains("CRISIS_SUPPORT"))
+        assertTrue(json.contains("what was my average?"))
+    }
+
+    @Test
+    fun crisisSupportEntityIsNotMappedIntoBackupChat() {
+        val support = com.omb9.glucosehero.data.local.entity.ChatMessageEntity(
+            id = 8L,
+            role = ChatRole.ASSISTANT,
+            content = "",
+            timestamp = 1L,
+            messageKind = com.omb9.glucosehero.domain.model.ChatTurnKind.CRISIS_SUPPORT,
+        )
+        assertNull(support.toBackupOrNull())
+        val normal = support.copy(
+            messageKind = com.omb9.glucosehero.domain.model.ChatTurnKind.NORMAL,
+            content = "hello",
+        )
+        assertEquals("hello", normal.toBackupOrNull()?.content)
     }
 
     private fun <T> pageById(

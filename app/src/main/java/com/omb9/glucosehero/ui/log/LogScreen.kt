@@ -921,7 +921,7 @@ private fun EntryRow(
                     Icon(
                         item.type.icon(),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(20.dp),
                     )
                 }

@@ -61,6 +61,25 @@ data class ChatCompletionRequest(
     val tools: List<ApiTool>? = null,
     @SerialName("max_tokens") val maxTokens: Int? = null,
     val provider: OpenRouterProviderConfig? = null,
+    /**
+     * OpenRouter reasoning control. See
+     * https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
+     * (`reasoning.effort` or `reasoning.enabled`). Omitted for providers
+     * that do not speak this dialect when the user has reasoning off.
+     */
+    val reasoning: ReasoningConfig? = null,
+)
+
+/**
+ * OpenRouter `reasoning` request object. Send either [effort] or [enabled],
+ * not a token budget, unless a future model requires `max_tokens`.
+ */
+@Serializable
+data class ReasoningConfig(
+    val effort: String? = null,
+    val enabled: Boolean? = null,
+    val exclude: Boolean? = null,
+    @SerialName("max_tokens") val maxTokens: Int? = null,
 )
 
 @Serializable
@@ -115,9 +134,21 @@ data class ChatCompletionChunk(
     data class Delta(
         val role: String? = null,
         val content: String? = null,
+        /** Plaintext reasoning OpenRouter streams separately from [content]. */
+        val reasoning: String? = null,
+        @SerialName("reasoning_details") val reasoningDetails: List<ReasoningDetail>? = null,
         @SerialName("tool_calls") val toolCalls: List<DeltaToolCall>? = null,
     )
 }
+
+@Serializable
+data class ReasoningDetail(
+    val type: String? = null,
+    val text: String? = null,
+    val summary: String? = null,
+    val id: String? = null,
+    val index: Int? = null,
+)
 
 @Serializable
 data class DeltaToolCall(

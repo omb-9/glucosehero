@@ -350,9 +350,23 @@
     <string name="chat_clear_confirm">Clear</string>
     <string name="chat_clear_cancel">Cancel</string>
     <string name="chat_send">Send</string>
-    <string name="forecast_trend_rising">Glucose trending up</string>
-    <string name="forecast_trend_falling">Glucose trending down</string>
-    <string name="forecast_trend_stable">Glucose holding steady</string>
+    <string name="chat_copy_answer">Copy Hero\'s answer</string>
+    <string name="chat_copied">Copied Hero\'s answer</string>
+    <string name="chat_thought_for">Thought for %1$ds</string>
+    <string name="chat_thinking_elapsed">%1$s · %2$ds</string>
+    <string name="chat_reasoning_framing">Working notes from the model, not a clinical assessment. GlucoseHero is not a medical device.</string>
+    <string name="chat_stop">Stop generating</string>
+    <string name="chat_retry">Retry</string>
+    <string name="chat_regenerate">Regenerate</string>
+    <string name="chat_share">Share</string>
+    <string name="chat_share_answer">Share Hero\'s answer</string>
+    <string name="chat_share_subject">Hero summary from GlucoseHero</string>
+    <string name="chat_jump_to_latest">Jump to latest</string>
+    <string name="chat_waiting_connection">Waiting for connection</string>
+    <string name="chat_empty_low_data">I need a few glucose readings in your log before I can talk about your data. Log a reading first.</string>
+    <string name="chat_empty_log_cta">Open Log</string>
+    <string name="chat_data_context_title">What left this device</string>
+    <string name="chat_data_context_body">This is a summary of the log snapshot included with that question. Raw readings are not stored on this chip.</string>
     <string name="accent_selected">Selected</string>
     <string name="accent_not_selected">Not selected</string>
 </resources>

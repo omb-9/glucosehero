@@ -231,6 +231,10 @@ interface EntryDao {
     @Query("SELECT COUNT(*) FROM glucose_samples WHERE timestamp >= :since")
     suspend fun cgmReadingCountSince(since: Long): Int
 
+    /** All-time glucose points (CGM samples plus user-authored readings, no HC doubles). */
+    @Query("SELECT COUNT(*) FROM glucose_readings")
+    fun observeGlucosePointCount(): Flow<Int>
+
     /**
      * Counts user-authored glucose readings in the window. The
      * `hc_record_id IS NULL` predicate matches the `entries` side of the

@@ -13,6 +13,7 @@ import com.omb9.glucosehero.domain.model.DosingProfile
 import com.omb9.glucosehero.domain.model.DosingProfileLoad
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
+import com.omb9.glucosehero.domain.model.ReasoningEffort
 import com.omb9.glucosehero.domain.model.ResolvedAiConfig
 import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.domain.model.UserProfile
@@ -70,6 +71,9 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setSendMealPhotosToHeroAi(enabled: Boolean) =
         dataStore.setSendMealPhotosToHeroAi(enabled)
+
+    override suspend fun setReasoningEffort(effort: ReasoningEffort) =
+        dataStore.setReasoningEffort(effort)
 
     override suspend fun setProfileTarget(target: ProfileTarget) =
         dataStore.setProfileTarget(target)

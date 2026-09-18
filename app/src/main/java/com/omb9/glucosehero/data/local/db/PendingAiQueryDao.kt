@@ -24,6 +24,9 @@ interface PendingAiQueryDao {
     @Query("SELECT COUNT(*) FROM pending_ai_queries")
     fun observeCount(): Flow<Int>
 
+    @Query("SELECT user_message_id FROM pending_ai_queries")
+    fun observePendingUserMessageIds(): Flow<List<Long>>
+
     // ---------- Backup/export paged reads (additive) ----------
 
     @Query("SELECT * FROM pending_ai_queries WHERE id > :lastId ORDER BY id ASC LIMIT :limit")

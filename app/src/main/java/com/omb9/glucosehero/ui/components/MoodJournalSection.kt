@@ -81,7 +81,7 @@ fun MoodJournalSection(
                     colors = if (selected) {
                         IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     } else {
                         IconButtonDefaults.iconButtonColors(

@@ -1,20 +1,40 @@
 package com.omb9.glucosehero.domain.repository
 
 import com.omb9.glucosehero.domain.model.ChatTurn
+import com.omb9.glucosehero.domain.model.ChatTurnKind
 import com.omb9.glucosehero.domain.model.MealPhotoAnalysis
 import com.omb9.glucosehero.domain.model.QuickLogParseResult
 import com.omb9.glucosehero.domain.model.StreamEvent
 import kotlinx.coroutines.flow.Flow
 
 interface ChatRepository {
-    /** Persisted chat history, oldest first. */
+    /** Persisted chat history, oldest first (capped at 200 for API context). */
     fun observeHistory(): Flow<List<ChatTurn>>
+
+    /** Newest [limit] persisted turns, oldest first, for the chat list. */
+    fun observeRecentHistory(limit: Int): Flow<List<ChatTurn>>
+
+    /**
+     * One page of turns older than [beforeTimestamp]/[beforeId], oldest first.
+     * Empty when the user has reached the start of history.
+     */
+    suspend fun loadOlderHistory(beforeTimestamp: Long, beforeId: Long, limit: Int): List<ChatTurn>
 
     /** Count of queries waiting for connectivity. */
     fun observePendingCount(): Flow<Int>
 
+    /** User-message ids currently queued for connectivity. */
+    fun observePendingUserMessageIds(): Flow<List<Long>>
+
+    /** CGM samples plus user-authored glucose readings, with no Health Connect doubles. */
+    fun observeGlucosePointCount(): Flow<Int>
+
     suspend fun appendUserMessage(text: String): Long
-    suspend fun appendAssistantMessage(text: String): Long
+    suspend fun appendAssistantMessage(
+        text: String,
+        kind: ChatTurnKind = ChatTurnKind.NORMAL,
+    ): Long
+    suspend fun deleteMessage(id: Long)
     suspend fun clearHistory()
 
     /**

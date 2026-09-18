@@ -31,6 +31,7 @@ import com.omb9.glucosehero.domain.model.DosingProfileValidation
 import com.omb9.glucosehero.domain.model.ExportWhitelist
 import com.omb9.glucosehero.domain.model.toRecord
 import com.omb9.glucosehero.util.AppJson
+import com.omb9.glucosehero.util.ChatCrisisGate
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileInputStream
@@ -325,9 +326,23 @@ class BackupManager @Inject constructor(
             glucoseSamples = { lastId, limit ->
                 glucoseSampleDao.pageForExport(lastId, limit).map { it.toBackup() }
             },
-            chat = { lastId, limit -> chatMessageDao.pageForExport(lastId, limit).map { it.toBackup() } },
+            chat = { lastId, limit ->
+                pageExcluding(
+                    lastId = lastId,
+                    limit = limit,
+                    fetch = { id, n -> chatMessageDao.pageForExport(id, n) },
+                    idOf = { it.id },
+                    include = { ChatCrisisGate.isBackupExportable(it.messageKind.name, it.content) },
+                ).map { it.toBackup() }
+            },
             pendingAiQueries = { lastId, limit ->
-                pendingAiQueryDao.pageForExport(lastId, limit).map { it.toBackup() }
+                pageExcluding(
+                    lastId = lastId,
+                    limit = limit,
+                    fetch = { id, n -> pendingAiQueryDao.pageForExport(id, n) },
+                    idOf = { it.id },
+                    include = { ChatCrisisGate.isBackupExportable("NORMAL", it.prompt) },
+                ).map { it.toBackup() }
             },
             insights = { lastId, limit -> insightDao.pageForExport(lastId, limit).map { it.toBackup() } },
             onProgress = onProgress,
@@ -341,9 +356,35 @@ class BackupManager @Inject constructor(
         foods = foodDao.countAll(),
         supplies = supplyDao.countAll(),
         insights = insightDao.countAll(),
-        chat = chatMessageDao.countAll(),
-        pendingAiQueries = pendingAiQueryDao.countAll(),
+        chat = countExportableChat(),
+        pendingAiQueries = countExportablePendingQueries(),
     )
+
+    private suspend fun countExportableChat(): Int {
+        var lastId = 0L
+        var count = 0
+        while (true) {
+            val page = chatMessageDao.pageForExport(lastId, EXPORT_PAGE_SIZE)
+            if (page.isEmpty()) break
+            count += page.count { ChatCrisisGate.isBackupExportable(it.messageKind.name, it.content) }
+            lastId = page.last().id
+            if (page.size < EXPORT_PAGE_SIZE) break
+        }
+        return count
+    }
+
+    private suspend fun countExportablePendingQueries(): Int {
+        var lastId = 0L
+        var count = 0
+        while (true) {
+            val page = pendingAiQueryDao.pageForExport(lastId, EXPORT_PAGE_SIZE)
+            if (page.isEmpty()) break
+            count += page.count { ChatCrisisGate.isBackupExportable("NORMAL", it.prompt) }
+            lastId = page.last().id
+            if (page.size < EXPORT_PAGE_SIZE) break
+        }
+        return count
+    }
 
     private suspend fun snapshotSettings(): BackupSettings {
         val settings = settingsDataStore.settings.first()
@@ -598,10 +639,13 @@ class BackupManager @Inject constructor(
         existingChatByKey: Map<ChatKey, ChatMessageEntity>,
         chatIdMap: MutableMap<Long, Long>,
     ): Int = reader.forEachInArray(BackupChatMessage.serializer(), "chat", IMPORT_BATCH_SIZE) { batch ->
+        val accepted = batch.filter {
+            ChatCrisisGate.isBackupExportable(it.messageKind, it.content)
+        }
         when (mode) {
-            ImportMode.REPLACE -> chatMessageDao.insertAll(batch.map { it.toEntity() })
+            ImportMode.REPLACE -> chatMessageDao.insertAll(accepted.map { it.toEntity() })
             ImportMode.MERGE -> {
-                for (chat in batch) {
+                for (chat in accepted) {
                     val key = backupChatKey(chat)
                     val existing = existingChatByKey[key]
                     chatIdMap[chat.id] = if (existing != null) {
@@ -620,11 +664,14 @@ class BackupManager @Inject constructor(
         existingPendingKeys: Set<PendingKey>,
         chatIdMap: Map<Long, Long>,
     ): Int = reader.forEachInArray(BackupPendingQuery.serializer(), "pendingAiQueries", IMPORT_BATCH_SIZE) { batch ->
+        val accepted = batch.filter {
+            ChatCrisisGate.isBackupExportable("NORMAL", it.prompt)
+        }
         when (mode) {
-            ImportMode.REPLACE -> pendingAiQueryDao.insertAll(batch.map { it.toEntity() })
+            ImportMode.REPLACE -> pendingAiQueryDao.insertAll(accepted.map { it.toEntity() })
             ImportMode.MERGE -> {
-                val newPending = ArrayList<PendingAiQueryEntity>(batch.size)
-                for (pending in batch) {
+                val newPending = ArrayList<PendingAiQueryEntity>(accepted.size)
+                for (pending in accepted) {
                     val remappedUserMessageId = chatIdMap[pending.userMessageId] ?: pending.userMessageId
                     val candidate = pending.toEntity().copy(
                         id = 0L,

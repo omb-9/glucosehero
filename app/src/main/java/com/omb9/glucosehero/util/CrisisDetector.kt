@@ -4,9 +4,10 @@ package com.omb9.glucosehero.util
  * On-device crisis helpers: journal-text matching plus severe hypoglycemia.
  *
  * Journal matching is a pure Kotlin keyword/phrase check (no Android imports,
- * no network). When journal text is later wired into `buildSystemPrompt`, this
- * check MUST run first and short-circuit: a matching journal must never be
- * sent to the AI.
+ * no network). Chat composer text is gated the same way before any provider
+ * call. When journal text is wired into `buildSystemPrompt` (recent-entry
+ * notes are), this check MUST run first: a matching journal must never be
+ * sent to the AI. Omit the matching free-text field rather than forwarding it.
  *
  * Severe hypo uses the ADA Level 2 threshold of 54 mg/dL. SOS dispatch lives
  * in `com.omb9.glucosehero.crisis`; this object only classifies readings.

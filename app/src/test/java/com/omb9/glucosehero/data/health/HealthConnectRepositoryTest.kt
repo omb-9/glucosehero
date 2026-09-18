@@ -724,6 +724,7 @@ private class FakeEntryDao : EntryDao {
     override suspend fun averageGlucoseReadingsSince(since: Long): Double? = null
     override fun observeGlucoseStatsSince(since: Long): Flow<GlucoseStats> = throw UnsupportedOperationException()
     override suspend fun cgmReadingCountSince(since: Long): Int = 0
+    override fun observeGlucosePointCount(): Flow<Int> = throw UnsupportedOperationException()
     override suspend fun manualReadingCountSince(since: Long): Int = 0
     override fun observeLoggedDays(since: Long): Flow<List<LoggedDayRow>> = throw UnsupportedOperationException()
     override suspend fun loggedDaysSince(since: Long): List<LoggedDayRow> = emptyList()

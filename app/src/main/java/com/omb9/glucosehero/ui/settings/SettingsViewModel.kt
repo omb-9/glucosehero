@@ -40,6 +40,7 @@ import com.omb9.glucosehero.domain.model.ProviderHttpException
 import com.omb9.glucosehero.domain.model.BolusSettings
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
+import com.omb9.glucosehero.domain.model.ReasoningEffort
 import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.domain.model.UnitSystem
 import com.omb9.glucosehero.domain.model.UserProfile
@@ -454,6 +455,9 @@ class SettingsViewModel @Inject constructor(
 
     fun setSendMealPhotosToHeroAi(enabled: Boolean) =
         viewModelScope.launch { settingsRepository.setSendMealPhotosToHeroAi(enabled) }
+
+    fun setReasoningEffort(effort: ReasoningEffort) =
+        viewModelScope.launch { settingsRepository.setReasoningEffort(effort) }
 
     fun setBarcodeLookupEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsDataStore.setBarcodeLookupEnabled(enabled) }

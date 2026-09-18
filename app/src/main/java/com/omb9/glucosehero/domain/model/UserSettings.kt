@@ -72,4 +72,5 @@ data class UserSettings(
     val postMealRemindersEnabled: Boolean = true,
     val notificationsEnabled: Boolean = true,
     val sendMealPhotosToHeroAi: Boolean = false,
+    val reasoningEffort: ReasoningEffort = ReasoningEffort.OFF,
 )

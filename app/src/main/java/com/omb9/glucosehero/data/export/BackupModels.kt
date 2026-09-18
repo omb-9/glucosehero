@@ -13,6 +13,7 @@ import com.omb9.glucosehero.domain.model.AccentColor
 import com.omb9.glucosehero.domain.model.ActivityIntensity
 import com.omb9.glucosehero.domain.model.AiProvider
 import com.omb9.glucosehero.domain.model.ChatRole
+import com.omb9.glucosehero.domain.model.ChatTurnKind
 import com.omb9.glucosehero.domain.model.EntrySource
 import com.omb9.glucosehero.domain.model.FoodSource
 import com.omb9.glucosehero.domain.model.GlucoseUnit
@@ -26,6 +27,7 @@ import com.omb9.glucosehero.domain.model.DosingProfileRecord
 import com.omb9.glucosehero.domain.model.BolusSettings
 import com.omb9.glucosehero.domain.model.toProfile
 import com.omb9.glucosehero.util.AppJson
+import com.omb9.glucosehero.util.ChatCrisisGate
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.Writer
@@ -91,7 +93,7 @@ const val BACKUP_FORMAT_VERSION = 4
  * [BackupEntry] fields (`medicationName`, `medicationDose`, `feelingSick`)
  * default to null so a file written by an older build still deserializes.
  */
-const val DATABASE_VERSION = 17
+const val DATABASE_VERSION = 18
 
 /** Thrown for anything structurally wrong with a backup file. */
 class BackupFormatException(message: String) : Exception(message)
@@ -342,6 +344,8 @@ data class BackupChatMessage(
     val role: ChatRole,
     val content: String,
     val timestamp: Long,
+    val messageKind: String = "NORMAL",
+    val contextSummaryJson: String? = null,
 )
 
 @Serializable
@@ -697,6 +701,34 @@ private suspend fun <T> writeJsonArray(
     sink.endArray()
 }
 
+/**
+ * Keyset pager that skips rows the caller excludes (crisis support / matching
+ * text) without stalling when a whole page is local-only.
+ */
+internal suspend fun <T> pageExcluding(
+    lastId: Long,
+    limit: Int,
+    fetch: suspend (Long, Int) -> List<T>,
+    idOf: (T) -> Long,
+    include: (T) -> Boolean,
+): List<T> {
+    var cursor = lastId
+    val out = ArrayList<T>(limit)
+    while (out.size < limit) {
+        val page = fetch(cursor, limit)
+        if (page.isEmpty()) break
+        for (item in page) {
+            cursor = idOf(item)
+            if (include(item)) {
+                out += item
+                if (out.size == limit) return out
+            }
+        }
+        if (page.size < limit) break
+    }
+    return out
+}
+
 // ---------------------------------------------------------------------------
 // Entity <-> envelope mapping
 // ---------------------------------------------------------------------------
@@ -834,13 +866,21 @@ fun ChatMessageEntity.toBackup() = BackupChatMessage(
     role = role,
     content = content,
     timestamp = timestamp,
+    messageKind = messageKind.name,
+    contextSummaryJson = contextSummaryJson,
 )
+
+fun ChatMessageEntity.toBackupOrNull(): BackupChatMessage? =
+    toBackup().takeIf { ChatCrisisGate.isBackupExportable(it.messageKind, it.content) }
 
 fun BackupChatMessage.toEntity() = ChatMessageEntity(
     id = id,
     role = role,
     content = content,
     timestamp = timestamp,
+    messageKind = runCatching { ChatTurnKind.valueOf(messageKind) }
+        .getOrDefault(ChatTurnKind.NORMAL),
+    contextSummaryJson = contextSummaryJson,
 )
 
 fun PendingAiQueryEntity.toBackup() = BackupPendingQuery(
@@ -850,6 +890,9 @@ fun PendingAiQueryEntity.toBackup() = BackupPendingQuery(
     createdAt = createdAt,
     ttlSeconds = ttlSeconds,
 )
+
+fun PendingAiQueryEntity.toBackupOrNull(): BackupPendingQuery? =
+    toBackup().takeIf { ChatCrisisGate.isBackupExportable("NORMAL", prompt) }
 
 fun BackupPendingQuery.toEntity() = PendingAiQueryEntity(
     id = id,

@@ -29,6 +29,7 @@ import com.omb9.glucosehero.domain.model.FirstRunAction
 import com.omb9.glucosehero.domain.model.FirstRunPolicy
 import com.omb9.glucosehero.domain.model.GlucoseUnit
 import com.omb9.glucosehero.domain.model.ProfileTarget
+import com.omb9.glucosehero.domain.model.ReasoningEffort
 import com.omb9.glucosehero.domain.model.ThemeMode
 import com.omb9.glucosehero.crisis.CaregiverContact
 import com.omb9.glucosehero.crisis.HypoSosPending
@@ -89,6 +90,7 @@ class SettingsDataStore @Inject constructor(
         val TARGET_LOW = floatPreferencesKey("target_low_mgdl")
         val TARGET_HIGH = floatPreferencesKey("target_high_mgdl")
         val HERO_AI_ENABLED = booleanPreferencesKey("hero_ai_enabled")
+        val HERO_AI_REASONING_EFFORT = stringPreferencesKey("hero_ai_reasoning_effort")
         val AI_PROVIDER = stringPreferencesKey("ai_provider")
         val AI_BASE_URL = stringPreferencesKey("ai_base_url")
         val AI_MODEL = stringPreferencesKey("ai_model")
@@ -125,6 +127,8 @@ class SettingsDataStore @Inject constructor(
         val BARCODE_LOOKUP_ENABLED = booleanPreferencesKey("barcode_lookup_enabled")
         val AI_ACKNOWLEDGED_HOSTS = stringSetPreferencesKey("ai_acknowledged_hosts")
         val DISMISSED_FOOD_TAGS = stringSetPreferencesKey("dismissed_food_tags")
+        val ENABLED_MARKER_CATEGORIES = stringSetPreferencesKey("enabled_marker_categories")
+        val KNOWN_MARKER_CATEGORIES = stringSetPreferencesKey("known_marker_categories")
         val BACKUP_DIR_URI = stringPreferencesKey("backup_dir_uri")
         val BACKUP_ENABLED = booleanPreferencesKey("backup_enabled")
         val BACKUP_LAST_RUN = longPreferencesKey("backup_last_run")
@@ -228,6 +232,7 @@ class SettingsDataStore @Inject constructor(
             postMealRemindersEnabled = runCatching { p[Keys.POST_MEAL_REMINDERS_ENABLED] }.getOrNull() ?: true,
             notificationsEnabled = runCatching { p[Keys.NOTIFICATIONS_ENABLED] }.getOrNull() ?: true,
             sendMealPhotosToHeroAi = runCatching { p[Keys.SEND_MEAL_PHOTOS_TO_HERO_AI] }.getOrNull() ?: false,
+            reasoningEffort = p[Keys.HERO_AI_REASONING_EFFORT].toEnum(ReasoningEffort.OFF),
             targetLowMgdl = runCatching { p[Keys.TARGET_LOW] }.getOrNull() ?: 70f,
             targetHighMgdl = runCatching { p[Keys.TARGET_HIGH] }.getOrNull() ?: 180f,
         )
@@ -261,6 +266,23 @@ class SettingsDataStore @Inject constructor(
     /** Tags dismissed on the Food impact screen; persists across nightly recomputation. */
     val dismissedFoodTags: Flow<Set<String>> = safeData.map { p ->
         runCatching { p[Keys.DISMISSED_FOOD_TAGS] }.getOrNull() ?: emptySet()
+    }.distinctUntilChanged()
+
+    /**
+     * Names of chart marker categories the user left enabled. `null` means the
+     * key has never been written, so every current category should default on
+     * (including categories added after this install).
+     */
+    val enabledMarkerCategoryNames: Flow<Set<String>?> = safeData.map { p ->
+        runCatching { p[Keys.ENABLED_MARKER_CATEGORIES] }.getOrNull()
+    }.distinctUntilChanged()
+
+    /**
+     * Marker category names that existed the last time the enabled set was
+     * written. Used to treat categories added later as enabled by default.
+     */
+    val knownMarkerCategoryNames: Flow<Set<String>?> = safeData.map { p ->
+        runCatching { p[Keys.KNOWN_MARKER_CATEGORIES] }.getOrNull()
     }.distinctUntilChanged()
 
     val aiConfig: Flow<AiConfig> = safeData.map { p -> p.toAiConfig() }.distinctUntilChanged()
@@ -722,6 +744,9 @@ class SettingsDataStore @Inject constructor(
     suspend fun setSendMealPhotosToHeroAi(enabled: Boolean) =
         edit { it[Keys.SEND_MEAL_PHOTOS_TO_HERO_AI] = enabled }
 
+    suspend fun setReasoningEffort(effort: ReasoningEffort) =
+        edit { it[Keys.HERO_AI_REASONING_EFFORT] = effort.name }
+
     suspend fun setBarcodeLookupEnabled(enabled: Boolean) =
         edit { it[Keys.BARCODE_LOOKUP_ENABLED] = enabled }
 
@@ -742,6 +767,14 @@ class SettingsDataStore @Inject constructor(
     suspend fun restoreFoodTag(tag: String) = edit {
         val current = it[Keys.DISMISSED_FOOD_TAGS] ?: emptySet()
         it[Keys.DISMISSED_FOOD_TAGS] = current - tag
+    }
+
+    suspend fun setEnabledMarkerCategories(
+        enabledNames: Set<String>,
+        knownNames: Set<String>,
+    ) = edit {
+        it[Keys.ENABLED_MARKER_CATEGORIES] = enabledNames
+        it[Keys.KNOWN_MARKER_CATEGORIES] = knownNames
     }
 
     suspend fun setHealthConnectSyncEnabled(enabled: Boolean) =

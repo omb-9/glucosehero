@@ -31,7 +31,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -88,6 +88,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
@@ -110,6 +111,7 @@ import com.omb9.glucosehero.ui.log.StreakReward
 import com.omb9.glucosehero.ui.log.filledMetrics
 import com.omb9.glucosehero.ui.log.formatAbsoluteOccurredAt
 import com.omb9.glucosehero.ui.log.occurredAtCaption
+import com.omb9.glucosehero.ui.theme.GlucoseHeroTheme
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -329,58 +331,11 @@ fun AddEntrySheet(
             )
             Spacer(Modifier.height(16.dp))
 
-            // --- Category icon grid ---
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                categories.forEach { category ->
-                    val selected = category.type == draft.activeCategory
-                    val hasData = category.metric in draft.filledMetrics
-                    Column(
-                        modifier = Modifier.width(56.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Box(contentAlignment = Alignment.TopEnd) {
-                            IconButton(
-                                onClick = { onCategorySelected(category.type) },
-                                modifier = Modifier.size(56.dp),
-                                colors = if (selected) {
-                                    IconButtonDefaults.filledIconButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.primary,
-                                    )
-                                } else {
-                                    IconButtonDefaults.iconButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                },
-                            ) {
-                                Icon(category.icon, contentDescription = category.label)
-                            }
-                            if (hasData) {
-                                Box(
-                                    modifier = Modifier
-                                        .offset(x = 2.dp, y = (-2).dp)
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primary),
-                                )
-                            }
-                        }
-                        Text(
-                            category.label,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (selected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
+            EntryCategoryIconRow(
+                activeCategory = draft.activeCategory,
+                filledMetrics = draft.filledMetrics,
+                onCategorySelected = onCategorySelected,
+            )
 
             Spacer(Modifier.height(20.dp))
 
@@ -1021,4 +976,80 @@ private fun occurredAtChipText(
         stringResource(R.string.quick_log_hours_ago, caption.hours)
     is OccurredAtCaption.Absolute ->
         formatAbsoluteOccurredAt(caption.millis, use24HourTime)
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun EntryCategoryIconRow(
+    activeCategory: EntryType,
+    filledMetrics: Set<Metric>,
+    onCategorySelected: (EntryType) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        categories.forEach { category ->
+            val selected = category.type == activeCategory
+            val hasData = category.metric in filledMetrics
+            Column(
+                modifier = Modifier.widthIn(min = 56.dp, max = 88.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(contentAlignment = Alignment.TopEnd) {
+                    IconButton(
+                        onClick = { onCategorySelected(category.type) },
+                        modifier = Modifier.size(56.dp),
+                        colors = if (selected) {
+                            IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        } else {
+                            IconButtonDefaults.iconButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                    ) {
+                        Icon(category.icon, contentDescription = category.label)
+                    }
+                    if (hasData) {
+                        Box(
+                            modifier = Modifier
+                                .offset(x = 2.dp, y = (-2).dp)
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                        )
+                    }
+                }
+                Text(
+                    category.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Preview(name = "Category row fontScale 1.0", fontScale = 1.0f, showBackground = true, widthDp = 360)
+@Preview(name = "Category row fontScale 1.3", fontScale = 1.3f, showBackground = true, widthDp = 360)
+@Preview(name = "Category row fontScale 2.0", fontScale = 2.0f, showBackground = true, widthDp = 360)
+@Composable
+private fun EntryCategoryIconRowPreview() {
+    GlucoseHeroTheme {
+        EntryCategoryIconRow(
+            activeCategory = EntryType.MEDICATION,
+            filledMetrics = setOf(Metric.MEDICATION),
+            onCategorySelected = {},
+            modifier = Modifier.padding(horizontal = 20.dp),
+        )
+    }
 }

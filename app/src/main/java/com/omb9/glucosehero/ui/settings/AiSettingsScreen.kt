@@ -15,14 +15,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.omb9.glucosehero.R
+import com.omb9.glucosehero.domain.model.ReasoningEffort
 
 /**
  * Hero AI overview: enable, data-use copy, remaining managed-tier calls, and a
@@ -72,6 +78,43 @@ fun AiSettingsScreen(
             Spacer(Modifier.height(16.dp))
             Text(
                 text = HeroAiSettingsCopy.DATA_USE_DESCRIPTION,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.settings_disclaimer),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "Model reasoning",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                ReasoningEffort.entries.forEachIndexed { index, effort ->
+                    SegmentedButton(
+                        selected = settings.reasoningEffort == effort,
+                        onClick = { viewModel.setReasoningEffort(effort) },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = ReasoningEffort.entries.size,
+                        ),
+                    ) {
+                        Text(effort.label)
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = HeroAiSettingsCopy.REASONING_DESCRIPTION,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth(),
