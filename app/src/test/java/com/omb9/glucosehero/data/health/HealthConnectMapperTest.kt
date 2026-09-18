@@ -31,6 +31,7 @@ import com.omb9.glucosehero.domain.model.MealContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 
@@ -463,6 +464,34 @@ class HealthConnectMapperTest {
             source = EntrySource.MANUAL,
         )
         assertEquals(emptyList<androidx.health.connect.client.records.Record>(), unpersisted.toRecords())
+    }
+
+    @Test
+    fun `medication-only entry is excluded from Health Connect write-back`() {
+        val medicationOnly = EntryEntity(
+            id = 9L,
+            timestamp = instant.toEpochMilli(),
+            medicationName = "Metformin",
+            medicationDose = "500 mg",
+            feelingSick = true,
+            source = EntrySource.MANUAL,
+        )
+        assertEquals(
+            emptyList<androidx.health.connect.client.records.Record>(),
+            medicationOnly.toRecords(),
+        )
+
+        val glucoseAndMed = EntryEntity(
+            id = 10L,
+            timestamp = instant.toEpochMilli(),
+            glucoseMgdl = 110.0,
+            medicationName = "Metformin",
+            source = EntrySource.MANUAL,
+        )
+        val records = glucoseAndMed.toRecords()
+        assertEquals(1, records.size)
+        assertEquals(1, records.filterIsInstance<BloodGlucoseRecord>().size)
+        assertTrue(records.filterIsInstance<NutritionRecord>().isEmpty())
     }
 
     private fun testMetadata(id: String, packageName: String): Metadata =

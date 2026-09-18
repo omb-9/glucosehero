@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Bloodtype
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.AlertDialog
@@ -74,6 +75,7 @@ private val editableCategoryTypes = listOf(
     EntryType.GLUCOSE,
     EntryType.INSULIN,
     EntryType.MEAL,
+    EntryType.MEDICATION,
     EntryType.ACTIVITY,
 )
 
@@ -389,6 +391,38 @@ fun EntryDetailScreen(
                     Spacer(Modifier.height(12.dp))
                 }
 
+                if (EntryType.MEDICATION in form.activeCategories) {
+                    CategoryHeader(
+                        type = EntryType.MEDICATION,
+                        isEditing = form.isEditing,
+                        onRemove = { viewModel.onRemoveCategory(EntryType.MEDICATION) },
+                    )
+                    OutlinedTextField(
+                        value = form.medicationName,
+                        onValueChange = viewModel::onMedicationNameChange,
+                        enabled = !isHealthConnect,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Medication") },
+                        singleLine = true,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = form.medicationDose,
+                        onValueChange = viewModel::onMedicationDoseChange,
+                        enabled = !isHealthConnect,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Dose") },
+                        singleLine = true,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "The app stores and displays these values; it does not calculate a dose from them",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 if (EntryType.ACTIVITY in form.activeCategories) {
                     CategoryHeader(
                         type = EntryType.ACTIVITY,
@@ -425,6 +459,14 @@ fun EntryDetailScreen(
                     }
                     Spacer(Modifier.height(12.dp))
                 }
+
+                FilterChip(
+                    selected = form.feelingSick == true,
+                    enabled = !isHealthConnect,
+                    onClick = { viewModel.setFeelingSick(form.feelingSick != true) },
+                    label = { Text("Feeling sick?") },
+                )
+                Spacer(Modifier.height(12.dp))
 
                 if (form.moodScore != null || form.moodLabel != null || form.note.isNotBlank()) {
                     MoodJournalSection(
@@ -562,6 +604,7 @@ private fun EntryType.icon(): ImageVector = when (this) {
     EntryType.GLUCOSE -> Icons.Filled.Bloodtype
     EntryType.INSULIN -> Icons.Filled.Vaccines
     EntryType.MEAL -> Icons.Filled.Restaurant
+    EntryType.MEDICATION -> Icons.Filled.Medication
     EntryType.ACTIVITY -> Icons.AutoMirrored.Filled.DirectionsRun
     EntryType.NOTE -> Icons.AutoMirrored.Filled.Notes
 }
@@ -570,6 +613,7 @@ private fun EntryType.detailTitle(): String = when (this) {
     EntryType.GLUCOSE -> "Blood Glucose"
     EntryType.INSULIN -> "Insulin"
     EntryType.MEAL -> "Meal"
+    EntryType.MEDICATION -> "Medication"
     EntryType.ACTIVITY -> "Exercise"
     EntryType.NOTE -> "Note"
 }

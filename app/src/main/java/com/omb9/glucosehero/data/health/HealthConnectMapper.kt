@@ -268,6 +268,9 @@ object HealthConnectMapper {
      *
      * Returns an empty list if the entry is unpersisted (`id == 0L`) or originated
      * from Health Connect (`source == EntrySource.HEALTH_CONNECT`) to avoid echo.
+     *
+     * Medication name/dose and [EntryEntity.feelingSick] are never written:
+     * Health Connect has no medication record type, so they stay local.
      */
     fun EntryEntity.toRecords(
         updatedAtMillis: Long = timestamp,

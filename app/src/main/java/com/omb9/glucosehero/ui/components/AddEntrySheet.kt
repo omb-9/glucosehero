@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.filled.Bloodtype
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material.icons.filled.PhotoCamera
@@ -123,6 +125,7 @@ private val categories = listOf(
     Category(EntryType.GLUCOSE, Metric.GLUCOSE, Icons.Filled.Bloodtype, "Glucose"),
     Category(EntryType.INSULIN, Metric.INSULIN, Icons.Filled.Vaccines, "Insulin"),
     Category(EntryType.MEAL, Metric.CARBS, Icons.Filled.Restaurant, "Meal"),
+    Category(EntryType.MEDICATION, Metric.MEDICATION, Icons.Filled.Medication, "Meds"),
     Category(EntryType.ACTIVITY, Metric.EXERCISE, Icons.Filled.DirectionsRun, "Activity"),
     Category(EntryType.NOTE, Metric.MOOD, Icons.Filled.Mood, "Mood"),
 )
@@ -163,6 +166,9 @@ fun AddEntrySheet(
     onNoteChange: (String) -> Unit,
     onMoodScoreChange: (Int?) -> Unit,
     onMoodLabelChange: (String?) -> Unit,
+    onMedicationNameChange: (String) -> Unit,
+    onMedicationDoseChange: (String) -> Unit,
+    onFeelingSickChange: (Boolean) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
     streakReward: StreakReward? = null,
@@ -180,6 +186,7 @@ fun AddEntrySheet(
 
     val viewModel = hiltViewModel<LogViewModel>()
     val recentFoods by viewModel.recentFoods.collectAsStateWithLifecycle()
+    val recentMedications by viewModel.recentMedications.collectAsStateWithLifecycle()
     val foodSearchQuery by viewModel.foodSearchQuery.collectAsStateWithLifecycle()
     val foodSearchResults by viewModel.foodSearchResults.collectAsStateWithLifecycle()
     val selectedFood by viewModel.selectedFood.collectAsStateWithLifecycle()
@@ -332,6 +339,7 @@ fun AddEntrySheet(
                     val selected = category.type == draft.activeCategory
                     val hasData = category.metric in draft.filledMetrics
                     Column(
+                        modifier = Modifier.width(56.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Box(contentAlignment = Alignment.TopEnd) {
@@ -538,6 +546,67 @@ fun AddEntrySheet(
                             draft.carbsGrams.isNotBlank() &&
                             draft.mealDescription.isNotBlank(),
                         onClick = viewModel::saveAsFood,
+                    )
+                }
+
+                EntryType.MEDICATION -> {
+                    if (recentMedications.isNotEmpty()) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(0.dp),
+                        ) {
+                            recentMedications.forEach { row ->
+                                AssistChip(
+                                    onClick = { viewModel.onRecentMedicationSelected(row) },
+                                    label = {
+                                        Text(
+                                            row.medicationName,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    OutlinedTextField(
+                        value = draft.medicationName,
+                        onValueChange = onMedicationNameChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester),
+                        placeholder = {
+                            Text("Medication", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = draft.medicationDose,
+                        onValueChange = onMedicationDoseChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = {
+                            Text("Dose", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { keyboard?.hide() }),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "The app stores and displays these values; it does not calculate a dose from them",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    FilterChip(
+                        selected = draft.feelingSick == true,
+                        onClick = { onFeelingSickChange(draft.feelingSick != true) },
+                        label = {
+                            Text("Feeling sick?", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        },
                     )
                 }
 

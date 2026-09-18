@@ -50,6 +50,10 @@ object NaturalLanguageLogParser {
         "lantus", "levemir", "tresiba", "toujeo", "basaglar", "semglee",
         "glargine", "detemir", "degludec", "nph", "basal", "long",
     )
+    private val NON_INSULIN_MEDS = setOf(
+        "metformin", "glucophage", "jardiance", "farxiga", "ozempic",
+        "mounjaro", "trulicity", "victoza", "januvia", "glipizide", "glyburide",
+    )
 
     fun parse(utterance: String): QuickLogParseResult {
         val text = utterance.trim()
@@ -109,12 +113,13 @@ object NaturalLanguageLogParser {
             val units = match.groupValues[1].toDoubleOrNull() ?: continue
             val name = match.groupValues[2].lowercase()
             when {
+                name in NON_INSULIN_MEDS -> continue
                 name in BASAL_NAMES -> if (basal == null) basal = units
                 name in BOLUS_NAMES -> if (bolus == null) bolus = units
                 else -> if (bolus == null) bolus = units
             }
         }
-        if (basal == null && bolus == null) {
+        if (basal == null && bolus == null && named.isEmpty()) {
             BARE_UNITS.find(text)?.groupValues?.getOrNull(1)?.toDoubleOrNull()?.let {
                 bolus = it
             }

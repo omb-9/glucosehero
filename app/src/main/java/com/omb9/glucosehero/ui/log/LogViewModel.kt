@@ -11,6 +11,7 @@ import androidx.paging.map
 import com.omb9.glucosehero.data.local.datastore.SettingsDataStore
 import com.omb9.glucosehero.data.local.db.EntryDao
 import com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase
+import com.omb9.glucosehero.data.local.db.RecentMedicationRow
 import com.omb9.glucosehero.data.local.entity.EntryEntity
 import com.omb9.glucosehero.data.local.entity.FoodEntity
 import com.omb9.glucosehero.data.local.entity.toDomain
@@ -111,6 +112,7 @@ data class LogEntryItem(
     val glucoseDisplay: String?,
     val glucoseStatus: GlucoseStatus?,
     val source: EntrySource = EntrySource.MANUAL,
+    val feelingSick: Boolean = false,
 )
 
 /** One item in the log list: either a day header or a log entry row. */
@@ -347,6 +349,12 @@ class LogViewModel @Inject constructor(
     }.flowOn(Dispatchers.IO)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Recently logged medication names (and last dose) for Add Entry chips. */
+    val recentMedications: StateFlow<List<RecentMedicationRow>> = flow {
+        emit(entryDao.recentMedications())
+    }.flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _foodSearchQuery = MutableStateFlow("")
     val foodSearchQuery: StateFlow<String> = _foodSearchQuery.asStateFlow()
 
@@ -515,6 +523,27 @@ class LogViewModel @Inject constructor(
         _draft.update { it.copy(exerciseIntensity = value) }
     }
     fun onNoteChange(value: String) { _draft.update { it.copy(note = value) } }
+
+    fun onMedicationNameChange(value: String) {
+        _draft.update { it.copy(medicationName = value) }
+    }
+
+    fun onMedicationDoseChange(value: String) {
+        _draft.update { it.copy(medicationDose = value) }
+    }
+
+    fun setFeelingSick(feelingSick: Boolean) {
+        _draft.update { it.copy(feelingSick = if (feelingSick) true else null) }
+    }
+
+    fun onRecentMedicationSelected(row: RecentMedicationRow) {
+        _draft.update {
+            it.copy(
+                medicationName = row.medicationName,
+                medicationDose = row.medicationDose.orEmpty(),
+            )
+        }
+    }
 
     fun onMoodScoreChange(value: Int?) {
         _draft.update {
@@ -1132,6 +1161,7 @@ private fun LogEvent.toLogEntryItem(formatting: LogFormatting): LogEntryItem {
         glucoseDisplay = glucoseDisplay,
         glucoseStatus = status,
         source = source,
+        feelingSick = feelingSick == true,
     )
 }
 
@@ -1140,6 +1170,7 @@ private fun primaryType(event: LogEvent): EntryType = when {
     event.insulinBasalUnits != null || event.insulinBolusUnits != null -> EntryType.INSULIN
     event.carbsGrams != null || event.proteinGrams != null || event.fatGrams != null ||
         !event.mealDescription.isNullOrBlank() -> EntryType.MEAL
+    !event.medicationName.isNullOrBlank() -> EntryType.MEDICATION
     event.exerciseMinutes != null -> EntryType.ACTIVITY
     else -> EntryType.NOTE
 }
@@ -1159,6 +1190,10 @@ private fun describe(event: LogEvent, formatting: LogFormatting): Pair<String, S
     event.proteinGrams?.let { tokens += "$it g protein" }
     event.fatGrams?.let { tokens += "$it g fat" }
     event.mealDescription?.takeIf { it.isNotBlank() }?.let { tokens += it }
+    event.medicationName?.trim()?.takeIf { it.isNotBlank() }?.let { name ->
+        val dose = event.medicationDose?.trim()?.takeIf { it.isNotBlank() }
+        tokens += if (dose != null) "$name · $dose" else name
+    }
     event.exerciseMinutes?.let { tokens += "$it min" }
     event.moodLabel?.takeIf { it.isNotBlank() }?.let { tokens += it }
 
@@ -1173,6 +1208,7 @@ private fun describe(event: LogEvent, formatting: LogFormatting): Pair<String, S
     if (event.carbsGrams != null || event.proteinGrams != null || event.fatGrams != null ||
         !event.mealDescription.isNullOrBlank()
     ) titleParts += "Meal"
+    if (!event.medicationName.isNullOrBlank()) titleParts += "Medication"
     if (event.exerciseMinutes != null) titleParts += "Activity"
     if (event.moodScore != null) titleParts += "Mood"
     val title = titleParts.joinToString(" · ").ifBlank {

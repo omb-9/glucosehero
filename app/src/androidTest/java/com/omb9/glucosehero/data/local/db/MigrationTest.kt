@@ -13,6 +13,7 @@ import com.omb9.glucosehero.data.local.db.migration.Migration11To12
 import com.omb9.glucosehero.data.local.db.migration.Migration12To13
 import com.omb9.glucosehero.data.local.db.migration.Migration14To15
 import com.omb9.glucosehero.data.local.db.migration.Migration15To16
+import com.omb9.glucosehero.data.local.db.migration.Migration16To17
 import com.omb9.glucosehero.data.local.db.migration.MigrationPendingAiTtl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -1459,6 +1460,67 @@ class MigrationTest {
         assertTrue(indexNames.contains("index_entries_timestamp"))
         assertTrue(indexNames.contains("index_entries_glucose_mgdl_timestamp"))
         assertTrue(indexNames.contains("index_glucose_samples_timestamp_glucose_mgdl"))
+    }
+
+    @Test
+    fun migrate16To17_addsMedicationAndFeelingSickColumnsAndPreservesEntries() {
+        helper.createDatabase(testDb, 16).use { db ->
+            db.execSQL(
+                "INSERT INTO entries (timestamp, glucose_mgdl, uuid, note) VALUES (?, ?, ?, ?)",
+                arrayOf<Any?>(1_000L, 110.0, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "walk"),
+            )
+            db.execSQL(
+                "INSERT INTO entries (timestamp, uuid) VALUES (?, ?)",
+                arrayOf<Any?>(2_000L, "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(testDb, 17, true, Migration16To17)
+
+        db.query(
+            "SELECT timestamp, glucose_mgdl, note, medication_name, medication_dose, feeling_sick " +
+                "FROM entries ORDER BY timestamp",
+        ).use { c ->
+            assertEquals(2, c.count)
+            val timestamp = c.getColumnIndexOrThrow("timestamp")
+            val glucose = c.getColumnIndexOrThrow("glucose_mgdl")
+            val note = c.getColumnIndexOrThrow("note")
+            val medicationName = c.getColumnIndexOrThrow("medication_name")
+            val medicationDose = c.getColumnIndexOrThrow("medication_dose")
+            val feelingSick = c.getColumnIndexOrThrow("feeling_sick")
+
+            assertTrue(c.moveToFirst())
+            assertEquals(1_000L, c.getLong(timestamp))
+            assertEquals(110.0, c.getDouble(glucose), 0.0)
+            assertEquals("walk", c.getString(note))
+            assertTrue(c.isNull(medicationName))
+            assertTrue(c.isNull(medicationDose))
+            assertTrue(c.isNull(feelingSick))
+
+            assertTrue(c.moveToNext())
+            assertEquals(2_000L, c.getLong(timestamp))
+            assertTrue(c.isNull(glucose))
+            assertTrue(c.isNull(note))
+            assertTrue(c.isNull(medicationName))
+            assertTrue(c.isNull(medicationDose))
+            assertTrue(c.isNull(feelingSick))
+
+            assertFalse(c.moveToNext())
+        }
+
+        db.execSQL(
+            "INSERT INTO entries (timestamp, medication_name, medication_dose, feeling_sick) " +
+                "VALUES (?, ?, ?, ?)",
+            arrayOf<Any?>(3_000L, "Metformin", "500 mg", 1),
+        )
+        db.query(
+            "SELECT medication_name, medication_dose, feeling_sick FROM entries WHERE timestamp = 3000",
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Metformin", c.getString(0))
+            assertEquals("500 mg", c.getString(1))
+            assertEquals(1, c.getInt(2))
+        }
     }
 
     private fun insertEntry(

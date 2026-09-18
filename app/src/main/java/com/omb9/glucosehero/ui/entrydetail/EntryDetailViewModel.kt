@@ -67,6 +67,9 @@ data class EntryDetailFormState(
     val note: String = "",
     val moodScore: Int? = null,
     val moodLabel: String? = null,
+    val medicationName: String = "",
+    val medicationDose: String = "",
+    val feelingSick: Boolean? = null,
     val isSaving: Boolean = false,
 )
 
@@ -188,6 +191,8 @@ class EntryDetailViewModel @Inject constructor(
                 } else {
                     state.exerciseIntensity
                 },
+                medicationName = if (type == EntryType.MEDICATION) "" else state.medicationName,
+                medicationDose = if (type == EntryType.MEDICATION) "" else state.medicationDose,
             )
         }
     }
@@ -217,6 +222,18 @@ class EntryDetailViewModel @Inject constructor(
 
     fun onMoodLabelChange(value: String?) {
         _form.update { it.copy(moodLabel = value) }
+    }
+
+    fun onMedicationNameChange(value: String) {
+        _form.update { it.copy(medicationName = value) }
+    }
+
+    fun onMedicationDoseChange(value: String) {
+        _form.update { it.copy(medicationDose = value) }
+    }
+
+    fun setFeelingSick(feelingSick: Boolean) {
+        _form.update { it.copy(feelingSick = if (feelingSick) true else null) }
     }
 
     /**
@@ -330,6 +347,9 @@ internal fun seedEntryDetailForm(event: LogEvent, settings: UserSettings): Entry
         note = event.note.orEmpty(),
         moodScore = event.moodScore,
         moodLabel = event.moodLabel,
+        medicationName = event.medicationName.orEmpty(),
+        medicationDose = event.medicationDose.orEmpty(),
+        feelingSick = event.feelingSick,
     )
 
 /**
@@ -369,6 +389,9 @@ internal fun EntryDetailFormState.toDraft(): DraftEventState = DraftEventState(
     note = note,
     moodScore = moodScore,
     moodLabel = moodLabel,
+    medicationName = if (EntryType.MEDICATION in activeCategories) medicationName else "",
+    medicationDose = if (EntryType.MEDICATION in activeCategories) medicationDose else "",
+    feelingSick = feelingSick,
 )
 
 /** Which removable sub-categories this event currently carries data for. */
@@ -378,6 +401,7 @@ private fun LogEvent.presentCategories(): ImmutableSet<EntryType> = buildSet {
     if (carbsGrams != null || proteinGrams != null || fatGrams != null ||
         !mealDescription.isNullOrBlank()
     ) add(EntryType.MEAL)
+    if (!medicationName.isNullOrBlank()) add(EntryType.MEDICATION)
     if (exerciseMinutes != null) add(EntryType.ACTIVITY)
 }.toImmutableSet()
 

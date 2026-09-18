@@ -7,7 +7,7 @@ package com.omb9.glucosehero.domain.model
  * columns are non-null, never by a denormalised label that could contradict
  * them.
  */
-enum class Metric { GLUCOSE, INSULIN, CARBS, EXERCISE, NOTE, MOOD }
+enum class Metric { GLUCOSE, INSULIN, CARBS, MEDICATION, EXERCISE, NOTE, MOOD }
 
 /**
  * A single logged moment that can carry any combination of glucose, insulin,
@@ -35,6 +35,13 @@ data class LogEvent(
     val note: String? = null,
     val moodScore: Int? = null,
     val moodLabel: String? = null,
+    val medicationName: String? = null,
+    val medicationDose: String? = null,
+    /**
+     * Entry-level flag, not medication-only. `null` means not recorded,
+     * `false` means explicitly not sick, `true` means feeling sick.
+     */
+    val feelingSick: Boolean? = null,
     /** Saved-food library row this meal was picked from, if any. */
     val foodId: Long? = null,
     val source: EntrySource = EntrySource.MANUAL,
@@ -43,7 +50,7 @@ data class LogEvent(
         get() = glucoseMgdl == null && insulinBasalUnits == null && insulinBolusUnits == null &&
             carbsGrams == null && proteinGrams == null && fatGrams == null &&
             exerciseMinutes == null && mealDescription.isNullOrBlank() && note.isNullOrBlank() &&
-            moodScore == null
+            moodScore == null && medicationName.isNullOrBlank()
 
     /** Which metric slots this event actually carries data for. */
     val presentMetrics: Set<Metric>
@@ -53,6 +60,7 @@ data class LogEvent(
             if (carbsGrams != null || proteinGrams != null || fatGrams != null ||
                 !mealDescription.isNullOrBlank()
             ) add(Metric.CARBS)
+            if (!medicationName.isNullOrBlank()) add(Metric.MEDICATION)
             if (exerciseMinutes != null) add(Metric.EXERCISE)
             if (!note.isNullOrBlank()) add(Metric.NOTE)
             if (moodScore != null) add(Metric.MOOD)

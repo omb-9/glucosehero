@@ -48,6 +48,12 @@ data class TagAnalyticsRow(
     val followUpMgdl: Double?,
 )
 
+/** Latest dose for a distinct medication name, newest names first. */
+data class RecentMedicationRow(
+    val medicationName: String,
+    val medicationDose: String?,
+)
+
 /** Five-bucket time-in-range counts over the `glucose_readings` view. */
 data class TimeInRangeCounts(
     val veryLow: Int,
@@ -135,12 +141,41 @@ interface EntryDao {
         SELECT * FROM entries
         WHERE (note LIKE '%' || :query || '%'
             OR meal_description LIKE '%' || :query || '%'
-            OR mood_label LIKE '%' || :query || '%')
+            OR mood_label LIKE '%' || :query || '%'
+            OR medication_name LIKE '%' || :query || '%')
         ORDER BY timestamp DESC
         LIMIT 200
         """
     )
     suspend fun searchEntries(query: String): List<EntryEntity>
+
+    /**
+     * Last 8 distinct medication names, newest first, with the dose from that
+     * latest row. Correlated NOT EXISTS picks the newest timestamp (id
+     * tie-break) per name, the same distinct-latest shape a `GROUP BY name`
+     * plus `MAX(timestamp)` join would use, without collapsing two same-time
+     * rows into an arbitrary dose.
+     */
+    @Query(
+        """
+        SELECT e.medication_name AS medicationName,
+               e.medication_dose AS medicationDose
+        FROM entries AS e
+        WHERE e.medication_name IS NOT NULL
+          AND TRIM(e.medication_name) != ''
+          AND NOT EXISTS (
+              SELECT 1 FROM entries AS newer
+              WHERE newer.medication_name = e.medication_name
+                AND (
+                    newer.timestamp > e.timestamp
+                    OR (newer.timestamp = e.timestamp AND newer.id > e.id)
+                )
+          )
+        ORDER BY e.timestamp DESC
+        LIMIT 8
+        """
+    )
+    suspend fun recentMedications(): List<RecentMedicationRow>
 
     // ---------- Writes ----------
 

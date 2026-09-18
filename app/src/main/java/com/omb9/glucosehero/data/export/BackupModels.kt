@@ -87,9 +87,11 @@ const val BACKUP_FORMAT_VERSION = 4
  * Room schema version of the database this exporter understands. Keep in sync
  * with [com.omb9.glucosehero.data.local.db.GlucoseHeroDatabase]'s `version`.
  * Independent of [BACKUP_FORMAT_VERSION]: a Room bump that does not change
- * field meaning does not require a format bump.
+ * field meaning does not require a format bump. Additive nullable
+ * [BackupEntry] fields (`medicationName`, `medicationDose`, `feelingSick`)
+ * default to null so a file written by an older build still deserializes.
  */
-const val DATABASE_VERSION = 16
+const val DATABASE_VERSION = 17
 
 /** Thrown for anything structurally wrong with a backup file. */
 class BackupFormatException(message: String) : Exception(message)
@@ -288,6 +290,9 @@ data class BackupEntry(
     val uuid: String,
     val moodScore: Int? = null,
     val moodLabel: String? = null,
+    val medicationName: String? = null,
+    val medicationDose: String? = null,
+    val feelingSick: Boolean? = null,
 )
 
 @Serializable
@@ -717,6 +722,9 @@ fun EntryEntity.toBackup() = BackupEntry(
     uuid = uuid,
     moodScore = moodScore,
     moodLabel = moodLabel,
+    medicationName = medicationName,
+    medicationDose = medicationDose,
+    feelingSick = feelingSick,
 )
 
 fun BackupEntry.toEntity() = EntryEntity(
@@ -740,6 +748,9 @@ fun BackupEntry.toEntity() = EntryEntity(
     uuid = uuid,
     moodScore = moodScore,
     moodLabel = moodLabel,
+    medicationName = medicationName,
+    medicationDose = medicationDose,
+    feelingSick = feelingSick,
 )
 
 fun FoodEntity.toBackup() = BackupFood(

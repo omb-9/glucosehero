@@ -456,6 +456,9 @@ class BackupDatabaseRoundTripTest {
                 uuid = "entry-uuid-1",
                 moodScore = 4,
                 moodLabel = "steady",
+                medicationName = "Metformin",
+                medicationDose = "500 mg",
+                feelingSick = true,
             )
         )
         val supplyId = db.supplyDao().insert(
@@ -517,6 +520,9 @@ class BackupDatabaseRoundTripTest {
                 uuid = "entry-uuid-1",
                 moodScore = 4,
                 moodLabel = "steady",
+                medicationName = "Metformin",
+                medicationDose = "500 mg",
+                feelingSick = true,
             ),
             food = FoodEntity(
                 id = foodId,

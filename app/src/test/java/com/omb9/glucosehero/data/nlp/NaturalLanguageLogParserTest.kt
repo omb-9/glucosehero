@@ -42,4 +42,21 @@ class NaturalLanguageLogParserTest {
     fun `blank utterance is empty`() {
         assertTrue(NaturalLanguageLogParser.parse("   ").isEmpty)
     }
+
+    @Test
+    fun `metformin is not routed to insulin or meal`() {
+        val parsed = NaturalLanguageLogParser.parse("Took 500 mg Metformin")
+        assertTrue(parsed.isEmpty)
+        assertEquals(null, parsed.insulinBolusUnits)
+        assertEquals(null, parsed.insulinBasalUnits)
+        assertEquals(null, parsed.carbsGrams)
+        assertTrue(parsed.foods.isEmpty())
+    }
+
+    @Test
+    fun `units of metformin are not treated as bolus`() {
+        val parsed = NaturalLanguageLogParser.parse("Took 2 units metformin")
+        assertEquals(null, parsed.insulinBolusUnits)
+        assertEquals(null, parsed.insulinBasalUnits)
+    }
 }

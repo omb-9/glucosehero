@@ -159,6 +159,9 @@ object ExportWhitelist {
         "uuid",
         "moodScore",
         "moodLabel",
+        "medicationName",
+        "medicationDose",
+        "feelingSick",
     )
 
     val foodKeys: Set<String> = setOf(

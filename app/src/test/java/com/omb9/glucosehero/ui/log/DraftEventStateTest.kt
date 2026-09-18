@@ -2,6 +2,7 @@ package com.omb9.glucosehero.ui.log
 
 import com.omb9.glucosehero.data.local.entity.toEntity
 import com.omb9.glucosehero.domain.model.GlucoseUnit
+import com.omb9.glucosehero.domain.model.Metric
 import com.omb9.glucosehero.domain.model.UserSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -111,5 +112,27 @@ class DraftEventStateTest {
         assert(metrics.any { it.name == "GLUCOSE" })
         assert(metrics.any { it.name == "CARBS" })
         assert(metrics.none { it.name == "INSULIN" })
+    }
+
+    @Test
+    fun `medication name alone is savable and dose alone is not`() {
+        val named = DraftEventState(medicationName = "Metformin", medicationDose = "500 mg")
+            .toLogEvent(mgdl, now)
+        assertNotNull(named)
+        assertEquals("Metformin", named!!.medicationName)
+        assertEquals("500 mg", named.medicationDose)
+        assertEquals(setOf(Metric.MEDICATION), named.presentMetrics)
+
+        assertNull(DraftEventState(medicationDose = "500 mg").toLogEvent(mgdl, now))
+        assertNull(DraftEventState(medicationName = "   ").toLogEvent(mgdl, now))
+        assertNull(DraftEventState(feelingSick = true).toLogEvent(mgdl, now))
+    }
+
+    @Test
+    fun `filledMetrics includes medication when the name is non-blank`() {
+        val named = DraftEventState(medicationName = "Metformin")
+        assert(Metric.MEDICATION in named.filledMetrics)
+        val doseOnly = DraftEventState(medicationDose = "500 mg")
+        assert(Metric.MEDICATION !in doseOnly.filledMetrics)
     }
 }

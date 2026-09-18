@@ -31,9 +31,11 @@ import androidx.compose.material.icons.filled.Bloodtype
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Medication
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sick
 import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
@@ -556,6 +558,9 @@ fun LogScreen(
             onNoteChange = viewModel::onNoteChange,
             onMoodScoreChange = viewModel::onMoodScoreChange,
             onMoodLabelChange = viewModel::onMoodLabelChange,
+            onMedicationNameChange = viewModel::onMedicationNameChange,
+            onMedicationDoseChange = viewModel::onMedicationDoseChange,
+            onFeelingSickChange = viewModel::setFeelingSick,
             onSave = { viewModel.saveDraft { showSheet = false } },
             onDismiss = {
                 viewModel.discardDraft()
@@ -671,6 +676,7 @@ private fun EntryType.icon(): ImageVector = when (this) {
     EntryType.GLUCOSE -> Icons.Filled.Bloodtype
     EntryType.INSULIN -> Icons.Filled.Vaccines
     EntryType.MEAL -> Icons.Filled.Restaurant
+    EntryType.MEDICATION -> Icons.Filled.Medication
     EntryType.ACTIVITY -> Icons.Filled.DirectionsRun
     EntryType.NOTE -> Icons.Filled.Notes
 }
@@ -850,7 +856,14 @@ private fun logListItemKey(item: LogListItem): Any = when (item) {
 
 private fun logListItemContentType(item: LogListItem): Any = when (item) {
     is LogListItem.Header -> "header"
-    is LogListItem.Entry -> "entry"
+    is LogListItem.Entry -> when (item.item.type) {
+        EntryType.GLUCOSE -> "entry-glucose"
+        EntryType.INSULIN -> "entry-insulin"
+        EntryType.MEAL -> "entry-meal"
+        EntryType.MEDICATION -> "entry-medication"
+        EntryType.ACTIVITY -> "entry-activity"
+        EntryType.NOTE -> "entry-note"
+    }
 }
 
 @Composable
@@ -915,12 +928,24 @@ private fun EntryRow(
             }
             Spacer(Modifier.width(Spacing.md))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    item.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        item.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (item.feelingSick) {
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.Filled.Sick,
+                            contentDescription = "Feeling sick",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 if (item.source == EntrySource.HEALTH_CONNECT) {
                     Spacer(Modifier.height(4.dp))
                     HealthConnectBadge()

@@ -24,6 +24,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -80,6 +81,9 @@ class BackupRoundTripTest {
                 uuid = "entry-uuid-1",
                 moodScore = 4,
                 moodLabel = "steady",
+                medicationName = "Metformin",
+                medicationDose = "500 mg",
+                feelingSick = true,
             ),
             BackupEntry(
                 id = 11L,
@@ -248,7 +252,7 @@ class BackupRoundTripTest {
     @Test
     fun formatVersion_isIndependentOfDatabaseVersion() {
         assertEquals(4, BACKUP_FORMAT_VERSION)
-        assertEquals(16, DATABASE_VERSION)
+        assertEquals(17, DATABASE_VERSION)
         assertTrue(BACKUP_FORMAT_VERSION != DATABASE_VERSION)
     }
 
@@ -603,6 +607,41 @@ class BackupRoundTripTest {
         assertEquals(110f, backToFlat.targetGlucoseMgdl)
         val v3Again = backToFlat.restoredDosingProfile()
         assertEquals(restored, v3Again)
+    }
+
+    @Test
+    fun medicationFields_surviveExportImportRoundTrip() {
+        val original = BackupEntry(
+            id = 42L,
+            timestamp = 9_000L,
+            uuid = "med-uuid-1",
+            medicationName = "Metformin",
+            medicationDose = "500 mg",
+            feelingSick = true,
+        )
+        val json = AppJson.encodeToString(BackupEntry.serializer(), original)
+        val decoded = BackupJson.decodeFromString(BackupEntry.serializer(), json)
+        assertEquals("Metformin", decoded.medicationName)
+        assertEquals("500 mg", decoded.medicationDose)
+        assertEquals(true, decoded.feelingSick)
+
+        val entity = decoded.toEntity()
+        assertEquals("Metformin", entity.medicationName)
+        assertEquals("500 mg", entity.medicationDose)
+        assertEquals(true, entity.feelingSick)
+        val back = entity.toBackup()
+        assertEquals(original.medicationName, back.medicationName)
+        assertEquals(original.medicationDose, back.medicationDose)
+        assertEquals(original.feelingSick, back.feelingSick)
+    }
+
+    @Test
+    fun olderBackupEntry_withoutMedicationFields_importsAsNull() {
+        val json = """{"id":1,"timestamp":1000,"uuid":"legacy-entry"}"""
+        val entry = BackupJson.decodeFromString(BackupEntry.serializer(), json)
+        assertNull(entry.medicationName)
+        assertNull(entry.medicationDose)
+        assertNull(entry.feelingSick)
     }
 
     private fun <T> pageById(

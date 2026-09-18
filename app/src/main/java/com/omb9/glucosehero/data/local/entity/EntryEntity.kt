@@ -50,6 +50,9 @@ data class EntryEntity(
     @ColumnInfo(name = "uuid", defaultValue = "") val uuid: String = UUID.randomUUID().toString(),
     @ColumnInfo(name = "mood_score") val moodScore: Int? = null,
     @ColumnInfo(name = "mood_label") val moodLabel: String? = null,
+    @ColumnInfo(name = "medication_name") val medicationName: String? = null,
+    @ColumnInfo(name = "medication_dose") val medicationDose: String? = null,
+    @ColumnInfo(name = "feeling_sick") val feelingSick: Boolean? = null,
 )
 
 fun EntryEntity.toDomain() = LogEvent(
@@ -68,6 +71,9 @@ fun EntryEntity.toDomain() = LogEvent(
     note = note,
     moodScore = moodScore,
     moodLabel = moodLabel,
+    medicationName = medicationName,
+    medicationDose = medicationDose,
+    feelingSick = feelingSick,
     foodId = foodId,
 )
 
@@ -87,5 +93,8 @@ fun LogEvent.toEntity() = EntryEntity(
     note = note,
     moodScore = moodScore,
     moodLabel = moodLabel,
+    medicationName = medicationName,
+    medicationDose = medicationDose,
+    feelingSick = feelingSick,
     foodId = foodId,
 )

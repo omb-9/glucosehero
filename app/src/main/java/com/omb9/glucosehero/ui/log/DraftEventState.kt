@@ -26,6 +26,10 @@ data class DraftEventState(
     val note: String = "",
     val moodScore: Int? = null,
     val moodLabel: String? = null,
+    val medicationName: String = "",
+    val medicationDose: String = "",
+    /** Entry-level. `null` = not recorded; UI treats null as unchecked. */
+    val feelingSick: Boolean? = null,
     val postMealReminderEnabled: Boolean = true,
     val isSaving: Boolean = false,
     /** When set, Save writes this timestamp instead of now (from "15 minutes ago"). */
@@ -46,6 +50,7 @@ val DraftEventState.filledMetrics: Set<Metric>
             mealDescription.isNotBlank()
         ) add(Metric.CARBS)
         if (exerciseMinutes.isNotBlank()) add(Metric.EXERCISE)
+        if (medicationName.isNotBlank()) add(Metric.MEDICATION)
         if (note.isNotBlank()) add(Metric.NOTE)
         if (moodScore != null) add(Metric.MOOD)
     }
@@ -126,6 +131,12 @@ fun DraftEventState.toLogEvent(settings: UserSettings, now: Long): LogEvent? {
     val noteClean = note.trim().ifBlank { null }
     val moodScoreValue = moodScore?.takeIf { it in 1..5 }
     val moodLabelClean = moodLabel?.trim()?.ifBlank { null }
+    val medicationNameClean = medicationName.trim().ifBlank { null }
+    val medicationDoseClean = if (medicationNameClean != null) {
+        medicationDose.trim().ifBlank { null }
+    } else {
+        null
+    }
 
     // Attach qualifiers only when their metric is actually present — a
     // mealContext without glucose or an insulinType without an insulin dose
@@ -154,6 +165,9 @@ fun DraftEventState.toLogEvent(settings: UserSettings, now: Long): LogEvent? {
         note = noteClean,
         moodScore = moodScoreValue,
         moodLabel = resolvedMoodLabel,
+        medicationName = medicationNameClean,
+        medicationDose = medicationDoseClean,
+        feelingSick = feelingSick,
     )
 
     return if (event.isEmpty) null else event

@@ -27,6 +27,7 @@ import com.omb9.glucosehero.domain.model.GlucoseReadingBounds
 import com.omb9.glucosehero.data.local.db.HourlyGlucoseAverageRow
 import com.omb9.glucosehero.data.local.db.HourlyGlucoseVarianceRow
 import com.omb9.glucosehero.data.local.db.LoggedDayRow
+import com.omb9.glucosehero.data.local.db.RecentMedicationRow
 import com.omb9.glucosehero.data.local.db.TagAnalyticsRow
 import com.omb9.glucosehero.data.local.db.TimeInRangeCounts
 import com.omb9.glucosehero.data.local.entity.EntryEntity
@@ -715,6 +716,7 @@ private class FakeEntryDao : EntryDao {
     override fun observeGlucoseReadingsMaxTimestamp(): Flow<Long?> = throw UnsupportedOperationException()
     override fun observeById(id: Long): Flow<EntryEntity?> = throw UnsupportedOperationException()
     override suspend fun searchEntries(query: String): List<EntryEntity> = emptyList()
+    override suspend fun recentMedications(): List<RecentMedicationRow> = emptyList()
     override suspend fun insert(entity: EntryEntity): Long = 1L
     override suspend fun update(entity: EntryEntity) {}
     override suspend fun deleteById(id: Long) {}

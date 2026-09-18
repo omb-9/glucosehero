@@ -1,7 +1,7 @@
 package com.omb9.glucosehero.domain.model
 
 /** UI-only category selector for the Add Entry sheet's icon grid. Never persisted. */
-enum class EntryType { GLUCOSE, INSULIN, MEAL, ACTIVITY, NOTE }
+enum class EntryType { GLUCOSE, INSULIN, MEAL, MEDICATION, ACTIVITY, NOTE }
 
 enum class InsulinType { BOLUS, BASAL }
 

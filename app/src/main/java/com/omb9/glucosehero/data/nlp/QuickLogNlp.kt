@@ -63,6 +63,7 @@ Rules:
 - glucose_value is exactly as spoken. glucose_unit is "mg/dL" or "mmol/L" if they said a unit, otherwise null.
 - meal_description is a short phrase listing the foods (for example "oatmeal, 2 eggs").
 - Never invent insulin doses the user did not state. Never wrap the JSON in markdown.
+- Do not map oral or non-insulin medications (Metformin, Jardiance, Ozempic, and similar) to insulin, foods, or notes. Leave those JSON fields null.
 
 Example input: "Logged 40 grams of oatmeal, 2 eggs, and 3.5 units Humalog 15 minutes ago"
 Example output:

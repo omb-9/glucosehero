@@ -370,6 +370,10 @@ class ChatRepositoryImpl @Inject constructor(
                 recent.joinToString("\n") { e ->
                     val date = Formatters.localDate(e.timestamp)
                     val time = Formatters.time(e.timestamp, settings.use24HourTime)
+                    // Medication names/doses and feelingSick are withheld from
+                    // this off-device prompt (managed OpenRouter). A bare
+                    // "medication" token is included so the timeline is not
+                    // silently empty; the name itself is not sent.
                     val metrics = listOfNotNull(
                         e.glucoseMgdl?.let { "glucose ${Formatters.glucoseWithUnit(it, unit)}" },
                         e.insulinBasalUnits?.let { "basal insulin ${if (it % 1.0 == 0.0) it.toInt().toString() else "%.1f".format(it)} u" },
@@ -379,6 +383,7 @@ class ChatRepositoryImpl @Inject constructor(
                         e.fatGrams?.let { "fat $it g" },
                         e.mealDescription?.takeIf { it.isNotBlank() },
                         e.exerciseMinutes?.let { "exercise $it min" },
+                        e.medicationName?.takeIf { it.isNotBlank() }?.let { "medication" },
                     ).joinToString(", ").ifBlank { "note" }
                     val note = e.note?.takeIf { it.isNotBlank() }?.let { " — $it" } ?: ""
                     "$date $time $metrics$note"
